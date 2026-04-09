@@ -89,3 +89,47 @@ export function shopifyCredentialAttempts() {
   }
   return attempts;
 }
+
+/**
+ * Korte hints (zonder secrets) als het overzicht geen credentials kan laden.
+ * @returns {string[]}
+ */
+export function shopifyOverviewSetupHints() {
+  const envShop = process.env.SHOPIFY_SHOP_DOMAIN?.trim();
+  const envToken = process.env.SHOPIFY_ACCESS_TOKEN?.trim();
+  const session = readShopifySession();
+  /** @type {string[]} */
+  const hints = [];
+
+  if (!envToken && !session?.accessToken) {
+    hints.push(
+      'Geen Admin API-token geladen: zet SHOPIFY_ACCESS_TOKEN (begint met shpat_) in .env óf koppel de shop via /koppel.html (OAuth → .shopify_token.json).'
+    );
+  }
+  if (!envShop && !session?.shopDomain) {
+    hints.push(
+      'Geen shop-domein: zet SHOPIFY_SHOP_DOMAIN in .env (bijv. toddie-nl.myshopify.com — met .myshopify.com).'
+    );
+  }
+  if (envToken && !envShop && !session?.shopDomain) {
+    hints.push(
+      'Er is een token in .env, maar SHOPIFY_SHOP_DOMAIN ontbreekt. Vul het interne Shopify-domein in (Admin → Instellingen → Domeinen).'
+    );
+  }
+  if (!envToken && !session?.accessToken) {
+    const cid = process.env.SHOPIFY_CLIENT_ID?.trim();
+    const cs = process.env.SHOPIFY_CLIENT_SECRET?.trim();
+    if (!cid || !cs) {
+      hints.push('Voor OAuth: zet SHOPIFY_CLIENT_ID en SHOPIFY_CLIENT_SECRET in .env (App-ontwikkeling → API-credentials).');
+    }
+  }
+
+  const n = shopifyCredentialAttempts().length;
+  if (n === 0) {
+    hints.push(
+      'Start de server vanuit de map waar package.json en .env staan (bijv. npm start), en herstart na elke wijziging in .env. Op Render/VPS: zet dezelfde variabelen onder Environment.'
+    );
+  }
+
+  return [...new Set(hints)];
+}

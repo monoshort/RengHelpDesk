@@ -2479,11 +2479,26 @@
               : 'In je Shopify-app bij <em>Allowed redirection URL(s)</em> exact deze URL (inclusief <span class="mono">http</span> en poort): <span class="mono">' +
                 cb +
                 '</span> — hetzelfde als <span class="mono">SHOPIFY_REDIRECT_URI</span> in <span class="mono">.env</span>. ';
+          const hints = Array.isArray(data.setupHints) ? data.setupHints : [];
+          const hintsBlock =
+            hints.length > 0
+              ? '<ul style="margin:0.65rem 0 0 1rem;padding:0">' +
+                hints.map((h) => '<li style="margin:0.25rem 0">' + esc(String(h)) + '</li>').join('') +
+                '</ul>'
+              : '';
+          const att =
+            typeof data.credentialAttempts === 'number'
+              ? '<p class="dim" style="margin:0.5rem 0 0;font-size:0.78rem">Diagnose: <span class="mono">' +
+                esc(String(data.credentialAttempts)) +
+                '</span> credential-set(s) actief in deze server (verwacht: minstens 1).</p>'
+              : '';
           errorBox.innerHTML =
             '<strong>Shopify haalt nog geen orders op.</strong> ' +
             shopLine +
             tokenLine +
-            redirectLine;
+            redirectLine +
+            att +
+            hintsBlock;
           tbody.innerHTML = '';
           lastOverviewSnapshot = {
             rows: [],

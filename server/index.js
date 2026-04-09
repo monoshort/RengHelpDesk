@@ -27,6 +27,7 @@ import {
   readShopifySession,
   getShopifyAuthStatus,
   shopifyCredentialAttempts,
+  shopifyOverviewSetupHints,
 } from './shopifySession.js';
 import { mountShopifyAuth } from './shopifyAuth.js';
 import { mountDashboardAuthRoutes, dashboardAuthMiddleware } from './dashboardAuth.js';
@@ -268,6 +269,8 @@ app.get('/api/overview', async (req, res) => {
         shopDomain: st.shopDomain,
         hasOAuthCreds: st.hasOAuthCreds,
         oauthCallbackUrl: callbackUrl,
+        credentialAttempts: shopifyCredentialAttempts().length,
+        setupHints: shopifyOverviewSetupHints(),
       });
     }
     const message = e instanceof Error ? e.message : String(e);
@@ -351,6 +354,8 @@ app.get('/api/config', (_req, res) => {
     hasToken: st.hasToken,
     hasOAuthCreds: st.hasOAuthCreds,
     oauthCallbackUrl: callbackUrl,
+    credentialAttempts: shopifyCredentialAttempts().length,
+    setupHints: shopifyOverviewSetupHints(),
   });
 });
 
