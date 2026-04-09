@@ -2605,8 +2605,23 @@
           if (ordersSectionMeta) {
             ordersSectionMeta.textContent = 'Geen orderdata · zie waarschuwing hierboven';
           }
-          tbody.innerHTML =
-            '<tr><td colspan="10" class="dim">Geen orders in dit overzicht. Na <span class="mono">read_orders</span> op de token + herinstallatie van de app verschijnen orderregels hier.</td></tr>';
+          const reason = data.ordersUnavailableReason;
+          let emptyRow =
+            '<tr><td colspan="10" class="dim">Orders konden niet worden geladen. Zie de gele waarschuwing hierboven.</td></tr>';
+          if (reason === 'read_orders_scope') {
+            emptyRow =
+              '<tr><td colspan="10" class="dim">Geen orders: je Admin API-token mist scope <span class="mono">read_orders</span>. In Shopify: <strong>Instellingen → App-ontwikkeling → jouw app → Configuration → Admin API</strong>: vink <span class="mono">read_orders</span> (en liefst <span class="mono">read_customers</span>) aan, sla op, <strong>installeer de app opnieuw</strong> op de shop en plak het <strong>nieuwe</strong> token in <span class="mono">SHOPIFY_ACCESS_TOKEN</span> in <span class="mono">.env</span>.</td></tr>';
+          } else if (reason === 'forbidden') {
+            emptyRow =
+              '<tr><td colspan="10" class="dim">Geen orders: <strong>403 Forbidden</strong>. Controleer of het token bij deze shop hoort, of de app (opnieuw) is geïnstalleerd, en of je geen verkeerde <span class="mono">SHOPIFY_SHOP_DOMAIN</span> gebruikt.</td></tr>';
+          } else if (data.ordersUnavailableDetail) {
+            emptyRow =
+              '<tr><td colspan="10" class="dim">Geen orders: ' +
+              esc(String(data.ordersUnavailableDetail).slice(0, 400)) +
+              (String(data.ordersUnavailableDetail).length > 400 ? '…' : '') +
+              '</td></tr>';
+          }
+          tbody.innerHTML = emptyRow;
         } else {
           lastOverviewSnapshot = {
             rows: data.rows || [],
@@ -2622,7 +2637,16 @@
           if (ordersSectionMeta && data.ordersUnavailable) {
             ordersSectionMeta.textContent = 'Geen orderdata · zie waarschuwing hierboven';
           }
-          applyCustomerFilter();
+          const rowCount = (data.rows && data.rows.length) || 0;
+          if (!data.ordersUnavailable && rowCount === 0) {
+            if (ordersSectionMeta) {
+              ordersSectionMeta.textContent = '0 orders · verbinding met Shopify OK';
+            }
+            tbody.innerHTML =
+              '<tr><td colspan="10" class="dim">Er zijn <strong>0 orders</strong> opgehaald (alle statussen). Als je wél orders verwacht: controleer de juiste shop in <span class="mono">SHOPIFY_SHOP_DOMAIN</span> en of ze in Shopify Admin zichtbaar zijn.</td></tr>';
+          } else {
+            applyCustomerFilter();
+          }
         }
       } catch (e) {
         if (myGen !== loadGeneration) return;
