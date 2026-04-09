@@ -195,7 +195,10 @@
         try {
           localStorage.removeItem(STORAGE);
         } catch (e) {}
-        frame.src = 'about:blank';
+        frame.removeAttribute('src');
+        try {
+          frame.srcdoc = '';
+        } catch (e) {}
         frameWrap.classList.remove('open');
         setup.style.display = 'block';
         btnChange.hidden = true;
