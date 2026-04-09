@@ -24,6 +24,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Optionele standaard live-URL (repo-variable LIVE_APP_URL)
+        env:
+          LIVE_APP_URL: ${{ vars.LIVE_APP_URL }}
+        run: |
+          node -e "
+            const fs = require('fs');
+            const u = (process.env.LIVE_APP_URL || '').trim();
+            fs.writeFileSync('docs/live-default.json', JSON.stringify({ url: u }, null, 0));
+          "
       - uses: actions/configure-pages@v4
       - uses: actions/upload-pages-artifact@v3
         with:

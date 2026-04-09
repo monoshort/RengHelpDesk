@@ -51,7 +51,7 @@ Geschikt om een klant een **https-URL** te geven. Het project bevat `vercel.json
 
 Lokaal test je Vercel-gedrag met `VERCEL=1` (geen `listen`) en eventueel `npx vercel dev`.
 
-**Windows:** als `npx vercel deploy` faalt met een lege foutmelding, kan een **pad met haakjes** (bijv. `...\(Yenlo\...`) de CLI breken. Clone of kopieer het project naar een pad zonder `(` en `)`, of koppel **GitHub** in Vercel zodat de build op de servers van Vercel draait.
+**Windows / pad met haakjes:** `npx vercel deploy` kan dan stil falen. Gebruik **`npm run deploy:vercel`** (kopieert naar `%TEMP%` en deployt daar). Eerste keer: eenmalig `npx vercel login` en lokaal `npx vercel link` (of zet `VERCEL_PROJECT_NAME` als de link anders heet). Alternatief: koppel **GitHub** in Vercel zodat de build op hun servers draait.
 
 ## Belangrijk
 
@@ -68,13 +68,14 @@ Lokaal test je Vercel-gedrag met `VERCEL=1` (geen `listen`) en eventueel `npx ve
 
 Bij elke push naar `main` draait [GitHub Actions](.github/workflows/ci.yml): `npm ci`, syntax-check en een korte rooktest van `npm start`. Dat is **geen hosting** van de site; alleen een automatische controle.
 
-**GitHub Pages (helpdesk in beeld):** Pages kan geen Node draaien. In **`docs/index.html`** staat een pagina die je **live Render-URL** (of andere https-host) in een iframe toont na eenmalig invullen.
+**GitHub Pages (helpdesk in beeld):** Pages kan **geen** Node/Express draaien. De echte app blijft op **Vercel of Render**; **`docs/index.html`** is een statische shell die die **https-URL** in een iframe laadt.
 
 1. Repo → **Settings** → **Pages** → **Build and deployment** → bron: **GitHub Actions** (niet “Deploy from branch”).
-2. Push naar `main` triggert workflow **Deploy GitHub Pages** (`.github/workflows/pages.yml`).
-3. Na deploy opent je site op `https://<user>.github.io/RengHelpDesk/` — plak daar je `https://….onrender.com`-URL.
+2. (Optioneel) **Settings** → **Secrets and variables** → **Actions** → tab **Variables** → **New repository variable** → naam **`LIVE_APP_URL`**, waarde bijv. `https://reng-help-desk.vercel.app` — dan opent de Pages-site direct die host (wordt in `live-default.json` gezet bij elke deploy).
+3. Push naar `main` triggert **Deploy GitHub Pages** (`.github/workflows/pages.yml`).
+4. Site: `https://<github-gebruiker>.github.io/RengHelpDesk/`. Zonder variable: URL één keer in het formulier plakken, of `?url=https%3A%2F%2F…` gebruiken.
 
-Als je host `X-Frame-Options` zet, werkt de iframe niet; open dan de Render-URL direct.
+Als je host **embedding blokkeert** (`X-Frame-Options` / CSP), blijft het iframe leeg — open dan de Vercel/Render-URL rechtstreeks.
 
 ## Op GitHub zetten
 

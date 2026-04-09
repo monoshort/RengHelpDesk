@@ -104,11 +104,12 @@
 
   <div id="setup">
     <p>
-      <strong>GitHub Pages draait geen Node-server.</strong> De helpdesk blijft op je host draaien
-      (bijv. Render). Hier plak je die <strong>https</strong>-URL één keer; daarna opent de helpdesk in het
-      venster hieronder.
+      <strong>GitHub Pages draait geen Node-server.</strong> De helpdesk draait op <strong>Vercel, Render</strong> of
+      een andere host. Hier plak je die <strong>https</strong>-URL één keer (of zet in GitHub
+      <strong>Settings → Secrets and variables → Actions → Variables</strong> de variabele
+      <code>LIVE_APP_URL</code> op je productie-URL — dan wordt die bij elke Pages-deploy automatisch ingevuld).
     </p>
-    <label for="liveUrl">Live helpdesk-URL (bijv. https://jouw-app.onrender.com)</label>
+    <label for="liveUrl">Live helpdesk-URL (bijv. https://reng-help-desk.vercel.app)</label>
     <input type="url" id="liveUrl" placeholder="https://…" autocomplete="url" />
     <p id="err" role="alert"></p>
     <button type="button" class="primary" id="btnSave">Opslaan en tonen</button>
@@ -155,6 +156,17 @@
         saved = localStorage.getItem(STORAGE) || '';
       } catch (e) {}
 
+      var defaultFromRepo = '';
+      try {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', 'live-default.json', false);
+        xhr.send(null);
+        if (xhr.status === 200) {
+          var j = JSON.parse(xhr.responseText || '{}');
+          if (j && j.url && allowedUrl(j.url)) defaultFromRepo = String(j.url).trim();
+        }
+      } catch (e) {}
+
       var setup = document.getElementById('setup');
       var frameWrap = document.getElementById('frame-wrap');
       var frame = document.getElementById('appFrame');
@@ -172,6 +184,12 @@
 
       if (saved && allowedUrl(saved)) {
         showFrame(saved);
+      } else if (defaultFromRepo) {
+        try {
+          localStorage.setItem(STORAGE, defaultFromRepo);
+        } catch (e) {}
+        input.value = defaultFromRepo;
+        showFrame(defaultFromRepo);
       }
 
       btnSave.addEventListener('click', function () {
