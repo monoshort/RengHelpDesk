@@ -34,6 +34,12 @@ npm run dev
 - **Private repository:** zet je repo op *private* als alleen jij/jouw team de code mag zien. Met GitHub CLI: `gh repo edit RengHelpDesk --visibility private` (of op github.com onder *Settings → General → Danger zone*).
 - **Per ongeluk `.env` gepusht?** Verwijder het bestand uit de repo, **draai direct alle secrets in dat bestand om** (Shopify token, SMTP, OpenAI, dashboardwachtwoord, enz.), en overweeg geschiedenis te schonen (`git filter-repo` / GitHub-support) — alleen verwijderen in een nieuwe commit is niet genoeg als de oude commits nog zichtbaar zijn.
 
+## CI op GitHub
+
+Bij elke push naar `main` draait [GitHub Actions](.github/workflows/ci.yml): `npm ci`, syntax-check en een korte rooktest van `npm start`. Dat is **geen hosting** van de site; alleen een automatische controle.
+
+**Optioneel — statische site op github.io:** Repository → *Settings* → *Pages* → *Build from branch* → map **`/docs`** (dan zie je alleen de uitlegpagina in `docs/index.html`, niet het dashboard).
+
 ## Op GitHub zetten
 
 GitHub CLI is aan te raden (`winget install GitHub.cli`).

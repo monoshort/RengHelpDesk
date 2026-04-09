@@ -1,0 +1,32 @@
+# Draait op GitHub bij elke push: bouwt het project en rookt de server kort.
+# (De echte “live” site blijft een Node-host zoals Render — GitHub Pages draait geen Express.)
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Syntax check server entry
+        run: node --check server/index.js
+
+      - name: Smoke start (8s, verwacht exit door timeout)
+        run: timeout 8s npm start || test $? -eq 124
+        env:
+          PORT: '3999'
+          NODE_ENV: test
