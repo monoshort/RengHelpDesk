@@ -38,7 +38,13 @@ npm run dev
 
 Bij elke push naar `main` draait [GitHub Actions](.github/workflows/ci.yml): `npm ci`, syntax-check en een korte rooktest van `npm start`. Dat is **geen hosting** van de site; alleen een automatische controle.
 
-**Optioneel — statische site op github.io:** Repository → *Settings* → *Pages* → *Build from branch* → map **`/docs`** (dan zie je alleen de uitlegpagina in `docs/index.html`, niet het dashboard).
+**GitHub Pages (helpdesk in beeld):** Pages kan geen Node draaien. In **`docs/index.html`** staat een pagina die je **live Render-URL** (of andere https-host) in een iframe toont na eenmalig invullen.
+
+1. Repo → **Settings** → **Pages** → **Build and deployment** → bron: **GitHub Actions** (niet “Deploy from branch”).
+2. Push naar `main` triggert workflow **Deploy GitHub Pages** (`.github/workflows/pages.yml`).
+3. Na deploy opent je site op `https://<user>.github.io/RengHelpDesk/` — plak daar je `https://….onrender.com`-URL.
+
+Als je host `X-Frame-Options` zet, werkt de iframe niet; open dan de Render-URL direct.
 
 ## Op GitHub zetten
 

@@ -3,30 +3,206 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>RengHelpDesk</title>
+  <title>RengHelpDesk · via GitHub Pages</title>
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; color: #333; }
-    a { color: #558235; font-weight: 600; }
-    code { background: #f4f4f0; padding: 0.1rem 0.35rem; border-radius: 4px; }
+    :root {
+      --accent: #558235;
+      --accent-hover: #43672a;
+      --bg: #faf9f7;
+      --border: #e0e3db;
+      --text: #333;
+      --muted: #6c7568;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    header {
+      flex-shrink: 0;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem 1rem;
+      padding: 0.65rem 1rem;
+      border-bottom: 1px solid var(--border);
+      background: #fff;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 700;
+    }
+    header .muted { color: var(--muted); font-size: 0.8rem; }
+    header a { color: var(--accent); font-weight: 600; text-decoration: none; }
+    header a:hover { color: var(--accent-hover); text-decoration: underline; }
+    header button {
+      font: inherit;
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.35rem 0.65rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #fff;
+      cursor: pointer;
+    }
+    header button:hover { border-color: var(--accent); color: var(--accent); }
+    #setup {
+      max-width: 32rem;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      line-height: 1.55;
+    }
+    #setup p { color: var(--muted); font-size: 0.9rem; }
+    label { display: block; font-weight: 600; margin-top: 1rem; font-size: 0.85rem; }
+    input[type="url"] {
+      width: 100%;
+      margin-top: 0.35rem;
+      padding: 0.55rem 0.65rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font: inherit;
+    }
+    #setup button.primary {
+      margin-top: 1rem;
+      padding: 0.55rem 1rem;
+      border: none;
+      border-radius: 8px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    #setup button.primary:hover { background: var(--accent-hover); }
+    #err { color: #a63c2a; font-size: 0.85rem; margin-top: 0.5rem; display: none; }
+    #frame-wrap {
+      flex: 1;
+      display: none;
+      min-height: 0;
+    }
+    #frame-wrap.open { display: flex; flex-direction: column; }
+    iframe {
+      flex: 1;
+      width: 100%;
+      border: 0;
+      min-height: 70vh;
+    }
   </style>
 </head>
 <body>
-  <h1>RengHelpDesk</h1>
-  <p>
-    Dit is een <strong>statische</strong> pagina voor
-    <a href="https://pages.github.com/">GitHub Pages</a>.
-    De helpdesk zelf is een <strong>Node/Express</strong>-app en draait hier <strong>niet</strong>
-    (GitHub host geen jouw server op <code>github.io</code>).
-  </p>
-  <p>
-    <strong>Code:</strong>
-    <a href="https://github.com/monoshort/RengHelpDesk">github.com/monoshort/RengHelpDesk</a>
-  </p>
-  <p>
-    <strong>Lokaal:</strong> <code>npm install</code> → <code>npm start</code> (zie README).
-  </p>
-  <p>
-    <strong>Online (Node-host):</strong> bijv. Render, Railway of een VPS — zie README.
-  </p>
+  <header>
+    <h1>RengHelpDesk</h1>
+    <span class="muted">omlijst via GitHub Pages</span>
+    <a href="https://github.com/monoshort/RengHelpDesk" target="_blank" rel="noopener">Repo</a>
+    <button type="button" id="btnChange" hidden>Andere live-URL</button>
+  </header>
+
+  <div id="setup">
+    <p>
+      <strong>GitHub Pages draait geen Node-server.</strong> De helpdesk blijft op je host draaien
+      (bijv. Render). Hier plak je die <strong>https</strong>-URL één keer; daarna opent de helpdesk in het
+      venster hieronder.
+    </p>
+    <label for="liveUrl">Live helpdesk-URL (bijv. https://jouw-app.onrender.com)</label>
+    <input type="url" id="liveUrl" placeholder="https://…" autocomplete="url" />
+    <p id="err" role="alert"></p>
+    <button type="button" class="primary" id="btnSave">Opslaan en tonen</button>
+    <p class="muted" style="margin-top:1.25rem;font-size:0.8rem">
+      Tip: je kunt ook eenmalig <code>?url=https%3A%2F%2F…</code> in de adresbalk zetten. Als de live site
+      <code>X-Frame-Options</code> blokkeert, zie je een leeg vlak — open de URL dan rechtstreeks.
+    </p>
+  </div>
+
+  <div id="frame-wrap">
+    <iframe id="appFrame" title="RengHelpDesk" sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-downloads"></iframe>
+  </div>
+
+  <script>
+    (function () {
+      var STORAGE = 'reng_helpdesk_pages_live_url';
+
+      function allowedUrl(s) {
+        try {
+          var u = new URL(String(s).trim());
+          if (u.protocol === 'https:') return true;
+          if (u.protocol === 'http:' && (u.hostname === 'localhost' || u.hostname === '127.0.0.1'))
+            return true;
+          return false;
+        } catch (e) {
+          return false;
+        }
+      }
+
+      var params = new URLSearchParams(window.location.search);
+      var q = params.get('url');
+      if (q && allowedUrl(q)) {
+        try {
+          localStorage.setItem(STORAGE, q.trim());
+        } catch (e) {}
+        try {
+          window.history.replaceState({}, '', window.location.pathname || '/');
+        } catch (e) {}
+      }
+
+      var saved = '';
+      try {
+        saved = localStorage.getItem(STORAGE) || '';
+      } catch (e) {}
+
+      var setup = document.getElementById('setup');
+      var frameWrap = document.getElementById('frame-wrap');
+      var frame = document.getElementById('appFrame');
+      var err = document.getElementById('err');
+      var input = document.getElementById('liveUrl');
+      var btnSave = document.getElementById('btnSave');
+      var btnChange = document.getElementById('btnChange');
+
+      function showFrame(url) {
+        frame.src = url;
+        setup.style.display = 'none';
+        frameWrap.classList.add('open');
+        btnChange.hidden = false;
+      }
+
+      if (saved && allowedUrl(saved)) {
+        showFrame(saved);
+      }
+
+      btnSave.addEventListener('click', function () {
+        err.style.display = 'none';
+        var v = (input.value || '').trim();
+        if (!allowedUrl(v)) {
+          err.textContent = 'Vul een geldige https-URL in (of http://localhost voor lokaal testen).';
+          err.style.display = 'block';
+          return;
+        }
+        try {
+          localStorage.setItem(STORAGE, v);
+        } catch (e) {
+          err.textContent = 'LocalStorage geblokkeerd — probeer een andere browser of privémodus uit.';
+          err.style.display = 'block';
+          return;
+        }
+        showFrame(v);
+      });
+
+      btnChange.addEventListener('click', function () {
+        try {
+          localStorage.removeItem(STORAGE);
+        } catch (e) {}
+        frame.src = 'about:blank';
+        frameWrap.classList.remove('open');
+        setup.style.display = 'block';
+        btnChange.hidden = true;
+        input.value = '';
+        input.focus();
+      });
+    })();
+  </script>
 </body>
 </html>
