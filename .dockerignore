@@ -1,0 +1,11 @@
+node_modules
+.git
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+.shopify_token.json
+.cursor
+docs
+.github

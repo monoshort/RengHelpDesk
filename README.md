@@ -23,6 +23,20 @@ Open [http://localhost:3000](http://localhost:3000) en log in met het ingestelde
 npm run dev
 ```
 
+## Online hosten (gratis tier)
+
+GitHub draait deze app niet zelf; je hebt een **Node-host** nodig. Snelste optie: **Render**.
+
+1. Account op [render.com](https://render.com) (inloggen met GitHub).
+2. **New → Blueprint** en kies repo **`monoshort/RengHelpDesk`**, of **Web Service** → Connect repository → dezelfde repo. Render gebruikt `render.yaml` (Node, `npm ci`, `npm start`).
+3. **Environment**: kopieer inhoud uit je lokale `.env` als key/value (geen bestand uploaden). Minimaal o.a.:
+   - `NODE_ENV=production`, `TRUST_PROXY=true`, `DASHBOARD_COOKIE_SECURE=true`
+   - `DASHBOARD_PASSWORD`, `SHOPIFY_SHOP_DOMAIN`, `SHOPIFY_ACCESS_TOKEN`, `SHOPIFY_CLIENT_ID`, `SHOPIFY_CLIENT_SECRET`
+   - `SHOPIFY_REDIRECT_URI=https://<jouw-service>.onrender.com/api/auth/callback` (en **exact hetzelfde** in de Shopify-app bij redirect-URL’s).
+4. **Deploy** afwachten; open de **`.onrender.com`‑URL** die Render toont.
+
+**Alternatief:** [Railway](https://railway.app) of [Fly.io](https://fly.io) — zet **Root/Start** op `npm start` of gebruik de meegeleverde **`Dockerfile`**.
+
 ## Belangrijk
 
 - Commit **nooit** `.env`, `.env.local`, `.env.production` of `.shopify_token.json` (staan in `.gitignore`; alleen `.env.example` is bedoeld voor Git).
