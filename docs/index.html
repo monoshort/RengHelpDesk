@@ -119,7 +119,8 @@
   </div>
 
   <div id="frame-wrap">
-    <iframe id="appFrame" title="RengHelpDesk" sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-downloads"></iframe>
+    <!-- Geen sandbox: allow-scripts + allow-same-origin geeft browser-waarschuwingen en kan embedding breken. Alleen jouw eigen Render-URL invullen. -->
+    <iframe id="appFrame" title="RengHelpDesk" referrerpolicy="strict-origin-when-cross-origin"></iframe>
   </div>
 
   <script>

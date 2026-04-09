@@ -1099,12 +1099,19 @@
       overflow: hidden;
       background: #fff;
     }
-    .email-preview-frame-wrap iframe {
+    .email-preview-frame-wrap .email-preview-body {
       width: 100%;
-      height: 100%;
       min-height: 280px;
-      border: none;
-      display: block;
+      max-height: min(72vh, 640px);
+      overflow: auto;
+      padding: 12px;
+      font-size: 14px;
+      line-height: 1.45;
+      isolation: isolate;
+    }
+    .email-preview-body img {
+      max-width: 100%;
+      height: auto;
     }
     .visually-hidden {
       position: absolute;
@@ -1475,8 +1482,8 @@
         <p class="subj" id="emailPreviewSubject"></p>
         <span class="badge-delivered" id="emailPreviewDelivered" hidden>✓ Afgeleverd</span>
       </div>
-      <div class="email-preview-frame-wrap">
-        <iframe title="E-mailvoorbeeld" id="emailPreviewFrame" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-downloads"></iframe>
+      <div class="email-preview-frame-wrap" role="region" aria-label="E-mailvoorbeeld">
+        <div id="emailPreviewBody" class="email-preview-body"></div>
       </div>
       <div class="actions" style="margin-top: 0.85rem">
         <button type="button" class="ghost" id="emailPreviewPrint">Print</button>
@@ -1518,7 +1525,7 @@
     const emailPreviewModal = document.getElementById('emailPreviewModal');
     const emailPreviewSubject = document.getElementById('emailPreviewSubject');
     const emailPreviewDelivered = document.getElementById('emailPreviewDelivered');
-    const emailPreviewFrame = document.getElementById('emailPreviewFrame');
+    const emailPreviewBody = document.getElementById('emailPreviewBody');
     const emailPreviewClose = document.getElementById('emailPreviewClose');
     const emailPreviewPrint = document.getElementById('emailPreviewPrint');
 
@@ -2304,28 +2311,45 @@
       timelineModal.setAttribute('aria-hidden', 'true');
     }
 
+    /** Volledig HTML-document voor print (apart venster); geen sandbox-iframe meer. */
+    let lastEmailPreviewPrintDoc = '';
+
+    /**
+     * @param {string} html
+     */
+    function stripUnsafePreviewMarkup(html) {
+      if (!html || typeof html !== 'string') return '';
+      return html
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/<script[\s\S]*$/gi, '')
+        .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '');
+    }
+
     function closeEmailPreviewModal() {
       if (!emailPreviewModal) return;
       emailPreviewModal.classList.remove('open');
       emailPreviewModal.setAttribute('aria-hidden', 'true');
-      if (emailPreviewFrame) emailPreviewFrame.srcdoc = '';
+      lastEmailPreviewPrintDoc = '';
+      if (emailPreviewBody) emailPreviewBody.innerHTML = '';
     }
 
     /**
      * @param {any} ev
      */
     function openEmailPreviewModal(ev) {
-      if (!emailPreviewModal || !emailPreviewFrame || !emailPreviewSubject) return;
+      if (!emailPreviewModal || !emailPreviewBody || !emailPreviewSubject) return;
       emailPreviewSubject.textContent = ev.previewSubject || ev.description || 'E-mail';
       if (emailPreviewDelivered) {
         emailPreviewDelivered.hidden = !ev.deliveredLikely;
       }
-      const inner =
+      const raw =
         ev.previewHtml ||
         `<p>${esc(String(ev.messagePlain || ev.description || '(Geen inhoud)'))}</p>`;
-      emailPreviewFrame.srcdoc =
+      const safe = stripUnsafePreviewMarkup(raw);
+      emailPreviewBody.innerHTML = safe;
+      lastEmailPreviewPrintDoc =
         '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base target="_blank" rel="noopener"></head><body style="margin:0;padding:12px;font-family:system-ui,sans-serif;font-size:14px;line-height:1.45;">' +
-        inner +
+        safe +
         '</body></html>';
       emailPreviewModal.classList.add('open');
       emailPreviewModal.setAttribute('aria-hidden', 'false');
@@ -2698,14 +2722,27 @@
         if (ev.target === emailPreviewModal) closeEmailPreviewModal();
       });
     }
-    if (emailPreviewPrint && emailPreviewFrame) {
+    if (emailPreviewPrint) {
       emailPreviewPrint.addEventListener('click', () => {
+        if (!lastEmailPreviewPrintDoc) return;
+        const w = window.open('', '_blank', 'noopener,noreferrer');
+        if (!w) return;
+        w.document.open();
+        w.document.write(lastEmailPreviewPrintDoc);
+        w.document.close();
+        w.focus();
         try {
-          const w = emailPreviewFrame.contentWindow;
-          if (w) w.print();
+          w.print();
         } catch {
           /* ignore */
         }
+        window.setTimeout(() => {
+          try {
+            w.close();
+          } catch {
+            /* ignore */
+          }
+        }, 500);
       });
     }
 
