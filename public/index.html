@@ -1,0 +1,2462 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Toddie helpdesk · orders &amp; mail</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* Toddie storefront: Quicksand + primair groen rgb(85,130,53) — toddie.nl */
+    :root {
+      --bg: #faf9f7;
+      --surface: #ffffff;
+      --surface-muted: #f3f4f0;
+      --border: #e0e3db;
+      --text: #444444;
+      --text-heading: #212529;
+      --muted: #6c7568;
+      --accent: #558235;
+      --accent-hover: #43672a;
+      --accent-soft: rgba(85, 130, 53, 0.12);
+      --accent-border: rgba(85, 130, 53, 0.35);
+      --success: #3d7a2e;
+      --success-soft: rgba(85, 130, 53, 0.14);
+      --warn: #a67c00;
+      --error: #c53030;
+    }
+    * { box-sizing: border-box; }
+    html {
+      scroll-behavior: smooth;
+      overflow-x: clip;
+      max-width: 100%;
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      max-width: 100%;
+      overflow-x: clip;
+      font-family: "Quicksand", system-ui, sans-serif;
+      background:
+        radial-gradient(900px 420px at 0% 0%, rgba(85, 130, 53, 0.06) 0%, transparent 55%),
+        radial-gradient(700px 380px at 100% 8%, rgba(85, 130, 53, 0.04) 0%, transparent 50%),
+        var(--bg);
+      color: var(--text);
+    }
+    body.is-loading {
+      cursor: progress;
+    }
+    body.is-loading .layout-main {
+      opacity: 0.92;
+      transition: opacity 0.25s ease;
+    }
+    header {
+      padding: 0;
+      max-width: 100%;
+      box-sizing: border-box;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 1px 0 rgba(85, 130, 53, 0.06);
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+    .header-inner {
+      max-width: min(1320px, 100%);
+      margin: 0 auto;
+      padding: 0.55rem clamp(0.75rem, 3vw, 1.5rem);
+      box-sizing: border-box;
+    }
+    .app-bar-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem 0.85rem;
+      min-width: 0;
+    }
+    .app-bar-brand {
+      display: flex;
+      flex-direction: column;
+      gap: 0.1rem;
+      min-width: 0;
+      flex: 1 1 12rem;
+    }
+    h1 {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      color: var(--text-heading);
+    }
+    h1::before {
+      content: "";
+      width: 3px;
+      height: 1.1em;
+      border-radius: 2px;
+      background: linear-gradient(180deg, var(--accent) 0%, #6b9a44 100%);
+      flex-shrink: 0;
+    }
+    .app-bar-tagline {
+      margin: 0;
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: var(--muted);
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .app-bar-nav {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.4rem;
+      flex-shrink: 0;
+    }
+    .app-bar-nav button,
+    .app-bar-nav button.link-pill {
+      font: inherit;
+      cursor: pointer;
+    }
+    .app-bar-nav .link-pill {
+      padding: 0.32rem 0.65rem;
+      font-size: 0.8125rem;
+      border-radius: 7px;
+    }
+    .app-bar-meta {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.35rem 0.5rem;
+      flex: 1 1 auto;
+      justify-content: flex-end;
+      min-width: 0;
+    }
+    .app-bar-meta .pill {
+      font-size: 0.6875rem;
+      padding: 0.15rem 0.45rem;
+    }
+    .app-bar-meta .dim {
+      font-size: 0.6875rem;
+      white-space: nowrap;
+    }
+    .header-tip {
+      margin: 0;
+      padding: 0;
+      border: none;
+    }
+    .header-tip[open] {
+      margin-top: 0.4rem;
+      padding: 0.4rem 0 0.2rem;
+      border-top: 1px solid var(--border);
+    }
+    .header-tip summary {
+      cursor: pointer;
+      list-style: none;
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: var(--muted);
+      padding: 0.2rem 0 0;
+      user-select: none;
+      transition: color 0.15s;
+    }
+    .header-tip summary::-webkit-details-marker {
+      display: none;
+    }
+    .header-tip summary::after {
+      content: " · uitklappen";
+      font-weight: 500;
+      opacity: 0.85;
+    }
+    .header-tip[open] summary::after {
+      content: " · dichtklappen";
+    }
+    .header-tip summary:hover {
+      color: var(--text);
+    }
+    .header-tip summary:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+    .header-tip .sub {
+      margin: 0.5rem 0 0;
+      color: var(--muted);
+      font-size: 0.8125rem;
+      max-width: 42rem;
+      line-height: 1.5;
+    }
+    .sub {
+      color: var(--muted);
+      font-size: 0.9rem;
+      max-width: 52rem;
+      line-height: 1.45;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: center;
+      margin-top: 1rem;
+    }
+    .link-pill {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--accent);
+      text-decoration: none;
+      padding: 0.45rem 0.85rem;
+      border-radius: 8px;
+      border: 1px solid var(--accent-border);
+      background: var(--accent-soft);
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .link-pill:hover {
+      background: rgba(85, 130, 53, 0.18);
+      border-color: rgba(85, 130, 53, 0.5);
+      color: var(--accent-hover);
+    }
+    button {
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 0.875rem;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    button:hover {
+      background: var(--surface-muted);
+      border-color: #c8cdc3;
+    }
+    button.primary {
+      background: var(--accent);
+      border-color: transparent;
+      color: #ffffff;
+    }
+    button.primary:hover {
+      background: var(--accent-hover);
+      filter: none;
+    }
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+    button:focus-visible,
+    .link-pill:focus-visible,
+    a:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    .pill {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      background: var(--surface-muted);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      transition: background 0.25s ease, color 0.25s ease;
+    }
+    .pill.ok { background: var(--success-soft); color: var(--success); border-color: rgba(85, 130, 53, 0.25); }
+    .pill.off { background: rgba(166, 124, 0, 0.1); color: var(--warn); border-color: rgba(166, 124, 0, 0.2); }
+    .pill.partial { background: var(--accent-soft); color: var(--accent); border-color: rgba(85, 130, 53, 0.2); }
+    .layout-main {
+      padding: 1.5rem clamp(1rem, 4vw, 2rem) 3rem;
+      max-width: min(1320px, 100%);
+      width: 100%;
+      margin: 0 auto;
+      box-sizing: border-box;
+    }
+    .page-flow {
+      margin-bottom: 2rem;
+      max-width: 100%;
+      min-width: 0;
+    }
+    .page-flow:last-of-type {
+      margin-bottom: 0;
+    }
+    .flow-head {
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+      margin-bottom: 1rem;
+      max-width: 100%;
+      min-width: 0;
+    }
+    .flow-num {
+      flex-shrink: 0;
+      width: 2rem;
+      height: 2rem;
+      border-radius: 10px;
+      background: linear-gradient(145deg, rgba(85, 130, 53, 0.2), rgba(85, 130, 53, 0.06));
+      border: 1px solid rgba(85, 130, 53, 0.35);
+      color: var(--accent);
+      font-size: 0.95rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+    }
+    .flow-text .flow-kicker {
+      margin: 0 0 0.2rem;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+    }
+    .flow-text .flow-title {
+      margin: 0;
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: var(--text-heading);
+    }
+    .flow-text .flow-desc {
+      margin: 0.35rem 0 0;
+      font-size: 0.85rem;
+      color: var(--muted);
+      line-height: 1.45;
+      max-width: 40rem;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(152px, 1fr));
+      gap: 1rem 1.1rem;
+      max-width: 100%;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.15rem 1.1rem;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    .stat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 28px rgba(33, 37, 41, 0.08);
+      border-color: rgba(85, 130, 53, 0.28);
+    }
+    @keyframes card-in {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    .stats-grid .stat-card {
+      animation: card-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    }
+    .stats-grid .stat-card:nth-child(1) { animation-delay: 0.03s; }
+    .stats-grid .stat-card:nth-child(2) { animation-delay: 0.07s; }
+    .stats-grid .stat-card:nth-child(3) { animation-delay: 0.11s; }
+    .stats-grid .stat-card:nth-child(4) { animation-delay: 0.15s; }
+    .stats-grid .stat-card:nth-child(5) { animation-delay: 0.19s; }
+    .stat-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), #6b9a44);
+      opacity: 0.95;
+    }
+    .stat-card.muted::before {
+      background: var(--border);
+      opacity: 1;
+    }
+    .stat-label {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--muted);
+      font-weight: 600;
+      margin-bottom: 0.4rem;
+    }
+    .stat-value {
+      font-size: 1.28rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.2;
+      word-break: break-word;
+    }
+    .stat-hint {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 0.4rem;
+      line-height: 1.4;
+    }
+    .dash-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      max-width: 100%;
+      min-width: 0;
+      box-shadow: 0 4px 24px rgba(33, 37, 41, 0.06);
+      transition: box-shadow 0.3s ease, border-color 0.25s ease;
+    }
+    .dash-card:hover {
+      box-shadow: 0 8px 32px rgba(33, 37, 41, 0.09);
+    }
+    .orders-section.dash-card {
+      min-width: 0;
+      max-width: 100%;
+    }
+    .dash-card-head {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem 1rem;
+    }
+    .dash-card-head-meta {
+      justify-content: flex-end;
+    }
+    .dash-card-head h2 {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text-heading);
+    }
+    .dash-card-meta {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .dash-card-sub {
+      margin: 0;
+      padding: 0.85rem 1.25rem 0;
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+    /* Geen horizontaal scrollen: tabel vult de breedte, cellen wrappen. */
+    .table-scroll {
+      overflow-x: clip;
+      overflow-y: visible;
+      max-height: none;
+      border-radius: 0 0 13px 13px;
+    }
+    .table-scroll table {
+      margin: 0;
+    }
+    table.orders-table {
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      table-layout: fixed;
+      font-size: 0.8125rem;
+    }
+    table.orders-table th,
+    table.orders-table td {
+      padding: 0.5rem 0.45rem;
+      word-wrap: break-word;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      hyphens: auto;
+    }
+    table.orders-table td .mono,
+    table.orders-table td a.mono {
+      word-break: break-all;
+      overflow-wrap: anywhere;
+    }
+    table.orders-table td a {
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    .orders-table thead tr.group-row th {
+      position: static;
+      z-index: auto;
+      background: #eef1ea;
+      color: #4a5a42;
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      padding: 0.45rem 0.5rem;
+      border-bottom: 1px solid var(--border);
+      text-align: center;
+      white-space: normal;
+      line-height: 1.25;
+    }
+    .orders-table thead tr.group-row th:not(:last-child) {
+      border-right: 1px solid rgba(0, 0, 0, 0.06);
+    }
+    .orders-table thead tr.sub-row th {
+      position: static;
+      z-index: auto;
+      background: #f6f7f3;
+      color: var(--muted);
+      box-shadow: inset 0 -1px 0 var(--border);
+      padding: 0.55rem 0.5rem;
+      white-space: normal;
+      line-height: 1.2;
+      vertical-align: bottom;
+    }
+    .orders-table tbody tr:nth-child(even) {
+      background: rgba(85, 130, 53, 0.03);
+    }
+    .orders-table tbody tr:hover {
+      background: rgba(85, 130, 53, 0.08);
+    }
+    .orders-table th.col-gutter,
+    .orders-table td.col-gutter {
+      border-left: 1px solid rgba(85, 130, 53, 0.22);
+    }
+    .orders-table th:first-child,
+    .orders-table td:first-child {
+      border-left: none;
+    }
+    .err {
+      background: rgba(197, 48, 48, 0.08);
+      border: 1px solid rgba(197, 48, 48, 0.28);
+      color: #8b1e1e;
+      padding: 1rem 1.25rem;
+      border-radius: 10px;
+      margin-bottom: 1rem;
+      max-width: 56rem;
+    }
+    .warn-box {
+      background: rgba(166, 124, 0, 0.08);
+      border: 1px solid rgba(166, 124, 0, 0.35);
+      color: #5c4a1a;
+      padding: 1rem 1.25rem;
+      border-radius: 10px;
+      margin-bottom: 1rem;
+      max-width: 72rem;
+      line-height: 1.5;
+      font-size: 0.9rem;
+    }
+    .warn-box a { color: var(--accent); font-weight: 600; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 0.75rem 0.85rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    th {
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    tbody tr:hover { background: rgba(85, 130, 53, 0.05); }
+    .mono { font-family: ui-monospace, monospace; font-size: 0.82rem; }
+    .dim { color: var(--muted); font-size: 0.8rem; }
+    .dpd-cell strong { display: block; margin-bottom: 0.2rem; }
+    .badge {
+      display: inline-block;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 0.12rem 0.45rem;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .badge.test { background: rgba(166, 124, 0, 0.18); color: var(--warn); }
+    .badge.fin { background: var(--accent-soft); color: var(--accent); }
+    .badge.ful { background: var(--success-soft); color: var(--success); }
+    .lines-preview { max-width: 100%; line-height: 1.4; font-size: 0.8rem; }
+    .line-items-visual {
+      max-width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .line-item-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+      min-width: 0;
+      padding: 0.5rem 0.55rem;
+      border-radius: 11px;
+      border: 1px solid var(--border);
+      background: var(--surface-muted);
+    }
+    .line-thumb-link {
+      flex-shrink: 0;
+      line-height: 0;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .line-thumb-link:hover {
+      border-color: rgba(85, 130, 53, 0.45);
+      box-shadow: 0 0 0 2px rgba(85, 130, 53, 0.12);
+    }
+    .line-thumb {
+      width: 52px;
+      height: 52px;
+      object-fit: cover;
+      display: block;
+      vertical-align: middle;
+      background: #e8ebe4;
+    }
+    .line-thumb-ph {
+      width: 52px;
+      height: 52px;
+      border-radius: 10px;
+      border: 1px dashed var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.72rem;
+      color: var(--muted);
+      flex-shrink: 0;
+      background: var(--surface-muted);
+    }
+    .line-preview-meta {
+      min-width: 0;
+      line-height: 1.38;
+      flex: 1;
+    }
+    .line-title-link {
+      font-weight: 600;
+      font-size: 0.82rem;
+      color: var(--text);
+      text-decoration: none;
+    }
+    .line-title-link:hover {
+      color: var(--accent);
+      text-decoration: underline;
+    }
+    .line-title-text {
+      font-weight: 600;
+      font-size: 0.82rem;
+    }
+    .line-item-price {
+      font-size: 0.78rem;
+      font-weight: 600;
+      margin-top: 0.25rem;
+      color: var(--text);
+    }
+    .line-item-price .dim {
+      font-weight: 500;
+    }
+    .line-item-extra {
+      display: none;
+      margin-top: 0.35rem;
+      padding-top: 0.4rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.74rem;
+      line-height: 1.45;
+    }
+    .line-item-extra .line-extra-label {
+      font-size: 0.62rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-right: 0.35rem;
+    }
+    .product-details-on .line-item-extra {
+      display: block;
+    }
+    .line-item-production {
+      display: flex;
+      gap: 0.45rem;
+      align-items: flex-start;
+      margin-top: 0.4rem;
+      padding: 0.4rem 0.5rem;
+      border-radius: 8px;
+      background: rgba(166, 124, 0, 0.08);
+      border: 1px solid rgba(166, 124, 0, 0.28);
+      font-size: 0.74rem;
+      line-height: 1.42;
+      color: #5c4a1a;
+    }
+    .line-item-production-date {
+      margin-top: 0.3rem;
+      font-size: 0.71rem;
+      color: var(--muted);
+    }
+    .line-item-production-date strong {
+      color: var(--warn);
+      font-weight: 700;
+    }
+    .orders-head-row {
+      justify-content: space-between;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      gap: 0.5rem 1rem;
+    }
+    .orders-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      gap: 0.75rem 1.25rem;
+      min-width: 0;
+      flex: 1 1 16rem;
+    }
+    .customer-filter-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      min-width: 10rem;
+      max-width: 22rem;
+      flex: 1 1 14rem;
+    }
+    .customer-filter-field label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+    }
+    .customer-filter-field input {
+      font: inherit;
+      font-size: 0.8125rem;
+      padding: 0.38rem 0.55rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface-muted);
+      color: var(--text);
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .customer-filter-field input:focus {
+      outline: 2px solid rgba(85, 130, 53, 0.35);
+      outline-offset: 1px;
+    }
+    #mailHoverTip {
+      position: fixed;
+      z-index: 200;
+      max-width: min(420px, calc(100vw - 16px));
+      padding: 0.65rem 0.85rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: 0 10px 32px rgba(33, 37, 41, 0.14);
+      font-size: 0.8125rem;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: var(--text);
+      pointer-events: none;
+    }
+    #mailHoverTip[hidden] {
+      display: none !important;
+    }
+    .desk-hint-chip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-left: 0.25rem;
+      width: 1.1rem;
+      height: 1.1rem;
+      font-size: 0.65rem;
+      line-height: 1;
+      border-radius: 50%;
+      background: rgba(85, 130, 53, 0.18);
+      border: 1px solid rgba(85, 130, 53, 0.35);
+      color: var(--accent-hover);
+      cursor: help;
+      vertical-align: middle;
+      flex-shrink: 0;
+    }
+    .desk-hint-chip:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    .desk-insight-panel {
+      margin: 0 1.25rem 0.85rem;
+      padding: 1rem 1.1rem;
+      border-radius: 12px;
+      border: 1px solid rgba(85, 130, 53, 0.28);
+      background: linear-gradient(135deg, rgba(85, 130, 53, 0.07) 0%, rgba(255, 255, 255, 0.5) 100%);
+      font-size: 0.88rem;
+      line-height: 1.5;
+    }
+    .desk-insight-panel h3 {
+      margin: 0 0 0.5rem;
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--text-heading);
+    }
+    .desk-insight-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+      gap: 0.45rem 1rem;
+      margin: 0.65rem 0;
+      font-size: 0.78rem;
+    }
+    .desk-insight-grid span.val {
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .desk-insight-samples {
+      margin: 0.5rem 0 0;
+      padding-left: 1.1rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    .desk-insight-ai {
+      margin-top: 0.85rem;
+      padding-top: 0.85rem;
+      border-top: 1px solid var(--border);
+    }
+    .desk-insight-ai .ai-output {
+      margin-top: 0.65rem;
+      padding: 0.65rem 0.75rem;
+      border-radius: 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      font-size: 0.8125rem;
+      line-height: 1.5;
+    }
+    .desk-insight-ai .ai-output ul {
+      margin: 0.4rem 0 0;
+      padding-left: 1.15rem;
+    }
+    .product-details-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+      cursor: pointer;
+      user-select: none;
+    }
+    .product-details-label input {
+      accent-color: var(--accent);
+      width: 1rem;
+      height: 1rem;
+    }
+    .addr-preview { max-width: 100%; white-space: pre-line; font-size: 0.76rem; color: var(--muted); }
+    .shipping-one-line {
+      display: block;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 0.78rem;
+      line-height: 1.35;
+    }
+    .dpd-line {
+      font-size: 0.78rem;
+      line-height: 1.35;
+      margin-bottom: 0.25rem;
+    }
+    .dpd-line:last-child {
+      margin-bottom: 0;
+    }
+    .dpd-line strong {
+      font-weight: 600;
+    }
+    .money-main { font-weight: 700; font-size: 1rem; }
+    .money-sub { font-size: 0.75rem; color: var(--muted); margin-top: 0.2rem; }
+    table.orders-table .money-main { font-size: 0.92rem; }
+    table.orders-table .money-sub { font-size: 0.72rem; }
+    .tag-row { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.35rem; }
+    .tag { font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 4px; background: var(--surface-muted); color: var(--muted); border: 1px solid var(--border); }
+    .note-snip { max-width: 100%; font-size: 0.76rem; color: var(--muted); line-height: 1.35; }
+    .dpd-mini { font-size: 0.78rem; margin-top: 0.35rem; padding-top: 0.35rem; border-top: 1px solid var(--border); }
+    .dpd-mini:first-child { border-top: none; margin-top: 0; padding-top: 0; }
+    td.mail-col {
+      background: rgba(85, 130, 53, 0.06);
+      border-left: 1px solid rgba(85, 130, 53, 0.22) !important;
+    }
+    .mail-history {
+      max-width: 100%;
+      line-height: 1.35;
+    }
+    .mail-journey {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--accent-hover);
+      margin-bottom: 0.45rem;
+      line-height: 1.4;
+    }
+    .mail-journey-hint {
+      font-size: 0.68rem;
+      margin: -0.25rem 0 0.45rem;
+      line-height: 1.35;
+    }
+    .mail-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+    .mail-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.4rem;
+      font-size: 0.76rem;
+      padding: 0.3rem 0.4rem;
+      border-radius: 6px;
+      background: var(--surface);
+      border: 1px solid rgba(85, 130, 53, 0.2);
+      cursor: help;
+    }
+    .mail-row--mailto {
+      cursor: pointer;
+    }
+    .mail-row--mailto:hover {
+      border-color: rgba(85, 130, 53, 0.42);
+      background: rgba(85, 130, 53, 0.07);
+    }
+    .mail-row--mailto:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    .mail-row-icon {
+      flex-shrink: 0;
+      opacity: 0.85;
+      font-size: 0.7rem;
+      line-height: 1.5;
+    }
+    .mail-row-main {
+      min-width: 0;
+      flex: 1;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 0.25rem 0.5rem;
+    }
+    .mail-row-label {
+      font-weight: 600;
+      color: var(--text);
+    }
+    .mail-row-date {
+      font-size: 0.68rem;
+      white-space: nowrap;
+    }
+    .mail-row-via {
+      font-size: 0.65rem;
+      width: 100%;
+      margin-top: 0.1rem;
+    }
+    .mail-audit-bar {
+      margin: 0 1.25rem 0.85rem;
+      padding: 0.85rem 1rem;
+      border-radius: 10px;
+      border: 1px solid rgba(85, 130, 53, 0.28);
+      background: rgba(85, 130, 53, 0.07);
+      font-size: 0.88rem;
+      line-height: 1.5;
+      color: var(--text);
+      animation: card-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    }
+    .mail-audit-bar strong { color: var(--accent); font-weight: 700; }
+    .stat-card-mail::before {
+      background: linear-gradient(90deg, var(--accent), #6b9a44);
+    }
+    .stat-card.muted.stat-card-mail::before {
+      background: var(--border);
+      opacity: 1;
+    }
+    button.small {
+      font-size: 0.75rem;
+      padding: 0.35rem 0.65rem;
+      margin-top: 0.35rem;
+    }
+    .backdrop {
+      display: flex;
+      position: fixed;
+      inset: 0;
+      background: rgba(33, 37, 41, 0.45);
+      z-index: 10;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      visibility: hidden;
+      opacity: 0;
+      transition: visibility 0.25s, opacity 0.25s ease;
+    }
+    .backdrop.open {
+      visibility: visible;
+      opacity: 1;
+    }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      width: 100%;
+      max-width: 28rem;
+      max-height: 90vh;
+      overflow: auto;
+      transform: scale(0.96) translateY(8px);
+      opacity: 0;
+      transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.28s ease;
+    }
+    .backdrop.open .modal {
+      transform: scale(1) translateY(0);
+      opacity: 1;
+    }
+    .modal h2 { margin: 0 0 1rem; font-size: 1.1rem; }
+    .modal label { display: block; font-size: 0.75rem; color: var(--muted); margin: 0.65rem 0 0.25rem; }
+    .modal input, .modal textarea {
+      width: 100%;
+      font: inherit;
+      padding: 0.5rem 0.65rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+    }
+    .modal textarea { min-height: 7rem; resize: vertical; }
+    .mail-ai-block {
+      margin-top: 0.75rem;
+      padding-top: 0.85rem;
+      border-top: 1px solid var(--border);
+    }
+    .mail-ai-block textarea#mIncoming {
+      min-height: 5.5rem;
+      font-size: 0.8125rem;
+    }
+    .mail-ai-hint {
+      margin: 0.45rem 0 0;
+      font-size: 0.72rem;
+      line-height: 1.4;
+    }
+    button.ghost {
+      background: transparent;
+      border-color: var(--accent-border);
+      color: var(--accent);
+    }
+    button.ghost:hover:not(:disabled) {
+      background: var(--accent-soft);
+      border-color: rgba(85, 130, 53, 0.55);
+    }
+    .modal .actions { display: flex; gap: 0.5rem; margin-top: 1rem; justify-content: flex-end; flex-wrap: wrap; }
+    footer {
+      padding: 1.25rem clamp(1rem, 4vw, 2rem) 2rem;
+      margin: 0.5rem auto 0;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.8rem;
+      max-width: min(1320px, 100%);
+      box-sizing: border-box;
+    }
+    .skeleton-row td {
+      padding: 0.85rem 0.75rem;
+      vertical-align: middle;
+    }
+    .sk {
+      height: 0.65rem;
+      border-radius: 4px;
+      background: linear-gradient(
+        90deg,
+        rgba(0, 0, 0, 0.04) 0%,
+        rgba(85, 130, 53, 0.12) 50%,
+        rgba(0, 0, 0, 0.04) 100%
+      );
+      background-size: 200% 100%;
+      animation: sk-shimmer 1.1s ease-in-out infinite;
+    }
+    .sk.w40 { width: 40%; }
+    .sk.w60 { width: 60%; }
+    .sk.w80 { width: 80%; }
+    .sk.w100 { width: 100%; }
+    @keyframes sk-shimmer {
+      0% { background-position: 100% 0; }
+      100% { background-position: -100% 0; }
+    }
+    .orders-table tbody tr:not(.skeleton-row) {
+      animation: row-in 0.35s ease backwards;
+    }
+    .orders-table tbody tr:not(.skeleton-row):nth-child(1) { animation-delay: 0.02s; }
+    .orders-table tbody tr:not(.skeleton-row):nth-child(2) { animation-delay: 0.04s; }
+    .orders-table tbody tr:not(.skeleton-row):nth-child(3) { animation-delay: 0.06s; }
+    .orders-table tbody tr:not(.skeleton-row):nth-child(4) { animation-delay: 0.08s; }
+    .orders-table tbody tr:not(.skeleton-row):nth-child(5) { animation-delay: 0.1s; }
+    .orders-table tbody tr:not(.skeleton-row):nth-child(6) { animation-delay: 0.12s; }
+    .orders-table tbody tr:not(.skeleton-row):nth-child(7) { animation-delay: 0.14s; }
+    .orders-table tbody tr:not(.skeleton-row):nth-child(8) { animation-delay: 0.16s; }
+    @keyframes row-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    a {
+      color: var(--accent);
+      transition: color 0.15s ease, opacity 0.15s ease;
+    }
+    a:hover {
+      color: var(--accent-hover);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html {
+        scroll-behavior: auto;
+      }
+      .stats-grid .stat-card,
+      .mail-audit-bar,
+      .orders-table tbody tr:not(.skeleton-row) {
+        animation: none !important;
+      }
+      .stat-card:hover {
+        transform: none;
+      }
+      .sk {
+        animation: none;
+        background: rgba(0, 0, 0, 0.06);
+      }
+      .backdrop,
+      .modal {
+        transition: none !important;
+      }
+      .backdrop.open .modal {
+        transform: none;
+      }
+    }
+    @media (max-width: 700px) {
+      .layout-main, footer { padding-left: 1rem; padding-right: 1rem; }
+      .header-inner {
+        padding-left: 1rem;
+        padding-right: 1rem;
+      }
+      .app-bar-tagline {
+        white-space: normal;
+        font-size: 0.68rem;
+      }
+      .app-bar-meta {
+        justify-content: flex-start;
+        flex-basis: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <div class="app-bar-row">
+        <div class="app-bar-brand">
+          <h1>Toddie helpdesk</h1>
+          <p class="app-bar-tagline">Orders, verzending &amp; klantmail — in stijl met toddie.nl</p>
+        </div>
+        <nav class="app-bar-nav" aria-label="Hoofdacties">
+          <button type="button" class="primary" id="refresh">Vernieuwen</button>
+          <a href="/koppel.html" class="link-pill">Shopify koppelen</a>
+          <a href="/mail.html" class="link-pill">Mail (concept)</a>
+          <button type="button" class="link-pill" id="dashboardLogout">Uitloggen</button>
+        </nav>
+        <div class="app-bar-meta" aria-live="polite">
+          <span class="pill" id="stateShopify">Shopify: …</span>
+          <span class="pill" id="stateSmtp">SMTP: …</span>
+          <span class="pill" id="stateDpd">DPD: …</span>
+          <span class="pill" id="stateThumbs" hidden>Productfoto's: …</span>
+          <span class="dim" id="generated"></span>
+        </div>
+      </div>
+      <details class="header-tip">
+        <summary>Uitleg voor deze pagina</summary>
+        <p class="sub">
+          Per order zie je <strong>klantmails en vergelijkbare meldingen</strong> uit de Shopify order-timeline (o.a. <span class="mono">mail_sent</span>, bevestiging, verzendmail via Sendcloud e.d.).
+          Het doel is vooral: <strong>op inkomende klantvragen een passend antwoord voorbereiden</strong> (bijv. verzendmoment, DPD-nummer, nog in productie) met ordergegevens uit Shopify en DPD — via AI als concept, daarna versturen met SMTP. DPD en mailhistorie staan per order in de tabel.
+        </p>
+      </details>
+    </div>
+  </header>
+  <main class="layout-main">
+    <div class="err" id="errorBox" hidden></div>
+    <div class="warn-box" id="scopeWarn" hidden></div>
+
+    <div class="page-flow" id="statsFlowWrap" hidden>
+      <div class="flow-head">
+        <span class="flow-num" aria-hidden="true">1</span>
+        <div class="flow-text">
+          <p class="flow-kicker">Overzicht</p>
+          <h2 class="flow-title" id="flow-stats-title">Status &amp; mail</h2>
+          <p class="flow-desc">Winkel, aantal orders, token voor orderdata, en een snelle telling hoeveel orders in deze lijst al mail-events in Shopify hebben. Ververs om de timeline opnieuw in te lezen.</p>
+        </div>
+      </div>
+      <section class="stats-grid" id="statsStrip" aria-labelledby="flow-stats-title"></section>
+    </div>
+
+    <div class="page-flow" id="ordersFlowWrap">
+      <div class="flow-head">
+        <span class="flow-num" aria-hidden="true">2</span>
+        <div class="flow-text">
+          <p class="flow-kicker">Orders + mailhistorie</p>
+          <h2 class="flow-title">Recente orders</h2>
+          <p class="flow-desc">
+            Kolom <strong>Producten</strong>: per regel foto (zoveel mogelijk), link naar de winkel, prijs, en eventueel <strong>productie / werkdagen</strong>. Orders worden <strong>uit alle Shopify-pagina&apos;s</strong> geladen tot de ophaallimiet (.env <span class="mono">SHOPIFY_ORDERS_MAX</span>).
+            <strong>Mailhistorie</strong>: e-mails naar de klant (Shopify, Sendcloud, …).
+          </p>
+        </div>
+      </div>
+      <section class="orders-section dash-card" id="ordersSection">
+        <div class="dash-card-head orders-head-row">
+          <div class="orders-controls">
+            <label class="product-details-label">
+              <input type="checkbox" id="productDetailsToggle" />
+              SKU &amp; variant tonen
+            </label>
+            <div class="customer-filter-field">
+              <label for="customerFilter">Zoek klant</label>
+              <input
+                type="search"
+                id="customerFilter"
+                placeholder="Naam, e-mail, telefoon of ordernr…"
+                autocomplete="off"
+                enterkeyhint="search"
+              />
+            </div>
+          </div>
+          <span class="dash-card-meta" id="ordersSectionMeta">Laden…</span>
+        </div>
+        <div class="desk-insight-panel" id="deskInsightPanel" hidden></div>
+        <div class="mail-audit-bar" id="mailAuditBar" hidden></div>
+        <div class="table-scroll">
+          <table class="orders-table">
+            <colgroup>
+              <col style="width: 10%" />
+              <col style="width: 14%" />
+              <col style="width: 8%" />
+              <col style="width: 17%" />
+              <col style="width: 9%" />
+              <col style="width: 9%" />
+              <col style="width: 8%" />
+              <col style="width: 12%" />
+              <col style="width: 7%" />
+              <col style="width: 6%" />
+            </colgroup>
+            <thead>
+              <tr class="group-row">
+                <th colspan="2">Order &amp; klant</th>
+                <th colspan="3">Bedrag, inhoud &amp; adres</th>
+                <th colspan="2">Status &amp; tracking</th>
+                <th colspan="2">Mailhistorie &amp; DPD</th>
+                <th colspan="1">Tags &amp; notitie</th>
+              </tr>
+              <tr class="sub-row">
+                <th>Order</th>
+                <th>Klant</th>
+                <th class="col-gutter">Bedrag</th>
+                <th>Producten</th>
+                <th title="Hover voor methode en adres">Verzendstatus</th>
+                <th class="col-gutter">Status</th>
+                <th>Tracking</th>
+                <th class="col-gutter" title="Hover voor volledige tekst; klik op een regel om mail naar de klant te openen (zelfde als Mail sturen)">Mail naar klant</th>
+                <th>DPD</th>
+                <th class="col-gutter">Tags / notitie</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+  <footer>
+    <strong style="color:var(--text-heading);font-weight:600">Technische referentie</strong> —
+    <span class="mono">GET /api/overview</span> (alle pagina&apos;s; <span class="mono">?limit=50</span> = één pagina) · <span class="mono">POST /api/mail/send</span> · <span class="mono">POST /api/ai/reply-draft</span> · <span class="mono">POST /api/ai/desk-insight</span> · <span class="mono">.env.example</span>
+  </footer>
+
+  <div id="mailHoverTip" role="tooltip" hidden></div>
+
+  <div class="backdrop" id="mailModal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-labelledby="mailModalTitle">
+      <h2 id="mailModalTitle">Mail naar klant (SMTP)</h2>
+      <div class="err" id="mailModalErr" style="margin-bottom:0.75rem" hidden></div>
+      <label for="mTo">Aan</label>
+      <input type="email" id="mTo" autocomplete="email" />
+      <label for="mSubject">Onderwerp</label>
+      <input type="text" id="mSubject" />
+      <label for="mBody">Bericht (antwoord naar klant)</label>
+      <textarea id="mBody"></textarea>
+      <div class="mail-ai-block">
+        <label for="mIncoming">Inkomende vraag (plak uit Outlook / mail)</label>
+        <textarea
+          id="mIncoming"
+          autocomplete="off"
+          placeholder="Bijv. Beste, wanneer wordt mijn bestelling verzonden? Mvg, …"
+        ></textarea>
+        <div class="actions" style="margin-top: 0.65rem; justify-content: flex-start">
+          <button type="button" class="ghost" id="mAiDraft">Concept met AI (order + DPD)</button>
+        </div>
+        <p class="dim mail-ai-hint" id="mAiHint"></p>
+      </div>
+      <div class="actions">
+        <button type="button" id="mCancel">Annuleren</button>
+        <button type="button" class="primary" id="mSend">Versturen</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const tbody = document.getElementById('tbody');
+    const scopeWarn = document.getElementById('scopeWarn');
+    const errorBox = document.getElementById('errorBox');
+    const stateShopify = document.getElementById('stateShopify');
+    const stateSmtp = document.getElementById('stateSmtp');
+    const stateDpd = document.getElementById('stateDpd');
+    const generatedEl = document.getElementById('generated');
+    const statsStrip = document.getElementById('statsStrip');
+    const statsFlowWrap = document.getElementById('statsFlowWrap');
+    const ordersSectionMeta = document.getElementById('ordersSectionMeta');
+    const mailAuditBar = document.getElementById('mailAuditBar');
+    const mailModal = document.getElementById('mailModal');
+    const mailModalErr = document.getElementById('mailModalErr');
+    const mTo = document.getElementById('mTo');
+    const mSubject = document.getElementById('mSubject');
+    const mBody = document.getElementById('mBody');
+    const refreshBtn = document.getElementById('refresh');
+    const stateThumbs = document.getElementById('stateThumbs');
+    const mSendBtn = document.getElementById('mSend');
+    const mIncoming = document.getElementById('mIncoming');
+    const mAiDraft = document.getElementById('mAiDraft');
+    const mAiHint = document.getElementById('mAiHint');
+    const customerFilter = document.getElementById('customerFilter');
+    const mailHoverTip = document.getElementById('mailHoverTip');
+    const deskInsightPanel = document.getElementById('deskInsightPanel');
+
+    let loadGeneration = 0;
+    /** @type {string} */
+    let mailModalOrderName = '';
+    let openAiOk = false;
+
+    /** Laatste geladen orders (voor klantfilter zonder opnieuw te fetchen). */
+    let lastOverviewSnapshot = {
+      rows: [],
+      orderMailLogs: {},
+      ordersUnavailable: true,
+      ordersFetchMax: null,
+      ordersMayBeTruncated: false,
+      deskHeuristics: null,
+      deskContext: null,
+      shopLabel: null,
+    };
+
+    if (deskInsightPanel) {
+      deskInsightPanel.addEventListener('click', (ev) => {
+        const t = ev.target;
+        if (t instanceof HTMLElement && t.id === 'btnDeskInsightAi') {
+          ev.preventDefault();
+          runDeskInsightAi();
+        }
+      });
+    }
+
+    async function runDeskInsightAi() {
+      const status = document.getElementById('deskInsightAiStatus');
+      const out = document.getElementById('deskInsightAiOut');
+      const snap = lastOverviewSnapshot;
+      if (!snap.deskHeuristics || !out) return;
+      if (status) status.textContent = 'Bezig…';
+      out.hidden = true;
+      out.innerHTML = '';
+      try {
+        const res = await fetch('/api/ai/desk-insight', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            shopName: snap.shopLabel,
+            orderCount: snap.rows.length,
+            ordersMayBeTruncated: snap.ordersMayBeTruncated,
+            deskContext: snap.deskContext,
+            deskHeuristics: snap.deskHeuristics,
+          }),
+        });
+        const j = await res.json().catch(() => ({}));
+        if (dashboardLoginRequired(res, j)) {
+          redirectDashboardLogin();
+          return;
+        }
+        if (!res.ok) throw new Error(j.error || res.statusText);
+        const pr = Array.isArray(j.priorities) ? j.priorities : [];
+        const wo = Array.isArray(j.watchOut) ? j.watchOut : [];
+        out.innerHTML =
+          '<p style="margin:0 0 0.5rem"><strong>Samenvatting</strong><br/>' +
+          esc(j.summary || '') +
+          '</p>' +
+          (pr.length
+            ? '<p style="margin:0 0 0.35rem"><strong>Prioriteiten</strong></p><ul>' +
+              pr.map((p) => `<li>${esc(p)}</li>`).join('') +
+              '</ul>'
+            : '') +
+          (wo.length
+            ? '<p style="margin:0.35rem 0"><strong>Let op</strong></p><ul>' +
+              wo.map((p) => `<li>${esc(p)}</li>`).join('') +
+              '</ul>'
+            : '') +
+          '<p class="dim" style="margin:0.5rem 0 0;font-size:0.7rem">Model: ' +
+          esc(j.model || '') +
+          '</p>';
+        out.hidden = false;
+        if (status) status.textContent = '';
+      } catch (e) {
+        if (status) status.textContent = e instanceof Error ? e.message : String(e);
+      }
+    }
+
+    /** @param {Record<string, unknown>} data */
+    function renderDeskInsightPanel(data) {
+      if (!deskInsightPanel) return;
+      if (data.ordersUnavailable || !data.deskHeuristics) {
+        deskInsightPanel.hidden = true;
+        deskInsightPanel.innerHTML = '';
+        return;
+      }
+      const h = data.deskHeuristics;
+      const c = h.counts || {};
+      const samples = h.samples || [];
+      let samplesHtml = '';
+      if (samples.length) {
+        samplesHtml =
+          '<p class="dim" style="margin:0.35rem 0 0.15rem;font-size:0.72rem;font-weight:600;">Voorbeelden</p><ul class="desk-insight-samples">' +
+          samples
+            .slice(0, 8)
+            .map(
+              (s) =>
+                `<li><span class="mono">${esc(s.orderName || '')}</span> — ${esc(s.deskHint || '')}</li>`
+            )
+            .join('') +
+          '</ul>';
+      }
+      const aiOn = Boolean(data.openAiConfigured);
+      const aiBlock = aiOn
+        ? '<div class="desk-insight-ai"><button type="button" class="primary" id="btnDeskInsightAi">AI team-samenvatting</button><span class="dim" id="deskInsightAiStatus" style="margin-left:0.5rem;font-size:0.75rem"></span><div id="deskInsightAiOut" class="ai-output" hidden></div></div>'
+        : '<p class="dim" style="margin-top:0.65rem;font-size:0.78rem">Zet <span class="mono">OPENAI_API_KEY</span> in .env voor een korte AI-interpretatie van deze batch.</p>';
+
+      deskInsightPanel.innerHTML =
+        '<h3>Desk-inzicht</h3>' +
+        '<p class="dim" style="margin:0;font-size:0.78rem">Automatische signalen uit status, tracking, DPD en mail-timeline. Hover het ✦-icoon bij een order.</p>' +
+        '<div class="desk-insight-grid">' +
+        '<div>Met hint: <span class="val">' +
+        esc(String(c.withHint ?? 0)) +
+        '</span></div>' +
+        '<div>Geen mail in timeline: <span class="val">' +
+        esc(String(c.noTimelineMail ?? 0)) +
+        '</span></div>' +
+        '<div>Wacht op verzendmail: <span class="val">' +
+        esc(String(c.productionWait ?? 0)) +
+        '</span></div>' +
+        '<div>Verzonden zonder verzendmail in tijdlijn: <span class="val">' +
+        esc(String(c.fulfilledNoShipMail ?? 0)) +
+        '</span></div>' +
+        '<div>DPD-probleem: <span class="val">' +
+        esc(String(c.dpdIssues ?? 0)) +
+        '</span></div>' +
+        '<div>Testorders: <span class="val">' +
+        esc(String(c.testOrders ?? 0)) +
+        '</span></div>' +
+        '</div>' +
+        samplesHtml +
+        aiBlock;
+      deskInsightPanel.hidden = false;
+    }
+
+    let mailHoverHideTid = 0;
+
+    function positionMailHoverTip(anchor) {
+      if (!mailHoverTip) return;
+      const r = anchor.getBoundingClientRect();
+      const margin = 8;
+      mailHoverTip.style.visibility = 'hidden';
+      mailHoverTip.hidden = false;
+      const w = mailHoverTip.offsetWidth;
+      const h = mailHoverTip.offsetHeight;
+      let left = r.left;
+      let top = r.bottom + 6;
+      if (left + w > window.innerWidth - margin) left = Math.max(margin, window.innerWidth - w - margin);
+      if (top + h > window.innerHeight - margin) {
+        top = Math.max(margin, r.top - h - 6);
+      }
+      mailHoverTip.style.left = `${left}px`;
+      mailHoverTip.style.top = `${top}px`;
+      mailHoverTip.style.visibility = 'visible';
+    }
+
+    function showMailHoverTip(text, anchor) {
+      if (!mailHoverTip || !text) return;
+      window.clearTimeout(mailHoverHideTid);
+      mailHoverTip.textContent = text;
+      mailHoverTip.hidden = false;
+      requestAnimationFrame(() => positionMailHoverTip(anchor));
+    }
+
+    function hideMailHoverTip() {
+      mailHoverHideTid = window.setTimeout(() => {
+        if (mailHoverTip) {
+          mailHoverTip.hidden = true;
+          mailHoverTip.textContent = '';
+        }
+      }, 120);
+    }
+
+    window.addEventListener(
+      'scroll',
+      () => {
+        if (mailHoverTip && !mailHoverTip.hidden) hideMailHoverTip();
+      },
+      true
+    );
+
+    /**
+     * @param {{ at: string; description: string; author?: string | null }} e
+     * @param {string} label
+     */
+    function buildMailEventTipText(e, label) {
+      const lines = [
+        `${fmtDate(e.at)} · ${label}`,
+        e.description ? String(e.description).trim() : '',
+        e.author && String(e.author).trim() ? `Bron / app: ${String(e.author).trim()}` : '',
+      ].filter(Boolean);
+      return lines.join('\n\n');
+    }
+
+    /** @param {Record<string, unknown>} r */
+    function customerRowMatches(r, q) {
+      const parts = [
+        r.customerDisplayName,
+        r.customerEmail,
+        r.phone,
+        r.shopifyOrderName,
+      ]
+        .filter(Boolean)
+        .map((s) => String(s).toLowerCase());
+      return parts.some((p) => p.includes(q));
+    }
+
+    function ordersTableMetaText(total, snap, filteredCount) {
+      if (snap.ordersUnavailable) return '';
+      const cap = snap.ordersFetchMax;
+      const trunc = snap.ordersMayBeTruncated;
+      if (filteredCount != null) {
+        return `${filteredCount} van ${total} order(s) · klantfilter`;
+      }
+      if (trunc && cap != null) {
+        return `${total} order(s) · t/m limiet ${cap} — zet SHOPIFY_ORDERS_MAX hoger in .env voor meer`;
+      }
+      if (cap != null) {
+        return `${total} order(s) uit Shopify (ophaallimiet ${cap})`;
+      }
+      return `${total} order(s) uit Shopify`;
+    }
+
+    function applyCustomerFilter() {
+      const snap = lastOverviewSnapshot;
+      const logs = snap.orderMailLogs || {};
+      const all = snap.rows || [];
+      const q = (customerFilter && customerFilter.value ? customerFilter.value : '').trim().toLowerCase();
+      const filtered = q ? all.filter((r) => customerRowMatches(r, q)) : all;
+      if (ordersSectionMeta && !snap.ordersUnavailable) {
+        const total = all.length;
+        ordersSectionMeta.textContent = ordersTableMetaText(
+          total,
+          snap,
+          q ? filtered.length : null
+        );
+      }
+      renderOrderRows(filtered, logs);
+    }
+
+    function tableSkeletonRows(count) {
+      const widths = ['w60', 'w80', 'w100', 'w80', 'w80', 'w60', 'w80', 'w100', 'w80', 'w60'];
+      return Array.from({ length: count }, () => {
+        const cells = widths.map((w) => `<td><div class="sk ${w}"></div></td>`).join('');
+        return `<tr class="skeleton-row">${cells}</tr>`;
+      }).join('');
+    }
+
+    function esc(s) {
+      if (s == null) return '';
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function redirectDashboardLogin() {
+      const path = location.pathname + location.search;
+      const next = path.startsWith('/login.html') ? '/' : path;
+      location.href = '/login.html?next=' + encodeURIComponent(next || '/');
+    }
+
+    /**
+     * @param {Response} res
+     * @param {unknown} body
+     */
+    function dashboardLoginRequired(res, body) {
+      return (
+        res.status === 401 &&
+        body &&
+        typeof body === 'object' &&
+        /** @type {{ loginRequired?: boolean }} */ (body).loginRequired === true
+      );
+    }
+
+    function fmtDate(iso) {
+      if (!iso) return '—';
+      try {
+        const d = new Date(iso);
+        return d.toLocaleString('nl-NL', { dateStyle: 'short', timeStyle: 'short' });
+      } catch {
+        return iso;
+      }
+    }
+
+    function fmtMoney(cur, amt) {
+      if (amt == null || amt === '') return '—';
+      const n = Number(amt);
+      const c = cur || 'EUR';
+      if (Number.isFinite(n)) {
+        try {
+          return new Intl.NumberFormat('nl-NL', { style: 'currency', currency: c }).format(n);
+        } catch {
+          return `${n} ${c}`;
+        }
+      }
+      return esc(String(amt));
+    }
+
+    function fmtMailDateShort(iso) {
+      if (!iso) return '—';
+      try {
+        const d = new Date(iso);
+        return d.toLocaleString('nl-NL', {
+          day: 'numeric',
+          month: 'short',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+      } catch {
+        return iso;
+      }
+    }
+
+    /**
+     * Timeline-tekst naar vaste NL-labels (overzichtelijk in de tabel).
+     * @param {string} description
+     * @param {string | null | undefined} author
+     * @returns {{ label: string; kind: string }}
+     */
+    function classifyCustomerMail(description, author) {
+      const d = String(description || '').toLowerCase();
+      const auth = String(author || '').trim().toLowerCase();
+      if (
+        /order\s+confirmation|orderbevestiging|bevestiging.*bestelling|confirmation\s+email\s+was\s+sent/.test(
+          d
+        )
+      ) {
+        return { label: 'Orderbevestiging', kind: 'order' };
+      }
+      if (
+        /shipping\s+confirmation|verzend(bevestiging|mail)|delivery\s+confirmation|verzonden.*(email|e-mail)/.test(
+          d
+        ) ||
+        /sendcloud.*(shipping|verzend)/.test(d) ||
+        (auth.includes('sendcloud') && /email|e-mail|verzend|shipping/.test(d))
+      ) {
+        return { label: 'Verzendbevestiging', kind: 'shipping' };
+      }
+      if (/refund|terugbetaling|restitutie|refunded/.test(d)) {
+        return { label: 'Terugbetaling', kind: 'refund' };
+      }
+      if (/invoice|factuur|vat\s+invoice|\binv-/.test(d)) {
+        return { label: 'Factuur / bon', kind: 'invoice' };
+      }
+      if (/pickup|afhalen|ready\s+for\s+pickup|afhaal/.test(d)) {
+        return { label: 'Afhaalbericht', kind: 'pickup' };
+      }
+      if (/gift\s*card|cadeaubon|cadeaukaart/.test(d)) {
+        return { label: 'Cadeaubonmail', kind: 'gift' };
+      }
+      if (/draft\s+order|concept|offerte/.test(d)) {
+        return { label: 'Concept / offerte', kind: 'draft' };
+      }
+      if (/cancel|annulering|geannuleerd/.test(d)) {
+        return { label: 'Annulering', kind: 'cancel' };
+      }
+      const raw = String(description || '').trim();
+      const short = raw.length > 48 ? `${raw.slice(0, 45)}…` : raw;
+      return { label: short || 'Klantmail', kind: 'other' };
+    }
+
+    /** @param {Array<{at:string,description:string,author?:string|null}>} logList */
+    function buildMailJourneySummary(logList) {
+      if (!logList.length) return { line: '', hint: null };
+      const kinds = new Set();
+      for (const e of logList) {
+        kinds.add(classifyCustomerMail(e.description, e.author).kind);
+      }
+      const parts = [];
+      if (kinds.has('order')) parts.push('orderbevestiging');
+      if (kinds.has('shipping')) parts.push('verzendmail');
+      if (kinds.has('invoice')) parts.push('factuurmail');
+      if (kinds.has('pickup')) parts.push('afhalen');
+      if (kinds.has('refund')) parts.push('terugbetaling');
+      if (kinds.has('gift')) parts.push('cadeaubon');
+      if (kinds.has('draft')) parts.push('concept');
+      if (kinds.has('cancel')) parts.push('annulering');
+      const hasTyped = parts.length > 0;
+      const line = hasTyped
+        ? `Klant heeft: ${parts.join(' · ')}`
+        : `${logList.length} mailmelding(en) — zie regels`;
+      let hint = null;
+      if (kinds.has('order') && !kinds.has('shipping') && !kinds.has('pickup')) {
+        hint =
+          'Nog geen verzendbevestiging zichtbaar — past bij productie of nog niet verzonden.';
+      }
+      return { line, hint };
+    }
+
+    /** @param {Record<string, unknown>} data */
+    function renderStatsStrip(data) {
+      if (!statsStrip) return;
+      const shopName = data.shop?.name || data.shop?.domain || '—';
+      const ordersMuted = Boolean(data.ordersUnavailable);
+      const orderVal = ordersMuted ? '—' : String(data.orderCount ?? 0);
+      const orderHint = ordersMuted
+        ? data.ordersUnavailableReason === 'read_orders_scope'
+          ? 'Scope read_orders ontbreekt op de token'
+          : 'Zie de waarschuwing hierboven'
+        : data.ordersMayBeTruncated
+          ? `Minstens ${data.orderCount ?? 0} orders · limiet ${
+              data.ordersFetchMax ?? '—'
+            } (zie SHOPIFY_ORDERS_MAX in .env)`
+          : `Uit Shopify · ${data.orderCount ?? 0} orders${
+              data.ordersFetchMax != null ? ` (cap ${data.ordersFetchMax})` : ''
+            }`;
+      let tokenVal;
+      let tokenHint;
+      if (data.ordersUnavailable) {
+        tokenVal = 'Geen order-API';
+        tokenHint = 'Shop.json werkt nog wél';
+      } else if (data.ordersTokenSource === 'env') {
+        tokenVal = 'Admin-token';
+        tokenHint = 'Uit .env (SHOPIFY_ACCESS_TOKEN)';
+      } else if (data.ordersTokenSource === 'session') {
+        tokenVal = 'OAuth-sessie';
+        tokenHint = '.shopify_token.json';
+      } else {
+        tokenVal = 'Actief';
+        tokenHint = 'Orders worden opgehaald';
+      }
+      const when = data.generatedAt ? fmtDate(data.generatedAt) : '—';
+      const dpdOn = Boolean(data.dpdConfigured);
+      const smtpOn = Boolean(data.smtpConfigured);
+      const extraHint = [dpdOn ? 'DPD aan' : null, smtpOn ? 'SMTP klaar' : null]
+        .filter(Boolean)
+        .join(' · ') || 'Alleen Shopify in deze kaarten';
+
+      let mailCardHtml = '';
+      if (ordersMuted) {
+        mailCardHtml = `<div class="stat-card muted stat-card-mail">
+          <div class="stat-label">Shopify-mail</div>
+          <div class="stat-value">—</div>
+          <div class="stat-hint">Timeline-mail verschijnt na orders</div>
+        </div>`;
+      } else {
+        const rows = Array.isArray(data.rows) ? data.rows : [];
+        const logs = data.orderMailLogs || {};
+        let withMail = 0;
+        let totalEv = 0;
+        for (const r of rows) {
+          const arr = logs[String(r.shopifyOrderId)] || [];
+          const n = arr.length;
+          totalEv += n;
+          if (n > 0) withMail += 1;
+        }
+        const without = rows.length - withMail;
+        mailCardHtml = `<div class="stat-card ${withMail === 0 ? 'muted' : ''} stat-card-mail">
+          <div class="stat-label">Klantmail in timeline</div>
+          <div class="stat-value">${esc(String(withMail))} / ${esc(String(rows.length))}</div>
+          <div class="stat-hint">orders met mailmelding · ${esc(String(totalEv))} regels · ${esc(String(without))} zonder</div>
+        </div>`;
+      }
+
+      if (statsFlowWrap) statsFlowWrap.hidden = false;
+
+      statsStrip.innerHTML = `
+        <div class="stat-card">
+          <div class="stat-label">Winkel</div>
+          <div class="stat-value">${esc(shopName)}</div>
+          <div class="stat-hint">Zoals in Shopify Admin</div>
+        </div>
+        <div class="stat-card ${ordersMuted ? 'muted' : ''}">
+          <div class="stat-label">Orders in lijst</div>
+          <div class="stat-value">${esc(orderVal)}</div>
+          <div class="stat-hint">${esc(orderHint)}</div>
+        </div>
+        ${mailCardHtml}
+        <div class="stat-card ${data.ordersUnavailable ? 'muted' : ''}">
+          <div class="stat-label">Order-token</div>
+          <div class="stat-value" style="font-size:1.05rem">${esc(tokenVal)}</div>
+          <div class="stat-hint">${esc(tokenHint)}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Laatst geladen</div>
+          <div class="stat-value" style="font-size:1rem;font-weight:600">${esc(when)}</div>
+          <div class="stat-hint">${esc(extraHint)}</div>
+        </div>
+      `;
+    }
+
+    /** @param {Record<string, unknown>} data */
+    function renderMailAuditBar(data) {
+      if (!mailAuditBar) return;
+      if (data.ordersUnavailable || !Array.isArray(data.rows) || data.rows.length === 0) {
+        mailAuditBar.hidden = true;
+        mailAuditBar.innerHTML = '';
+        return;
+      }
+      const rows = data.rows;
+      const logs = data.orderMailLogs || {};
+      let withMail = 0;
+      let totalEv = 0;
+      for (const r of rows) {
+        const arr = logs[String(r.shopifyOrderId)] || [];
+        const n = arr.length;
+        totalEv += n;
+        if (n > 0) withMail += 1;
+      }
+      const without = rows.length - withMail;
+      mailAuditBar.innerHTML =
+        '<strong>' +
+        esc(String(withMail)) +
+        '</strong> van <strong>' +
+        esc(String(rows.length)) +
+        '</strong> orders hebben zichtbare klantmail-meldingen in de timeline (<strong>' +
+        esc(String(totalEv)) +
+        '</strong> regels in deze kolom). <strong>' +
+        esc(String(without)) +
+        '</strong> orders zonder regel — nog geen mail, of de tekst zit niet in de herkende timeline-berichten.';
+      mailAuditBar.hidden = false;
+    }
+
+    /** @param {{ currency?: string; lineItemsPreview?: Array<{ title: string; quantity: number; imageUrl: string | null; productUrl: string | null; sku?: string | null; variantTitle?: string | null; unitPrice?: string | null; linePrice?: string | null; productionHint?: string | null; productionWorkingDays?: number | null; productionShipByLabel?: string | null }>; lineItemsSummary: string; lineItemsCount: number }} r */
+    function renderLineItemsVisual(r) {
+      const items = r.lineItemsPreview;
+      const cur = r.currency || 'EUR';
+      if (!Array.isArray(items) || items.length === 0) {
+        return `<span class="lines-preview">${esc(r.lineItemsSummary)}</span><br/><span class="dim">${esc(String(r.lineItemsCount))} regel(s)</span>`;
+      }
+      const rows = items
+        .map((it) => {
+          const titleRaw = (it.title || 'Item').trim();
+          const titleShort = titleRaw.length > 130 ? `${titleRaw.slice(0, 127)}…` : titleRaw;
+          const hasUrl = it.productUrl && String(it.productUrl).trim();
+          const titleHtml = hasUrl
+            ? `<a href="${esc(it.productUrl)}" class="line-title-link" target="_blank" rel="noopener noreferrer" title="Productpagina winkel · nieuw venster">${esc(titleShort)}</a>`
+            : `<span class="line-title-text">${esc(titleShort)}</span>`;
+          const q = it.quantity ?? 1;
+          const imgInner = it.imageUrl
+            ? `<img class="line-thumb" src="${esc(it.imageUrl)}" alt="" width="52" height="52" loading="lazy" decoding="async" referrerpolicy="no-referrer" />`
+            : `<span class="line-thumb-ph">${hasUrl ? '↗' : '—'}</span>`;
+          const thumb = hasUrl
+            ? `<a href="${esc(it.productUrl)}" target="_blank" rel="noopener noreferrer" class="line-thumb-link" title="Open productpagina">${imgInner}</a>`
+            : `<span class="line-thumb-link" style="cursor:default;border-style:dashed">${imgInner}</span>`;
+
+          const unit = it.unitPrice != null ? Number(it.unitPrice) : NaN;
+          const lineP = it.linePrice != null ? Number(it.linePrice) : NaN;
+          let priceHtml = '';
+          if (Number.isFinite(unit)) {
+            const u = fmtMoney(cur, it.unitPrice);
+            const tot = Number.isFinite(lineP) ? fmtMoney(cur, it.linePrice) : '';
+            priceHtml =
+              q > 1
+                ? `<div class="line-item-price">${esc(String(q))} × ${u}<span class="dim"> = ${tot}</span></div>`
+                : `<div class="line-item-price">${tot || u}</div>`;
+          } else {
+            priceHtml = `<div class="line-item-price dim">× ${esc(String(q))}</div>`;
+          }
+
+          const extraBits = [];
+          if (it.sku && String(it.sku).trim()) {
+            extraBits.push(
+              `<div><span class="line-extra-label">SKU</span><span class="mono">${esc(String(it.sku).trim())}</span></div>`
+            );
+          }
+          if (it.variantTitle && String(it.variantTitle).trim()) {
+            extraBits.push(
+              `<div><span class="line-extra-label">Variant</span>${esc(String(it.variantTitle).trim())}</div>`
+            );
+          }
+          const extraBlock =
+            extraBits.length > 0 ? `<div class="line-item-extra">${extraBits.join('')}</div>` : '';
+
+          let productionBlock = '';
+          if (it.productionHint && String(it.productionHint).trim()) {
+            const ship =
+              it.productionShipByLabel && it.productionWorkingDays != null
+                ? `<div class="line-item-production-date">Indicatief klaar voor verzending rond <strong>${esc(it.productionShipByLabel)}</strong> (${esc(String(it.productionWorkingDays))} werkdagen na order, weekenden niet meegeteld)</div>`
+                : it.productionWorkingDays != null
+                  ? `<div class="line-item-production-date">${esc(String(it.productionWorkingDays))} werkdagen levertijd volgens productgegevens</div>`
+                  : '';
+            productionBlock = `<div class="line-item-production"><div><div>${esc(String(it.productionHint).trim())}</div>${ship}</div></div>`;
+          }
+
+          return `<div class="line-item-card">${thumb}<div class="line-preview-meta">${titleHtml}${priceHtml}${productionBlock}${extraBlock}</div></div>`;
+        })
+        .join('');
+      const more =
+        r.lineItemsCount > items.length
+          ? `<div class="dim" style="margin-top:0.15rem">+${esc(String(r.lineItemsCount - items.length))} meer regels</div>`
+          : '';
+      return `<div class="line-items-visual">${rows}${more}<div class="dim" style="margin-top:0.35rem">${esc(String(r.lineItemsCount))} regel(s) in order</div></div>`;
+    }
+
+    /** @param {Record<string, Array<{at:string,description:string,author?:string|null,verb?:string|null}>>} orderMailLogs */
+    function renderOrderRows(rows, orderMailLogs) {
+      const logs = orderMailLogs || {};
+      /** @type {Map<string, string>} */
+      const mailTipMap = new Map();
+      tbody.innerHTML = rows
+        .map((r) => {
+          const mail = r.customerEmail
+            ? `<a href="mailto:${esc(r.customerEmail)}">${esc(r.customerEmail)}</a>`
+            : '<span class="dim">—</span>';
+          const custName = r.customerDisplayName
+            ? `<strong>${esc(r.customerDisplayName)}</strong><br/>`
+            : '';
+          const phone = r.phone ? `<span class="dim mono">${esc(r.phone)}</span><br/>` : '';
+          const canMail = Boolean(r.customerEmail);
+          const btn = canMail
+            ? `<button type="button" class="small mail-open" data-to="${esc(r.customerEmail)}" data-order="${esc(r.shopifyOrderName)}">Mail sturen…</button>`
+            : '';
+
+          const testB = r.testOrder ? '<span class="badge test">Test</span> ' : '';
+          const deskHintChip = r.deskHint
+            ? `<span class="desk-hint-chip" title="${esc(r.deskHint)}" role="img" aria-label="Inzicht: ${esc(r.deskHint)}">✦</span>`
+            : '';
+          const orderCell = `${testB}<a href="${esc(r.adminOrderUrl)}" target="_blank" rel="noopener"><strong>${esc(r.shopifyOrderName)}</strong></a>${deskHintChip}<br/><span class="dim mono">${fmtDate(r.createdAt)}</span>`;
+
+          const subMoney = [
+            r.subtotalPrice != null ? `Subtotaal ${fmtMoney(r.currency, r.subtotalPrice)}` : null,
+            r.totalTax != null ? `BTW ${fmtMoney(r.currency, r.totalTax)}` : null,
+            r.totalShipping != null ? `Verzend ${fmtMoney(r.currency, r.totalShipping)}` : null,
+          ]
+            .filter(Boolean)
+            .join(' · ');
+
+          const trackList = (r.trackings || [])
+            .filter((t) => t.number)
+            .map((t) => {
+              const line = t.url
+                ? `<a href="${esc(t.url)}" target="_blank" rel="noopener" class="mono">${esc(t.number)}</a>`
+                : `<span class="mono">${esc(t.number)}</span>`;
+              const co = t.company ? `<span class="dim">${esc(t.company)}</span> ` : '';
+              return `<div>${co}${line}</div>`;
+            })
+            .join('');
+          const trackCell = trackList || '<span class="dim">—</span>';
+
+          let dpdCell = '<span class="dim">—</span>';
+          const dpts = r.dpdTrackings || [];
+          if (dpts.length) {
+            dpdCell = dpts
+              .map((t) => {
+                const head = `<span class="mono dim">${esc(t.number)}</span>`;
+                if (t.error) {
+                  const err = String(t.error);
+                  const short = err.length > 42 ? `${err.slice(0, 39)}…` : err;
+                  return `<div class="dpd-line" title="${esc(err)}">${head} <span style="color:var(--error)">${esc(short)}</span></div>`;
+                }
+                const status = t.label || t.rawStatus || '—';
+                const extra = [t.location, t.date].filter(Boolean).join(' · ');
+                return `<div class="dpd-line" title="${esc(extra || status)}">${head} <strong>${esc(status)}</strong></div>`;
+              })
+              .join('');
+          }
+
+          const oid = String(r.shopifyOrderId);
+          const logList = logs[oid] || [];
+          let logCell = '<span class="dim">Geen mail naar klant in timeline</span>';
+          if (logList.length) {
+            const journey = buildMailJourneySummary(logList);
+            const mailEventRowsHtml = logList.slice(0, 10)
+              .map((e, evIdx) => {
+                const c = classifyCustomerMail(e.description, e.author);
+                const tipText = buildMailEventTipText(e, c.label);
+                mailTipMap.set(`${oid}|${evIdx}`, tipText);
+                const via =
+                  e.author && String(e.author).trim()
+                    ? `<span class="mail-row-via dim">via ${esc(String(e.author).trim())}</span>`
+                    : '';
+                const mailClick = canMail
+                  ? ` class="mail-row mail-row--mailto" data-to="${esc(r.customerEmail)}" data-order="${esc(r.shopifyOrderName || '')}" data-mail-oid="${esc(oid)}" data-mail-i="${evIdx}" tabindex="0" role="button" aria-label="Mail sturen naar klant · ${esc(c.label)}"`
+                  : ` class="mail-row" data-mail-oid="${esc(oid)}" data-mail-i="${evIdx}" tabindex="0"`;
+                return `<div${mailClick}><span class="mail-row-icon" aria-hidden="true">✓</span><div class="mail-row-main"><span class="mail-row-label">${esc(c.label)}</span><span class="mail-row-date dim">${esc(fmtMailDateShort(e.at))}</span>${via}</div></div>`;
+              })
+              .join('');
+            const journeyBlock = journey.line
+              ? `<div class="mail-journey">${esc(journey.line)}</div>`
+              : '';
+            const hintBlock = journey.hint
+              ? `<div class="mail-journey-hint">${esc(journey.hint)}</div>`
+              : '';
+            logCell = `<div class="mail-history">${journeyBlock}${hintBlock}<div class="mail-rows">${mailEventRowsHtml}</div></div>`;
+          }
+
+          const tags =
+            Array.isArray(r.tags) && r.tags.length
+              ? `<div class="tag-row">${r.tags.slice(0, 12).map((t) => `<span class="tag">${esc(t)}</span>`).join('')}</div>`
+              : '';
+          const note = r.note
+            ? `<p class="note-snip" title="${esc(r.note)}">${esc(r.note.length > 120 ? r.note.slice(0, 120) + '…' : r.note)}</p>`
+            : '';
+
+          const pay = (r.paymentGatewayNames || []).join(', ') || '—';
+          const src = r.sourceName ? `<span class="dim">Bron: ${esc(r.sourceName)}</span>` : '';
+
+          return `<tr>
+            <td>${orderCell}</td>
+            <td>${custName}${mail}${phone}${btn}</td>
+            <td class="col-gutter"><div class="money-main">${fmtMoney(r.currency, r.totalPrice)}</div>${subMoney ? `<div class="money-sub">${esc(subMoney)}</div>` : ''}${r.totalDiscounts && Number(r.totalDiscounts) > 0 ? `<div class="money-sub">Korting ${fmtMoney(r.currency, r.totalDiscounts)}</div>` : ''}</td>
+            <td>${renderLineItemsVisual(r)}</td>
+            <td title="${esc(
+              [
+                r.shippingMethod,
+                r.shippingSummary,
+                r.shippingLines ? r.shippingLines.replace(/\r?\n/g, ' · ') : '',
+              ]
+                .filter(Boolean)
+                .join(' · ')
+            )}"><span class="badge ful shipping-one-line">${esc(
+              r.displayFulfillmentStatus || r.fulfillmentStatus || '—'
+            )}</span></td>
+            <td class="col-gutter"><span class="badge fin">${esc(r.displayFinancialStatus || r.financialStatus || '—')}</span><br/><span class="badge ful" style="margin-top:0.35rem">${esc(r.displayFulfillmentStatus || r.fulfillmentStatus || '—')}</span><br/><span class="dim" style="margin-top:0.35rem;display:block">${esc(pay)}</span>${src ? `<br/>${src}` : ''}</td>
+            <td>${trackCell}</td>
+            <td class="col-gutter mail-col">${logCell}</td>
+            <td class="dpd-cell">${dpdCell}</td>
+            <td class="col-gutter">${tags}${note || '<span class="dim">—</span>'}</td>
+          </tr>`;
+        })
+        .join('');
+      tbody.querySelectorAll('.mail-row[data-mail-oid]').forEach((el) => {
+        const oid = el.dataset.mailOid;
+        const i = el.dataset.mailI;
+        const text = mailTipMap.get(`${oid}|${i}`);
+        if (text) {
+          el.addEventListener('mouseenter', () => showMailHoverTip(text, el));
+          el.addEventListener('mouseleave', hideMailHoverTip);
+          el.addEventListener('focus', () => showMailHoverTip(text, el));
+          el.addEventListener('blur', hideMailHoverTip);
+        }
+        if (el.classList.contains('mail-row--mailto') && el.dataset.to) {
+          el.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              hideMailHoverTip();
+              openMailModal(el.dataset.to || '', el.dataset.order || '');
+            }
+          });
+        }
+      });
+    }
+
+    let smtpOk = false;
+
+    function openMailModal(to, orderName) {
+      mailModalErr.hidden = true;
+      mTo.value = to || '';
+      mailModalOrderName = orderName || '';
+      mSubject.value = orderName ? `Re: Order ${orderName}` : '';
+      mBody.value = '';
+      if (mIncoming) mIncoming.value = '';
+      if (mAiHint) {
+        mAiHint.textContent = openAiOk
+          ? 'Plak de inkomende vraag hieronder en klik op Concept met AI — onderwerp en antwoord worden gevuld vanuit Shopify + DPD. Altijd controleren voor verzenden.'
+          : 'Voor AI-concepten: zet OPENAI_API_KEY in .env en herstart de server.';
+      }
+      if (mAiDraft) mAiDraft.disabled = !openAiOk;
+      mailModal.classList.add('open');
+      mailModal.setAttribute('aria-hidden', 'false');
+      if (!smtpOk) {
+        mailModalErr.hidden = false;
+        mailModalErr.textContent = 'SMTP staat niet in .env (SMTP_HOST + SMTP_FROM). Versturen werkt dan niet.';
+      }
+      requestAnimationFrame(() => {
+        try {
+          mTo.focus();
+        } catch {
+          /* ignore */
+        }
+      });
+    }
+
+    function closeMailModal() {
+      mailModal.classList.remove('open');
+      mailModal.setAttribute('aria-hidden', 'true');
+    }
+
+    async function load() {
+      const myGen = ++loadGeneration;
+      document.body.classList.add('is-loading');
+      if (refreshBtn) {
+        refreshBtn.disabled = true;
+        refreshBtn.setAttribute('aria-busy', 'true');
+      }
+
+      errorBox.hidden = true;
+      scopeWarn.hidden = true;
+      scopeWarn.innerHTML = '';
+      if (statsFlowWrap) statsFlowWrap.hidden = true;
+      if (mailAuditBar) {
+        mailAuditBar.hidden = true;
+        mailAuditBar.innerHTML = '';
+      }
+      if (ordersSectionMeta) ordersSectionMeta.textContent = 'Laden…';
+      stateShopify.textContent = 'Shopify: …';
+      stateSmtp.textContent = 'SMTP: …';
+      stateDpd.textContent = 'DPD: …';
+      if (stateThumbs) stateThumbs.hidden = true;
+      tbody.innerHTML = tableSkeletonRows(6);
+      try {
+        const res = await fetch('/api/overview', { credentials: 'same-origin' });
+        if (myGen !== loadGeneration) return;
+        const data = await res.json().catch(() => ({}));
+        if (myGen !== loadGeneration) return;
+        if (dashboardLoginRequired(res, data)) {
+          redirectDashboardLogin();
+          return;
+        }
+        if (res.status === 401 && data.setupRequired) {
+          errorBox.hidden = false;
+          const cb = esc(data.oauthCallbackUrl || (location.origin + '/api/auth/callback'));
+          const shopOk = data.hasShop === true;
+          const tokenOk = data.hasToken === true;
+          const shopLine = shopOk
+            ? 'Shop-domein staat goed' + (data.shopDomain ? ' (<span class="mono">' + esc(data.shopDomain) + '</span>)' : '') + '. '
+            : 'Vul <span class="mono">SHOPIFY_SHOP_DOMAIN</span> in <span class="mono">.env</span> (bijv. <span class="mono">toddie-nl.myshopify.com</span>). ';
+          const tokenLine = tokenOk
+            ? ''
+            : '<strong>Ontbreekt: Admin API-token.</strong> Kies één: (1) <a href="/koppel.html">OAuth — shop koppelen</a> met <span class="mono">toddie-nl</span>, of (2) in Shopify Admin → Instellingen → Apps → App-ontwikkeling → jouw app → <em>API-credentials</em> → Admin API-toegangstoken tonen en plakken in <span class="mono">SHOPIFY_ACCESS_TOKEN</span> in <span class="mono">.env</span>. ';
+          const redirectLine =
+            data.hasOAuthCreds === false
+              ? 'Zet ook <span class="mono">SHOPIFY_CLIENT_ID</span> en <span class="mono">SHOPIFY_CLIENT_SECRET</span> in <span class="mono">.env</span> voor OAuth. '
+              : 'In je Shopify-app bij <em>Allowed redirection URL(s)</em> exact deze URL (inclusief <span class="mono">http</span> en poort): <span class="mono">' +
+                cb +
+                '</span> — hetzelfde als <span class="mono">SHOPIFY_REDIRECT_URI</span> in <span class="mono">.env</span>. ';
+          errorBox.innerHTML =
+            '<strong>Shopify haalt nog geen orders op.</strong> ' +
+            shopLine +
+            tokenLine +
+            redirectLine;
+          tbody.innerHTML = '';
+          lastOverviewSnapshot = {
+            rows: [],
+            orderMailLogs: {},
+            ordersUnavailable: true,
+            ordersFetchMax: null,
+            ordersMayBeTruncated: false,
+            deskHeuristics: null,
+            deskContext: null,
+            shopLabel: null,
+          };
+          if (deskInsightPanel) {
+            deskInsightPanel.hidden = true;
+            deskInsightPanel.innerHTML = '';
+          }
+          if (customerFilter) customerFilter.value = '';
+          stateShopify.textContent = 'Shopify: niet gekoppeld';
+          stateShopify.className = 'pill off';
+          stateSmtp.className = 'pill off';
+          stateDpd.className = 'pill off';
+          if (statsFlowWrap) statsFlowWrap.hidden = true;
+          if (ordersSectionMeta) ordersSectionMeta.textContent = 'Eerst Shopify koppelen';
+          openAiOk = false;
+          return;
+        }
+        if (!res.ok) throw new Error(data.error || res.statusText || `HTTP ${res.status}`);
+        if (data.ordersUnavailable) {
+          stateShopify.textContent = 'Shopify: alleen shopinfo';
+          stateShopify.className = 'pill partial';
+          scopeWarn.hidden = false;
+          if (data.ordersUnavailableReason === 'read_orders_scope') {
+            scopeWarn.innerHTML =
+              '<strong>Orders worden niet getoond.</strong> Je token heeft (nog) geen goedgekeurde scope <span class="mono">read_orders</span>. ' +
+              'In Shopify: <strong>Instellingen → App-ontwikkeling → jouw app → Configuration → Admin API</strong>: vink <span class="mono">read_orders</span> (en liefst <span class="mono">read_customers</span>) aan, sla op, <strong>installeer de app opnieuw</strong> en werk zo nodig het Admin API-token in <span class="mono">.env</span> bij.';
+          } else {
+            scopeWarn.innerHTML =
+              '<strong>Orders konden niet worden geladen.</strong> ' +
+              esc(data.ordersUnavailableDetail || 'Onbekende fout');
+          }
+        } else {
+          stateShopify.textContent = data.shopifyConfigured ? 'Shopify: verbonden' : 'Shopify: ?';
+          stateShopify.className = 'pill ok';
+        }
+        smtpOk = Boolean(data.smtpConfigured);
+        openAiOk = Boolean(data.openAiConfigured);
+        stateSmtp.textContent = smtpOk ? 'SMTP: klaar' : 'SMTP: niet geconfigureerd';
+        stateSmtp.className = smtpOk ? 'pill ok' : 'pill off';
+        stateDpd.textContent = data.dpdConfigured ? 'DPD: credentials geladen' : 'DPD: alleen Shopify (geen DPD in .env)';
+        stateDpd.className = data.dpdConfigured ? 'pill ok' : 'pill off';
+        generatedEl.textContent = data.generatedAt ? `Laatste ophalen: ${fmtDate(data.generatedAt)}` : '';
+        if (stateThumbs) {
+          if (data.ordersUnavailable || !(data.rows && data.rows.length)) {
+            stateThumbs.hidden = true;
+          } else {
+            stateThumbs.hidden = false;
+            if (data.productThumbnails) {
+              stateThumbs.textContent = "Productfoto's: ja (read_products)";
+              stateThumbs.className = 'pill ok';
+            } else {
+              stateThumbs.textContent = "Productfoto's: nee — voeg read_products toe";
+              stateThumbs.className = 'pill off';
+            }
+          }
+        }
+        renderStatsStrip(data);
+        renderMailAuditBar(data);
+        renderDeskInsightPanel(data);
+        if (data.ordersUnavailable && !(data.rows && data.rows.length)) {
+          lastOverviewSnapshot = {
+            rows: [],
+            orderMailLogs: {},
+            ordersUnavailable: true,
+            ordersFetchMax: null,
+            ordersMayBeTruncated: false,
+            deskHeuristics: null,
+            deskContext: null,
+            shopLabel: null,
+          };
+          if (customerFilter) customerFilter.value = '';
+          if (ordersSectionMeta) {
+            ordersSectionMeta.textContent = 'Geen orderdata · zie waarschuwing hierboven';
+          }
+          tbody.innerHTML =
+            '<tr><td colspan="10" class="dim">Geen orders in dit overzicht. Na <span class="mono">read_orders</span> op de token + herinstallatie van de app verschijnen orderregels hier.</td></tr>';
+        } else {
+          lastOverviewSnapshot = {
+            rows: data.rows || [],
+            orderMailLogs: data.orderMailLogs || {},
+            ordersUnavailable: Boolean(data.ordersUnavailable),
+            ordersFetchMax: data.ordersFetchMax ?? null,
+            ordersMayBeTruncated: Boolean(data.ordersMayBeTruncated),
+            deskHeuristics: data.deskHeuristics ?? null,
+            deskContext: data.deskContext ?? null,
+            shopLabel: data.shop?.name || data.shop?.domain || null,
+          };
+          if (customerFilter) customerFilter.value = '';
+          if (ordersSectionMeta && data.ordersUnavailable) {
+            ordersSectionMeta.textContent = 'Geen orderdata · zie waarschuwing hierboven';
+          }
+          applyCustomerFilter();
+        }
+      } catch (e) {
+        if (myGen !== loadGeneration) return;
+        errorBox.hidden = false;
+        errorBox.textContent = e instanceof Error ? e.message : String(e);
+        tbody.innerHTML = '';
+        lastOverviewSnapshot = {
+          rows: [],
+          orderMailLogs: {},
+          ordersUnavailable: true,
+          ordersFetchMax: null,
+          ordersMayBeTruncated: false,
+          deskHeuristics: null,
+          deskContext: null,
+          shopLabel: null,
+        };
+        if (customerFilter) customerFilter.value = '';
+        if (statsFlowWrap) statsFlowWrap.hidden = true;
+        if (deskInsightPanel) {
+          deskInsightPanel.hidden = true;
+          deskInsightPanel.innerHTML = '';
+        }
+        if (mailAuditBar) {
+          mailAuditBar.hidden = true;
+          mailAuditBar.innerHTML = '';
+        }
+        if (ordersSectionMeta) ordersSectionMeta.textContent = 'Fout bij laden';
+        stateShopify.className = 'pill off';
+        stateSmtp.className = 'pill off';
+        stateDpd.className = 'pill off';
+        openAiOk = false;
+      } finally {
+        if (myGen === loadGeneration) {
+          document.body.classList.remove('is-loading');
+          if (refreshBtn) {
+            refreshBtn.disabled = false;
+            refreshBtn.removeAttribute('aria-busy');
+          }
+        }
+      }
+    }
+
+    tbody.addEventListener('click', (ev) => {
+      const t = ev.target;
+      if (!(t instanceof HTMLElement)) return;
+      const mailRow = t.closest('.mail-row--mailto');
+      if (mailRow instanceof HTMLElement && mailRow.dataset.to) {
+        hideMailHoverTip();
+        openMailModal(mailRow.dataset.to, mailRow.dataset.order || '');
+        return;
+      }
+      if (!t.classList.contains('mail-open')) return;
+      openMailModal(t.dataset.to || '', t.dataset.order || '');
+    });
+
+    let customerFilterDebounce = 0;
+    if (customerFilter) {
+      customerFilter.addEventListener('input', () => {
+        window.clearTimeout(customerFilterDebounce);
+        customerFilterDebounce = window.setTimeout(() => applyCustomerFilter(), 160);
+      });
+    }
+
+    document.getElementById('mCancel').addEventListener('click', closeMailModal);
+    mailModal.addEventListener('click', (ev) => {
+      if (ev.target === mailModal) closeMailModal();
+    });
+
+    if (mAiDraft) {
+      mAiDraft.addEventListener('click', async () => {
+        mailModalErr.hidden = true;
+        const to = mTo.value.trim();
+        const pasted = mIncoming && mIncoming.value.trim();
+        if (!to) {
+          mailModalErr.hidden = false;
+          mailModalErr.textContent = 'Vul het veld Aan (e-mail) in.';
+          return;
+        }
+        if (!pasted) {
+          mailModalErr.hidden = false;
+          mailModalErr.textContent = 'Plak eerst de inkomende vraag van de klant.';
+          return;
+        }
+        const prevLabel = mAiDraft.textContent;
+        mAiDraft.disabled = true;
+        mAiDraft.textContent = 'Bezig…';
+        try {
+          const res = await fetch('/api/ai/reply-draft', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              customerEmail: to,
+              shopifyOrderName: mailModalOrderName || undefined,
+              incomingText: pasted,
+              incomingSubject: mSubject.value.trim() || undefined,
+            }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (dashboardLoginRequired(res, data)) {
+            redirectDashboardLogin();
+            return;
+          }
+          if (!res.ok) throw new Error(data.error || res.statusText);
+          mSubject.value = data.subject || mSubject.value;
+          mBody.value = data.body || '';
+          if (mAiHint) {
+            mAiHint.textContent =
+              (data.matchedOrderName
+                ? `Concept voor order ${data.matchedOrderName} (${data.model || 'OpenAI'}). `
+                : '') + 'Controleer de tekst voordat je op Versturen drukt.';
+          }
+        } catch (e) {
+          mailModalErr.hidden = false;
+          mailModalErr.textContent = e instanceof Error ? e.message : String(e);
+        } finally {
+          mAiDraft.disabled = !openAiOk;
+          mAiDraft.textContent = prevLabel;
+        }
+      });
+    }
+
+    if (mSendBtn) {
+      mSendBtn.addEventListener('click', async () => {
+        mailModalErr.hidden = true;
+        const to = mTo.value.trim();
+        const subject = mSubject.value.trim();
+        const text = mBody.value.trim();
+        if (!to || !subject || !text) {
+          mailModalErr.hidden = false;
+          mailModalErr.textContent = 'Vul aan, onderwerp en bericht in.';
+          return;
+        }
+        const prevLabel = mSendBtn.textContent;
+        mSendBtn.disabled = true;
+        mSendBtn.textContent = 'Versturen…';
+        try {
+          const res = await fetch('/api/mail/send', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ to, subject, text }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (dashboardLoginRequired(res, data)) {
+            redirectDashboardLogin();
+            return;
+          }
+          if (!res.ok) throw new Error(data.error || res.statusText);
+          closeMailModal();
+        } catch (e) {
+          mailModalErr.hidden = false;
+          mailModalErr.textContent = e instanceof Error ? e.message : String(e);
+        } finally {
+          mSendBtn.disabled = false;
+          mSendBtn.textContent = prevLabel;
+        }
+      });
+    }
+
+    document.addEventListener('keydown', (ev) => {
+      if (ev.key !== 'Escape') return;
+      if (mailModal.classList.contains('open')) {
+        ev.preventDefault();
+        closeMailModal();
+      }
+    });
+
+    const dashboardLogoutBtn = document.getElementById('dashboardLogout');
+    if (dashboardLogoutBtn) {
+      dashboardLogoutBtn.addEventListener('click', async () => {
+        try {
+          await fetch('/api/dashboard/logout', { method: 'POST', credentials: 'same-origin' });
+        } catch {
+          /* still leave */
+        }
+        location.href = '/login.html';
+      });
+    }
+
+    if (refreshBtn) refreshBtn.addEventListener('click', load);
+    if (new URLSearchParams(location.search).get('gekoppeld') === '1') {
+      history.replaceState({}, '', location.pathname);
+    }
+    (function initProductDetailsToggle() {
+      const el = document.getElementById('productDetailsToggle');
+      if (!el) return;
+      try {
+        if (localStorage.getItem('rengHelpdesk_productDetails') === '1') {
+          el.checked = true;
+          document.documentElement.classList.add('product-details-on');
+        }
+      } catch {
+        /* ignore */
+      }
+      el.addEventListener('change', () => {
+        document.documentElement.classList.toggle('product-details-on', el.checked);
+        try {
+          localStorage.setItem('rengHelpdesk_productDetails', el.checked ? '1' : '0');
+        } catch {
+          /* ignore */
+        }
+      });
+    })();
+    load();
+  </script>
+</body>
+</html>

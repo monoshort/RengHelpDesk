@@ -1,0 +1,35 @@
+Onderwerp: Verzoek om admin consent voor Microsoft Graph (Graph Explorer – Outlook-mail lezen & versturen)
+
+Hallo,
+
+Ik probeer via Microsoft Graph Explorer queries uit te voeren op mijn Outlook-mailbox, maar ik krijg steeds:
+
+  Forbidden – 403
+  Either the signed-in user does not have sufficient privileges, or you need to consent to one of the permissions on the Modify permissions tab.
+
+Ik wil het volgende kunnen (delegated, ingelogd als mezelf):
+
+  • E-mail in mijn eigen mailbox lezen (inclusief body; bijlagen en geavanceerd zoeken met $search waar van toepassing)
+  • E-mail versturen via de Graph API
+
+Gewenste delegated permissions:
+
+  • Mail.ReadWrite (of minimaal Mail.Read als alleen lezen nodig is)
+  • Mail.Send
+  • Optioneel: User.Read (profiel van de ingelogde gebruiker)
+
+Dit zijn geen Application-permissions (geen app-only op alle mailboxen); alleen delegated voor mijn eigen gebruiker in Graph Explorer.
+
+Kunnen jullie als tenant-admin het volgende doen?
+
+  1) In Graph Explorer → tabblad “Modify permissions” de bovenstaande permissions aanvinken en “Consent” / admin consent verlenen zoals de omgeving dat vraagt.
+
+  OF
+
+  2) In Microsoft Entra admin center (Azure Portal) → Enterprise applications → Microsoft Graph Explorer (of de Graph Explorer service principal) → Permissions → admin consent verlenen voor de genoemde delegated permissions.
+
+Dit is bedoeld voor test- en ontwikkelwerk via Graph Explorer.
+
+Laat het weten als jullie meer nodig hebben (bijv. screenshot van de 403 of van het tabblad Modify permissions).
+
+Alvast bedankt!

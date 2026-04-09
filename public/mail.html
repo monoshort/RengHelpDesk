@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Toddie helpdesk · Mail (concept)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #faf9f7;
+      --sidebar: #f3f4f0;
+      --border: #e0e3db;
+      --text: #444444;
+      --heading: #212529;
+      --muted: #6c7568;
+      --list-bg: #fff;
+      --read-bg: #fff;
+      --accent-mail: #558235;
+      --accent-mail-soft: rgba(85, 130, 53, 0.1);
+      --ready-border: #558235;
+      --ready-bg: rgba(85, 130, 53, 0.08);
+      --gen-border: #a67c00;
+      --gen-bg: rgba(166, 124, 0, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: "Quicksand", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    .topbar {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.5rem 1rem;
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+      gap: 1rem;
+    }
+    .topbar h1 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--heading);
+    }
+    .topbar .hint {
+      font-size: 0.8rem;
+      color: var(--muted);
+      flex: 1;
+      text-align: center;
+    }
+    .topbar a {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--accent-mail);
+      text-decoration: none;
+    }
+    .topbar a:hover { text-decoration: underline; color: #43672a; }
+    .shell {
+      flex: 1;
+      display: flex;
+      min-height: 0;
+    }
+    .sidebar {
+      width: 240px;
+      flex-shrink: 0;
+      background: var(--sidebar);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 0.65rem 0;
+      font-size: 0.82rem;
+    }
+    .sidebar h2 {
+      margin: 0.5rem 0.85rem 0.35rem;
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+    }
+    .folder {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.35rem 0.85rem;
+      cursor: pointer;
+      border-left: 3px solid transparent;
+      color: var(--text);
+    }
+    .folder:hover { background: rgba(85, 130, 53, 0.06); }
+    .folder.active {
+      background: var(--accent-mail-soft);
+      border-left-color: var(--accent-mail);
+      font-weight: 600;
+    }
+    .folder .cnt { color: var(--muted); font-size: 0.75rem; }
+    .sub { padding-left: 1.25rem; font-size: 0.8rem; }
+    .list-col {
+      width: 380px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border);
+      background: var(--list-bg);
+      min-width: 280px;
+    }
+    .list-head {
+      padding: 0.65rem 0.85rem;
+      border-bottom: 1px solid var(--border);
+      font-weight: 700;
+      font-size: 0.9rem;
+    }
+    .list-scroll { flex: 1; overflow-y: auto; }
+    .group-label {
+      padding: 0.45rem 0.85rem;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      background: #f6f7f3;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    .msg-row {
+      display: flex;
+      gap: 0.5rem;
+      padding: 0.55rem 0.65rem;
+      border-bottom: 1px solid #eee;
+      cursor: pointer;
+      align-items: flex-start;
+    }
+    .msg-row:hover { background: rgba(85, 130, 53, 0.05); }
+    .msg-row.selected {
+      background: rgba(85, 130, 53, 0.1);
+      border-left: 3px solid var(--accent-mail);
+      padding-left: calc(0.65rem - 3px);
+    }
+    .msg-main { flex: 1; min-width: 0; }
+    .msg-from { font-size: 0.8rem; font-weight: 600; }
+    .msg-subj {
+      font-size: 0.8rem;
+      color: var(--accent-mail);
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .msg-snip {
+      font-size: 0.75rem;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 0.15rem;
+    }
+    .msg-meta { font-size: 0.72rem; color: var(--muted); margin-top: 0.2rem; }
+    .ai-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      flex-shrink: 0;
+      padding-top: 0.1rem;
+    }
+    .ai-icon-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      border: 2px solid var(--border);
+      background: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+      padding: 0;
+    }
+    .ai-icon-btn:hover:not(:disabled) {
+      transform: scale(1.04);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .ai-icon-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    .ai-icon-btn.ready {
+      border-color: var(--ready-border);
+      background: var(--ready-bg);
+    }
+    .ai-icon-btn.gen {
+      border-color: var(--gen-border);
+      background: var(--gen-bg);
+    }
+    .sparkle {
+      font-size: 1.1rem;
+      line-height: 1;
+    }
+    .read-col {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--read-bg);
+    }
+    .read-empty {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 0.9rem;
+      padding: 2rem;
+      text-align: center;
+    }
+    .read-pane { display: none; flex-direction: column; flex: 1; min-height: 0; }
+    .read-pane.open { display: flex; }
+    .read-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      padding: 0.65rem 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .read-actions button {
+      font: inherit;
+      font-size: 0.8rem;
+      padding: 0.35rem 0.65rem;
+      margin-right: 0.35rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: #fff;
+      cursor: pointer;
+    }
+    .read-actions button:hover { background: #f5f5f5; }
+    .read-subject {
+      padding: 0.85rem 1rem 0.35rem;
+      font-size: 1.15rem;
+      font-weight: 700;
+      line-height: 1.25;
+    }
+    .read-participants {
+      padding: 0 1rem 0.75rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+    .read-participants strong { color: var(--text); }
+    .ai-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      padding: 1rem;
+      background: linear-gradient(180deg, #f6f7f3 0%, #fff 100%);
+      border-bottom: 1px solid var(--border);
+    }
+    .ai-big-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.65rem 1.1rem;
+      border-radius: 12px;
+      font: inherit;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 2px solid var(--border);
+      background: #fff;
+      transition: box-shadow 0.15s ease, transform 0.12s ease;
+    }
+    .ai-big-btn:hover:not(:disabled) {
+      box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+      transform: translateY(-1px);
+    }
+    .ai-big-btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    .ai-big-btn.ready {
+      border-color: var(--ready-border);
+      background: var(--ready-bg);
+    }
+    .ai-big-btn.gen {
+      border-color: var(--gen-border);
+      background: var(--gen-bg);
+    }
+    .read-body-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem 1.25rem 2rem;
+      font-size: 0.9rem;
+      line-height: 1.55;
+      color: #222;
+    }
+    .read-body-scroll blockquote {
+      margin: 1rem 0 0;
+      padding-left: 0.85rem;
+      border-left: 3px solid var(--border);
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    @media (max-width: 960px) {
+      .shell { flex-direction: column; }
+      .sidebar { width: 100%; max-height: 160px; }
+      .list-col { width: 100%; max-height: 40vh; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <h1>Toddie helpdesk · Mail</h1>
+    <p class="hint">Statische opzet — geen Microsoft Graph. Later: echte inbox + kant-en-klare templates + AI-voorstel.</p>
+    <a href="/">← Terug naar orders</a>
+  </header>
+  <div class="shell">
+    <aside class="sidebar" aria-label="Mappen">
+      <h2>Favorieten</h2>
+      <div class="folder"><span>Postvak IN</span><span class="cnt">1727</span></div>
+      <div class="folder"><span>Verzonden items</span><span class="cnt"></span></div>
+      <div class="folder"><span>Concepten</span><span class="cnt"></span></div>
+      <h2>Accounts</h2>
+      <div class="folder active"><span>Toddie.nl</span></div>
+      <div class="folder sub"><span>bol.com bestellingen</span><span class="cnt">588</span></div>
+      <div class="folder sub"><span>Ideeën</span></div>
+      <div class="folder"><span>Toddie.fr</span></div>
+      <div class="folder sub"><span>Postvak IN</span></div>
+      <h2>Overig</h2>
+      <div class="folder"><span>Ongewenste e-mail</span></div>
+    </aside>
+    <section class="list-col" aria-label="Berichtenlijst">
+      <div class="list-head">Postvak IN · Toddie.nl</div>
+      <div class="list-scroll" id="listScroll"></div>
+    </section>
+    <section class="read-col" aria-label="Leesvenster">
+      <div class="read-empty" id="readEmpty">Selecteer een bericht in de lijst.</div>
+      <div class="read-pane" id="readPane" hidden>
+        <div class="read-toolbar">
+          <div class="read-actions">
+            <button type="button" id="btnReply">Beantwoorden</button>
+            <button type="button" id="btnReplyAll">Allen beantwoorden</button>
+            <button type="button" id="btnForward">Doorsturen</button>
+          </div>
+          <span class="msg-meta" id="readDate"></span>
+        </div>
+        <div class="read-subject" id="readSubject"></div>
+        <div class="read-participants" id="readParticipants"></div>
+        <div class="ai-strip">
+          <button type="button" class="ai-big-btn ready" id="btnReadyMail" disabled>
+            <span class="sparkle" aria-hidden="true">✦</span>
+            <span id="readyLabel">Kant-en-klare mail</span>
+          </button>
+          <button type="button" class="ai-big-btn gen" id="btnGenAi">
+            <span class="sparkle" aria-hidden="true">✦</span>
+            Genereer voorstel met AI
+          </button>
+        </div>
+        <div class="read-body-scroll" id="readBody"></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    /** Mock — later vervangen door Graph API */
+    const MOCK = [
+      {
+        id: 'm1',
+        group: 'Vandaag',
+        from: 'Rikke Stausholm',
+        email: 'Stausholm@live.dk',
+        subject: 'Re: Issue with bookshelf – cosmetic damage upon delivery',
+        snippet: 'The compensation is too low — damage on multiple parts. 400–500 DKK would be fair…',
+        time: '14:32',
+        hasTemplate: false,
+        body: `<p>Hallo Edith,</p>
+<p>Thank you for your reply. Unfortunately the amount you offer is too low for the damage we see — it is not only one spot but several visible marks on multiple parts of the bookshelf. We would need something in the range of <strong>400–500 DKK</strong> to feel this is resolved fairly.</p>
+<p>Kind regards,<br/>Rikke</p>
+<blockquote>
+  <p>Van: info@toddie.nl<br/>Verzonden: woensdag 8 april 2026 …</p>
+</blockquote>`,
+      },
+      {
+        id: 'm2',
+        group: 'Vandaag',
+        from: 'Sendcloud',
+        email: 'noreply@sendcloud.com',
+        subject: 'Je zending is onderweg',
+        snippet: 'Track & trace: uw pakket wordt vandaag bezorgd…',
+        time: '09:10',
+        hasTemplate: true,
+        body: '<p>Beste klant,</p><p>Uw zending is meegegeven aan de vervoerder. Gebruik de tracklink in uw account.</p>',
+      },
+      {
+        id: 'm3',
+        group: 'Vorige week',
+        from: 'bol.com Partner',
+        email: 'partner@bol.com',
+        subject: 'Nieuwe bestelling #BOL-99821',
+        snippet: 'Er staat een nieuwe bestelling klaar voor verzending…',
+        time: 'ma 31-3',
+        hasTemplate: true,
+        body: '<p>Goedemiddag,</p><p>Er is een nieuwe bestelling binnengekomen via bol.com. Verwerk deze in jullie systeem.</p>',
+      },
+      {
+        id: 'm4',
+        group: 'Vorige week',
+        from: 'Jan de Vries',
+        email: 'jan@example.nl',
+        subject: 'Vraag over levertijd wandlamp',
+        snippet: 'Wanneer verwachten jullie de Bosdieren lamp weer op voorraad?',
+        time: 'vr 28-3',
+        hasTemplate: false,
+        body: '<p>Hoi Toddie,</p><p>Kunnen jullie aangeven wanneer de wandlamp Bosdieren weer leverbaar is?</p><p>Groet, Jan</p>',
+      },
+    ];
+
+    const listScroll = document.getElementById('listScroll');
+    const readEmpty = document.getElementById('readEmpty');
+    const readPane = document.getElementById('readPane');
+    const readSubject = document.getElementById('readSubject');
+    const readParticipants = document.getElementById('readParticipants');
+    const readDate = document.getElementById('readDate');
+    const readBody = document.getElementById('readBody');
+    const btnReadyMail = document.getElementById('btnReadyMail');
+    const readyLabel = document.getElementById('readyLabel');
+    const btnGenAi = document.getElementById('btnGenAi');
+
+    let selectedId = null;
+
+    function esc(s) {
+      if (s == null) return '';
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    function renderList() {
+      const groups = {};
+      for (const m of MOCK) {
+        if (!groups[m.group]) groups[m.group] = [];
+        groups[m.group].push(m);
+      }
+      const order = ['Vandaag', 'Vorige week', 'Twee weken geleden'];
+      let html = '';
+      for (const g of order) {
+        const items = groups[g];
+        if (!items || !items.length) continue;
+        html += `<div class="group-label">${esc(g)}</div>`;
+        for (const m of items) {
+          const sel = m.id === selectedId ? ' selected' : '';
+          const readyTitle = m.hasTemplate
+            ? 'Kant-en-klare mail beschikbaar — klik om te gebruiken (later)'
+            : 'Geen kant-en-klare mail voor dit type bericht';
+          html += `<div class="msg-row${sel}" data-id="${esc(m.id)}" role="button" tabindex="0">
+            <div class="msg-main">
+              <div class="msg-from">${esc(m.from)}</div>
+              <div class="msg-subj">${esc(m.subject)}</div>
+              <div class="msg-snip">${esc(m.snippet)}</div>
+              <div class="msg-meta">${esc(m.time)}</div>
+            </div>
+            <div class="ai-actions">
+              <button type="button" class="ai-icon-btn ready" data-action="ready" data-id="${esc(m.id)}" title="${esc(readyTitle)}" ${m.hasTemplate ? '' : 'disabled'} aria-label="Kant-en-klare mail">
+                <span class="sparkle">✦</span>
+              </button>
+              <button type="button" class="ai-icon-btn gen" data-action="gen" data-id="${esc(m.id)}" title="Genereer voorstel met AI (later)" aria-label="AI-voorstel">
+                <span class="sparkle">✦</span>
+              </button>
+            </div>
+          </div>`;
+        }
+      }
+      listScroll.innerHTML = html;
+    }
+
+    function openMessage(id, opts = {}) {
+      const m = MOCK.find((x) => x.id === id);
+      if (!m) return;
+      selectedId = id;
+      renderList();
+      readEmpty.style.display = 'none';
+      readPane.hidden = false;
+      readPane.classList.add('open');
+      readSubject.textContent = m.subject;
+      readParticipants.innerHTML = `<strong>${esc(m.from)}</strong> &lt;${esc(m.email)}&gt; · Aan Toddie.nl`;
+      readDate.textContent = m.time;
+      readBody.innerHTML = m.body;
+      if (m.hasTemplate) {
+        btnReadyMail.disabled = false;
+        readyLabel.textContent = 'Kant-en-klare mail gebruiken';
+      } else {
+        btnReadyMail.disabled = true;
+        readyLabel.textContent = 'Niet beschikbaar';
+      }
+      if (opts.flash === 'ready' && m.hasTemplate) {
+        btnReadyMail.animate(
+          [{ boxShadow: '0 0 0 0 rgba(16,124,16,0.4)' }, { boxShadow: '0 0 0 10px rgba(16,124,16,0)' }],
+          { duration: 450 }
+        );
+      }
+      if (opts.flash === 'gen') {
+        btnGenAi.animate(
+          [{ boxShadow: '0 0 0 0 rgba(193,156,0,0.45)' }, { boxShadow: '0 0 0 12px rgba(193,156,0,0)' }],
+          { duration: 450 }
+        );
+      }
+    }
+
+    listScroll.addEventListener('click', (ev) => {
+      const row = ev.target.closest('.msg-row');
+      const btn = ev.target.closest('[data-action]');
+      if (btn) {
+        const id = btn.getAttribute('data-id');
+        const action = btn.getAttribute('data-action');
+        ev.stopPropagation();
+        openMessage(id, { flash: action });
+        return;
+      }
+      if (row && row.dataset.id) openMessage(row.dataset.id);
+    });
+
+    listScroll.addEventListener('keydown', (ev) => {
+      const row = ev.target.closest('.msg-row');
+      if (row && (ev.key === 'Enter' || ev.key === ' ')) {
+        ev.preventDefault();
+        openMessage(row.dataset.id);
+      }
+    });
+
+    btnReadyMail.addEventListener('click', () => {
+      alert('Later: template invoegen of concept openen in Outlook/Graph. (Mock)');
+    });
+    btnGenAi.addEventListener('click', () => {
+      alert('Later: thread naar LLM, concept terug in UI of als draft. (Mock)');
+    });
+    document.getElementById('btnReply').addEventListener('click', () => alert('Later: Graph reply draft. (Mock)'));
+
+    renderList();
+    openMessage('m1');
+  </script>
+</body>
+</html>
