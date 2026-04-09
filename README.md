@@ -51,6 +51,8 @@ Geschikt om een klant een **https-URL** te geven. Het project bevat `vercel.json
 
 Lokaal test je Vercel-gedrag met `VERCEL=1` (geen `listen`) en eventueel `npx vercel dev`.
 
+**Windows:** als `npx vercel deploy` faalt met een lege foutmelding, kan een **pad met haakjes** (bijv. `...\(Yenlo\...`) de CLI breken. Clone of kopieer het project naar een pad zonder `(` en `)`, of koppel **GitHub** in Vercel zodat de build op de servers van Vercel draait.
+
 ## Belangrijk
 
 - Commit **nooit** `.env`, `.env.local`, `.env.production` of `.shopify_token.json` (staan in `.gitignore`; alleen `.env.example` is bedoeld voor Git).
