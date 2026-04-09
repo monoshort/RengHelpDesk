@@ -26,6 +26,6 @@ if ($hasOrigin) {
 } else {
   $name = $env:GITHUB_REPO_NAME
   if ([string]::IsNullOrWhiteSpace($name)) { $name = "RengHelpDesk" }
-  Write-Host "Aanmaken en pushen: $name (public). Zet GITHUB_REPO_NAME voor een andere naam."
-  & $gh repo create $name --public --source=. --remote=origin --push
+  Write-Host "Aanmaken en pushen: $name (private — veiliger voor .env-gevoelige setup). Zet GITHUB_REPO_NAME voor een andere naam."
+  & $gh repo create $name --private --source=. --remote=origin --push
 }

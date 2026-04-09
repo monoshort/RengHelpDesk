@@ -1,5 +1,8 @@
 node_modules/
+# Geheimen — nooit committen (ook geen kopieën met andere naam)
 .env
+.env.*
+!.env.example
 *.log
 .DS_Store
 .shopify_token.json
