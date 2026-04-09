@@ -1045,6 +1045,162 @@
       border-color: rgba(85, 130, 53, 0.55);
     }
     .modal .actions { display: flex; gap: 0.5rem; margin-top: 1rem; justify-content: flex-end; flex-wrap: wrap; }
+    .modal.modal--timeline {
+      max-width: min(520px, 100%);
+      max-height: 88vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .modal.modal--timeline .timeline-scroll {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      margin: 0 -0.25rem;
+      padding: 0 0.25rem;
+    }
+    .modal.modal--email-preview {
+      max-width: min(920px, 100%);
+      max-height: 92vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .email-preview-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.65rem;
+    }
+    .email-preview-head .subj {
+      margin: 0;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--heading);
+      flex: 1;
+      min-width: 12rem;
+    }
+    .badge-delivered {
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 0.2rem 0.5rem;
+      border-radius: 6px;
+      background: rgba(85, 130, 53, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(85, 130, 53, 0.35);
+      white-space: nowrap;
+    }
+    .email-preview-frame-wrap {
+      flex: 1;
+      min-height: 200px;
+      max-height: min(72vh, 640px);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      background: #fff;
+    }
+    .email-preview-frame-wrap iframe {
+      width: 100%;
+      height: 100%;
+      min-height: 280px;
+      border: none;
+      display: block;
+    }
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    .timeline-open {
+      margin-top: 0.35rem;
+    }
+    .tl-list {
+      margin: 0;
+      padding: 0 0 0.5rem;
+      list-style: none;
+    }
+    .tl-item {
+      display: grid;
+      grid-template-columns: 14px 1fr;
+      gap: 0.65rem 0.85rem;
+      position: relative;
+      padding-bottom: 1rem;
+    }
+    .tl-item:last-child { padding-bottom: 0; }
+    .tl-rail {
+      position: relative;
+      display: flex;
+      justify-content: center;
+      padding-top: 0.35rem;
+    }
+    .tl-rail::before {
+      content: '';
+      position: absolute;
+      top: 0.55rem;
+      bottom: -0.5rem;
+      left: 50%;
+      width: 2px;
+      margin-left: -1px;
+      background: var(--border);
+      border-radius: 1px;
+    }
+    .tl-item:last-child .tl-rail::before {
+      display: none;
+    }
+    .tl-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #6c7568;
+      border: 2px solid var(--surface);
+      box-shadow: 0 0 0 1px var(--border);
+      z-index: 1;
+      flex-shrink: 0;
+    }
+    .tl-body {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.65rem 0.85rem;
+      font-size: 0.8125rem;
+      line-height: 1.45;
+    }
+    .tl-time {
+      font-size: 0.72rem;
+      color: var(--muted);
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+    }
+    .tl-desc {
+      color: var(--text);
+    }
+    .tl-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-top: 0.55rem;
+      align-items: center;
+    }
+    .tl-actions a,
+    .tl-actions button {
+      font-size: 0.72rem;
+    }
+    .tl-pill {
+      display: inline-block;
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 0.12rem 0.4rem;
+      border-radius: 4px;
+      background: rgba(0, 0, 0, 0.06);
+      color: var(--muted);
+      font-family: ui-monospace, monospace;
+    }
     footer {
       padding: 1.25rem clamp(1rem, 4vw, 2rem) 2rem;
       margin: 0.5rem auto 0;
@@ -1196,7 +1352,7 @@
           <h2 class="flow-title">Recente orders</h2>
           <p class="flow-desc">
             Kolom <strong>Producten</strong>: per regel foto (zoveel mogelijk), link naar de winkel, prijs, en eventueel <strong>productie / werkdagen</strong>. Orders worden <strong>uit alle Shopify-pagina&apos;s</strong> geladen tot de ophaallimiet (.env <span class="mono">SHOPIFY_ORDERS_MAX</span>).
-            <strong>Mailhistorie</strong>: e-mails naar de klant (Shopify, Sendcloud, …).
+            <strong>Mailhistorie</strong>: e-mails naar de klant (Shopify, Sendcloud, …). Per order: knop <strong>Timeline</strong> voor de volledige Shopify-timeline, PDF-facturen (als de link in de events staat) en <strong>Bekijk mail</strong> met voorbeeld zoals in de admin.
           </p>
         </div>
       </div>
@@ -1265,7 +1421,7 @@
   </main>
   <footer>
     <strong style="color:var(--text-heading);font-weight:600">Technische referentie</strong> —
-    <span class="mono">GET /api/overview</span> (alle pagina&apos;s; <span class="mono">?limit=50</span> = één pagina) · <span class="mono">POST /api/mail/send</span> · <span class="mono">POST /api/ai/reply-draft</span> · <span class="mono">POST /api/ai/desk-insight</span> · <span class="mono">.env.example</span>
+    <span class="mono">GET /api/overview</span> · <span class="mono">GET /api/orders/:id/timeline</span> · <span class="mono">POST /api/mail/send</span> · <span class="mono">POST /api/ai/reply-draft</span> · <span class="mono">POST /api/ai/desk-insight</span> · <span class="mono">.env.example</span>
   </footer>
 
   <div id="mailHoverTip" role="tooltip" hidden></div>
@@ -1299,6 +1455,36 @@
     </div>
   </div>
 
+  <div class="backdrop" id="timelineModal" aria-hidden="true">
+    <div class="modal modal--timeline" role="dialog" aria-labelledby="timelineModalTitle">
+      <h2 id="timelineModalTitle">Order timeline</h2>
+      <p class="dim" id="timelineModalSub" style="margin: -0.35rem 0 0.75rem; font-size: 0.78rem"></p>
+      <div class="timeline-scroll" id="timelineModalBody">
+        <p class="dim">Laden…</p>
+      </div>
+      <div class="actions" style="margin-top: 0.85rem">
+        <button type="button" id="timelineModalClose">Sluiten</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="backdrop" id="emailPreviewModal" aria-hidden="true">
+    <div class="modal modal--email-preview" role="dialog" aria-labelledby="emailPreviewTitle">
+      <h2 id="emailPreviewTitle" class="visually-hidden">E-mailvoorbeeld</h2>
+      <div class="email-preview-head">
+        <p class="subj" id="emailPreviewSubject"></p>
+        <span class="badge-delivered" id="emailPreviewDelivered" hidden>✓ Afgeleverd</span>
+      </div>
+      <div class="email-preview-frame-wrap">
+        <iframe title="E-mailvoorbeeld" id="emailPreviewFrame" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-downloads"></iframe>
+      </div>
+      <div class="actions" style="margin-top: 0.85rem">
+        <button type="button" class="ghost" id="emailPreviewPrint">Print</button>
+        <button type="button" id="emailPreviewClose">Sluiten</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const tbody = document.getElementById('tbody');
     const scopeWarn = document.getElementById('scopeWarn');
@@ -1325,6 +1511,19 @@
     const customerFilter = document.getElementById('customerFilter');
     const mailHoverTip = document.getElementById('mailHoverTip');
     const deskInsightPanel = document.getElementById('deskInsightPanel');
+    const timelineModal = document.getElementById('timelineModal');
+    const timelineModalBody = document.getElementById('timelineModalBody');
+    const timelineModalSub = document.getElementById('timelineModalSub');
+    const timelineModalClose = document.getElementById('timelineModalClose');
+    const emailPreviewModal = document.getElementById('emailPreviewModal');
+    const emailPreviewSubject = document.getElementById('emailPreviewSubject');
+    const emailPreviewDelivered = document.getElementById('emailPreviewDelivered');
+    const emailPreviewFrame = document.getElementById('emailPreviewFrame');
+    const emailPreviewClose = document.getElementById('emailPreviewClose');
+    const emailPreviewPrint = document.getElementById('emailPreviewPrint');
+
+    /** @type {any[]} */
+    let lastTimelineEvents = [];
 
     let loadGeneration = 0;
     /** @type {string} */
@@ -1938,7 +2137,8 @@
           const deskHintChip = r.deskHint
             ? `<span class="desk-hint-chip" title="${esc(r.deskHint)}" role="img" aria-label="Inzicht: ${esc(r.deskHint)}">✦</span>`
             : '';
-          const orderCell = `${testB}<a href="${esc(r.adminOrderUrl)}" target="_blank" rel="noopener"><strong>${esc(r.shopifyOrderName)}</strong></a>${deskHintChip}<br/><span class="dim mono">${fmtDate(r.createdAt)}</span>`;
+          const oid = String(r.shopifyOrderId);
+          const orderCell = `${testB}<a href="${esc(r.adminOrderUrl)}" target="_blank" rel="noopener"><strong>${esc(r.shopifyOrderName)}</strong></a>${deskHintChip}<br/><span class="dim mono">${fmtDate(r.createdAt)}</span><br/><button type="button" class="small timeline-open" data-timeline-id="${esc(oid)}" data-timeline-name="${esc(r.shopifyOrderName || '')}">Timeline</button>`;
 
           const subMoney = [
             r.subtotalPrice != null ? `Subtotaal ${fmtMoney(r.currency, r.subtotalPrice)}` : null,
@@ -1978,7 +2178,6 @@
               .join('');
           }
 
-          const oid = String(r.shopifyOrderId);
           const logList = logs[oid] || [];
           let logCell = '<span class="dim">Geen mail naar klant in timeline</span>';
           if (logList.length) {
@@ -2097,6 +2296,139 @@
     function closeMailModal() {
       mailModal.classList.remove('open');
       mailModal.setAttribute('aria-hidden', 'true');
+    }
+
+    function closeTimelineModal() {
+      if (!timelineModal) return;
+      timelineModal.classList.remove('open');
+      timelineModal.setAttribute('aria-hidden', 'true');
+    }
+
+    function closeEmailPreviewModal() {
+      if (!emailPreviewModal) return;
+      emailPreviewModal.classList.remove('open');
+      emailPreviewModal.setAttribute('aria-hidden', 'true');
+      if (emailPreviewFrame) emailPreviewFrame.srcdoc = '';
+    }
+
+    /**
+     * @param {any} ev
+     */
+    function openEmailPreviewModal(ev) {
+      if (!emailPreviewModal || !emailPreviewFrame || !emailPreviewSubject) return;
+      emailPreviewSubject.textContent = ev.previewSubject || ev.description || 'E-mail';
+      if (emailPreviewDelivered) {
+        emailPreviewDelivered.hidden = !ev.deliveredLikely;
+      }
+      const inner =
+        ev.previewHtml ||
+        `<p>${esc(String(ev.messagePlain || ev.description || '(Geen inhoud)'))}</p>`;
+      emailPreviewFrame.srcdoc =
+        '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base target="_blank" rel="noopener"></head><body style="margin:0;padding:12px;font-family:system-ui,sans-serif;font-size:14px;line-height:1.45;">' +
+        inner +
+        '</body></html>';
+      emailPreviewModal.classList.add('open');
+      emailPreviewModal.setAttribute('aria-hidden', 'false');
+    }
+
+    /**
+     * @param {any[]} events
+     * @param {string} adminOrderUrl
+     */
+    function renderTimelineEventsHtml(events, adminOrderUrl) {
+      lastTimelineEvents = events || [];
+      if (!events || !events.length) {
+        return '<p class="dim">Geen timeline-events (of Shopify gaf een lege lijst).</p>';
+      }
+      const items = events
+        .map((ev, idx) => {
+          const mainRaw = ev.description || ev.messagePlain || '—';
+          const main = esc(String(mainRaw));
+          const verb = ev.verb ? `<span class="dim" style="font-size:0.68rem"> (${esc(String(ev.verb))})</span>` : '';
+          const auth = ev.author
+            ? `<div class="dim" style="font-size:0.7rem;margin-top:0.2rem">via ${esc(String(ev.author))}</div>`
+            : '';
+          const pdfs = (ev.pdfUrls || [])
+            .map((u, pi) => {
+              const n = (ev.pdfUrls || []).length;
+              const lab = n > 1 ? `PDF ${pi + 1}` : 'Open PDF';
+              return `<a class="small ghost" style="display:inline-block;margin-right:0.35rem" href="${esc(u)}" target="_blank" rel="noopener">${esc(lab)}</a>`;
+            })
+            .join('');
+          const invs = (ev.invoiceRefs || [])
+            .map((inv) => `<span class="tl-pill">${esc(inv)}</span>`)
+            .join(' ');
+          const invShop =
+            invs && adminOrderUrl
+              ? ` <a href="${esc(adminOrderUrl)}" target="_blank" rel="noopener" class="small dim">Shopify-order</a>`
+              : '';
+          const mailBtn =
+            ev.customerEmailEvent && ev.previewHtml
+              ? `<button type="button" class="ghost small tl-view-mail" data-ev-idx="${idx}">Bekijk mail</button>`
+              : '';
+          const hasRow = pdfs || invs || mailBtn;
+          return `<li class="tl-item"><div class="tl-rail"><span class="tl-dot"></span></div><div class="tl-body"><div class="tl-time">${esc(
+            fmtDate(ev.created_at)
+          )}${verb}</div><div class="tl-desc">${main}</div>${auth}${
+            hasRow
+              ? `<div class="tl-actions">${pdfs}${
+                  invs ? `<span style="display:flex;flex-wrap:wrap;gap:0.35rem;align-items:center">${invs}${invShop}</span>` : ''
+                }${mailBtn}</div>`
+              : ''
+          }</div></li>`;
+        })
+        .join('');
+      return `<ul class="tl-list">${items}</ul>`;
+    }
+
+    /**
+     * @param {string} orderId
+     * @param {string} orderName
+     */
+    async function openTimelineModal(orderId, orderName) {
+      if (!timelineModal || !timelineModalBody) return;
+      timelineModal.classList.add('open');
+      timelineModal.setAttribute('aria-hidden', 'false');
+      if (timelineModalSub) {
+        timelineModalSub.textContent = orderName
+          ? `Order ${orderName} · laden…`
+          : `Order #${orderId} · laden…`;
+      }
+      timelineModalBody.innerHTML = '<p class="dim">Laden van Shopify-timeline…</p>';
+      lastTimelineEvents = [];
+      try {
+        const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}/timeline`, {
+          credentials: 'same-origin',
+        });
+        const data = await res.json().catch(() => ({}));
+        if (dashboardLoginRequired(res, data)) {
+          closeTimelineModal();
+          redirectDashboardLogin();
+          return;
+        }
+        if (!res.ok) {
+          timelineModalBody.innerHTML = `<p class="err" style="margin:0">${esc(
+            data.error || res.statusText || 'Fout'
+          )}</p>`;
+          return;
+        }
+        const events = data.events || [];
+        if (timelineModalSub) {
+          const admin = data.adminOrderUrl || '';
+          if (admin) {
+            timelineModalSub.innerHTML = `${esc(orderName || 'Order')} · <a href="${esc(
+              admin
+            )}" target="_blank" rel="noopener">Open in Shopify Admin</a>`;
+          } else {
+            timelineModalSub.textContent = orderName || `Order ${orderId}`;
+          }
+        }
+        timelineModalBody.innerHTML = renderTimelineEventsHtml(events, data.adminOrderUrl || '');
+      } catch (e) {
+        timelineModalBody.innerHTML = `<p class="err" style="margin:0">${esc(
+          e instanceof Error ? e.message : String(e)
+        )}</p>`;
+      }
     }
 
     async function load() {
@@ -2297,6 +2629,12 @@
     tbody.addEventListener('click', (ev) => {
       const t = ev.target;
       if (!(t instanceof HTMLElement)) return;
+      const tlBtn = t.closest('.timeline-open');
+      if (tlBtn instanceof HTMLElement && tlBtn.dataset.timelineId) {
+        ev.preventDefault();
+        openTimelineModal(tlBtn.dataset.timelineId, tlBtn.dataset.timelineName || '');
+        return;
+      }
       const mailRow = t.closest('.mail-row--mailto');
       if (mailRow instanceof HTMLElement && mailRow.dataset.to) {
         hideMailHoverTip();
@@ -2319,6 +2657,42 @@
     mailModal.addEventListener('click', (ev) => {
       if (ev.target === mailModal) closeMailModal();
     });
+
+    if (timelineModalClose) {
+      timelineModalClose.addEventListener('click', closeTimelineModal);
+    }
+    if (timelineModal) {
+      timelineModal.addEventListener('click', (ev) => {
+        if (ev.target === timelineModal) closeTimelineModal();
+      });
+    }
+    if (timelineModalBody) {
+      timelineModalBody.addEventListener('click', (ev) => {
+        const btn = ev.target && ev.target.closest ? ev.target.closest('.tl-view-mail') : null;
+        if (!(btn instanceof HTMLElement)) return;
+        const idx = parseInt(String(btn.getAttribute('data-ev-idx') || ''), 10);
+        if (!Number.isFinite(idx) || !lastTimelineEvents[idx]) return;
+        openEmailPreviewModal(lastTimelineEvents[idx]);
+      });
+    }
+    if (emailPreviewClose) {
+      emailPreviewClose.addEventListener('click', closeEmailPreviewModal);
+    }
+    if (emailPreviewModal) {
+      emailPreviewModal.addEventListener('click', (ev) => {
+        if (ev.target === emailPreviewModal) closeEmailPreviewModal();
+      });
+    }
+    if (emailPreviewPrint && emailPreviewFrame) {
+      emailPreviewPrint.addEventListener('click', () => {
+        try {
+          const w = emailPreviewFrame.contentWindow;
+          if (w) w.print();
+        } catch {
+          /* ignore */
+        }
+      });
+    }
 
     if (mAiDraft) {
       mAiDraft.addEventListener('click', async () => {
@@ -2414,6 +2788,16 @@
 
     document.addEventListener('keydown', (ev) => {
       if (ev.key !== 'Escape') return;
+      if (emailPreviewModal && emailPreviewModal.classList.contains('open')) {
+        ev.preventDefault();
+        closeEmailPreviewModal();
+        return;
+      }
+      if (timelineModal && timelineModal.classList.contains('open')) {
+        ev.preventDefault();
+        closeTimelineModal();
+        return;
+      }
       if (mailModal.classList.contains('open')) {
         ev.preventDefault();
         closeMailModal();

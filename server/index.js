@@ -9,6 +9,8 @@ import {
   fetchMailLogsForOrderIds,
   fetchProductThumbnailData,
   ordersToRichOrderRows,
+  fetchOrderTimelineEvents,
+  normShopHost,
 } from './shopify.js';
 import {
   isOpenAiConfigured,
@@ -35,6 +37,9 @@ const publicDir = path.join(__dirname, '..', 'public');
 const port = Number(process.env.PORT) || 3000;
 
 const app = express();
+if (String(process.env.TRUST_PROXY || '').toLowerCase() === 'true' || process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
 app.use(express.json({ limit: '512kb' }));
 mountShopifyAuth(app, { port });
 mountDashboardAuthRoutes(app);
@@ -347,6 +352,48 @@ app.get('/api/config', (_req, res) => {
     hasOAuthCreds: st.hasOAuthCreds,
     oauthCallbackUrl: callbackUrl,
   });
+});
+
+/** Volledige order-timeline (Shopify events) + geparste PDF/factuur/mail-preview velden. */
+app.get('/api/orders/:orderId/timeline', async (req, res) => {
+  const orderId = String(req.params.orderId || '').trim();
+  if (!/^\d+$/.test(orderId)) {
+    return res.status(400).json({ error: 'Alleen numeriek Shopify order-id.' });
+  }
+  try {
+    const attempts = shopifyCredentialAttempts();
+    if (attempts.length === 0) {
+      return res.status(401).json({ error: 'Shopify niet geconfigureerd.' });
+    }
+    let lastErr = null;
+    for (const att of attempts) {
+      try {
+        const events = await fetchOrderTimelineEvents(
+          { shopDomain: att.shopDomain, accessToken: att.accessToken },
+          orderId
+        );
+        const shop = normShopHost(att.shopDomain);
+        return res.json({
+          ok: true,
+          orderId,
+          shopDomain: shop,
+          adminOrderUrl: `https://${shop}/admin/orders/${orderId}`,
+          events,
+        });
+      } catch (e) {
+        const status = typeof e === 'object' && e && 'status' in e ? Number(e.status) : NaN;
+        if (status === 404) {
+          return res.status(404).json({ error: 'Order niet gevonden voor dit account.' });
+        }
+        lastErr = e;
+      }
+    }
+    const message = lastErr instanceof Error ? lastErr.message : String(lastErr ?? '');
+    return res.status(502).json({ error: message.slice(0, 400) });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    return res.status(500).json({ error: message });
+  }
 });
 
 /**

@@ -1,0 +1,10 @@
+# Render.com: New + Blueprint → koppel deze repo; zet daarna Environment variables (zie README).
+services:
+  - type: web
+    name: renghelpdesk
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/health

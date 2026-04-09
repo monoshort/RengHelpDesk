@@ -356,6 +356,180 @@ export async function fetchMailLogsForOrderIds(cfg, orderIds) {
   return map;
 }
 
+function escapeHtmlForPreview(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/**
+ * Ruwe timeline-HTML uit Shopify: scripts eruit, riskante handlers weg (preview in iframe).
+ * @param {string} html
+ */
+function sanitizeTimelineMessageHtml(html) {
+  if (!html || typeof html !== 'string') return '';
+  let s = html.slice(0, 400_000);
+  s = s.replace(/<script[\s\S]*?<\/script>/gi, '');
+  s = s.replace(/<\?[\s\S]*?\?>/g, '');
+  s = s.replace(/on\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]*)/gi, '');
+  s = s.replace(/href\s*=\s*(["'])\s*javascript:[^"']*\1/gi, 'href="#"');
+  return s;
+}
+
+function messageLooksLikeHtml(s) {
+  return typeof s === 'string' && /<[a-z][\s\S]*>/i.test(s);
+}
+
+/**
+ * @param {string} href
+ * @param {string} shopHost
+ */
+function absolutizeShopifyUrl(href, shopHost) {
+  if (!href || typeof href !== 'string') return '';
+  let h = href.trim().replace(/&amp;/g, '&');
+  if (h.startsWith('//')) return `https:${h}`;
+  if (/^https?:\/\//i.test(h)) return h;
+  if (h.startsWith('/')) return `https://${shopHost}${h}`;
+  return h;
+}
+
+/**
+ * @param {string} messageHtml
+ * @param {string} shopHost
+ */
+function extractAnchorsAndPdfs(messageHtml, shopHost) {
+  /** @type {{ url: string; label: string }[]} */
+  const anchors = [];
+  const re = /<a[^>]*\bhref\s*=\s*(["'])([^"']*)\1[^>]*>([\s\S]*?)<\/a>/gi;
+  let m;
+  while ((m = re.exec(messageHtml || '')) !== null) {
+    const abs = absolutizeShopifyUrl(m[2], shopHost);
+    const label = stripHtml(m[3]).slice(0, 160) || abs;
+    if (abs) anchors.push({ url: abs, label });
+  }
+  const pdfUrls = [
+    ...new Set(
+      anchors
+        .map((a) => a.url)
+        .filter((u) => /\.pdf(\?|#|$)/i.test(u) || (/\/invoice/i.test(u) && /\.pdf/i.test(u)))
+    ),
+  ];
+  return { anchors, pdfUrls };
+}
+
+/**
+ * @param {string} text
+ */
+function invoiceRefsFromText(text) {
+  const set = new Set();
+  if (!text) return [];
+  const re = /\bINV[-–][A-Z]{2,5}[-–]\d+[A-Z0-9-]*\b/gi;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    set.add(m[0].replace(/–/g, '-').toUpperCase());
+  }
+  return [...set];
+}
+
+/**
+ * @param {string} html
+ * @param {string} fallback
+ */
+function guessEmailSubjectFromTimeline(html, fallback) {
+  const t = html && html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  if (t) {
+    const s = stripHtml(t[1]).trim();
+    if (s) return s.slice(0, 220);
+  }
+  const og = html && html.match(/property=["']og:title["'][^>]*content=["']([^"']*)/i);
+  if (og) {
+    const s = stripHtml(og[1]).trim();
+    if (s) return s.slice(0, 220);
+  }
+  const fb = stripHtml(fallback || '').trim();
+  if (fb.length <= 200) return fb || 'E-mail';
+  return `${fb.slice(0, 197)}…`;
+}
+
+/**
+ * Volledige Shopify order-timeline (events.json), verrijkt voor UI: PDF-links, factuurreferenties, mailpreview-HTML.
+ * @param {{ shopDomain: string; accessToken: string }} cfg
+ * @param {string|number} orderId
+ */
+export async function fetchOrderTimelineEvents(cfg, orderId) {
+  const shop = normShopHost(cfg.shopDomain);
+  const url = new URL(`https://${shop}/admin/api/${API_VERSION}/orders/${orderId}/events.json`);
+  url.searchParams.set('limit', '250');
+
+  const res = await fetch(url, {
+    headers: {
+      'X-Shopify-Access-Token': cfg.accessToken,
+      Accept: 'application/json',
+    },
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    const err = /** @type {Error & { status?: number }} */ (
+      Object.assign(new Error(`Shopify events ${res.status}: ${text.slice(0, 200)}`), {
+        status: res.status,
+      })
+    );
+    throw err;
+  }
+
+  const body = await res.json();
+  const events = Array.isArray(body.events) ? body.events : [];
+  /** @type {any[]} */
+  const rows = [];
+
+  for (const e of events) {
+    const desc = e.description != null ? String(e.description).trim() : '';
+    const msgRaw = e.message != null ? String(e.message) : '';
+    const msgPlain = stripHtml(msgRaw);
+    const verb = e.verb != null ? String(e.verb) : '';
+    const mailRow = orderEventToCustomerMailLine(e);
+    const customerEmailEvent = mailRow !== null;
+    const { anchors, pdfUrls } = extractAnchorsAndPdfs(msgRaw, shop);
+    const invoiceRefs = invoiceRefsFromText(`${desc} ${msgPlain}`);
+    let previewHtml = '';
+    if (msgRaw.trim()) {
+      previewHtml = messageLooksLikeHtml(msgRaw)
+        ? sanitizeTimelineMessageHtml(msgRaw)
+        : `<p>${escapeHtmlForPreview(msgRaw.trim())}</p>`;
+    } else if (desc) {
+      previewHtml = `<p>${escapeHtmlForPreview(desc)}</p>`;
+    }
+    const previewSubject = guessEmailSubjectFromTimeline(msgRaw, desc || msgPlain);
+    const deliveredLikely =
+      /\bdelivered\b|✓\s*delivered|email\s+was\s+sent|succesvol\s+verzonden|successfully\s+sent/i.test(
+        `${desc} ${msgPlain}`
+      );
+
+    rows.push({
+      id: e.id,
+      created_at: e.created_at,
+      verb: verb || null,
+      description: desc || null,
+      messagePlain: msgPlain || null,
+      author: e.author != null ? String(e.author) : null,
+      path: e.path != null ? String(e.path) : null,
+      customerEmailEvent,
+      pdfUrls,
+      anchors: anchors.slice(0, 32),
+      invoiceRefs,
+      previewHtml: previewHtml || null,
+      previewSubject,
+      deliveredLikely,
+    });
+  }
+
+  rows.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  return rows;
+}
+
 /**
  * Admin/Storefront payloads gebruiken soms numerieke id, soms GID-strings.
  * @param {string|number|null|undefined} id

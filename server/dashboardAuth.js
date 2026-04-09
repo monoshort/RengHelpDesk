@@ -142,6 +142,7 @@ export function dashboardAuthMiddleware(req, res, next) {
   if (
     path === '/login.html' ||
     path === '/api/dashboard/login' ||
+    path === '/api/health' ||
     path.startsWith('/api/auth/')
   ) {
     return next();
