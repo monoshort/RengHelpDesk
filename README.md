@@ -37,6 +37,20 @@ GitHub draait deze app niet zelf; je hebt een **Node-host** nodig. Snelste optie
 
 **Alternatief:** [Railway](https://railway.app) of [Fly.io](https://fly.io) — zet **Root/Start** op `npm start` of gebruik de meegeleverde **`Dockerfile`**.
 
+### Vercel (serverless Express)
+
+Geschikt om een klant een **https-URL** te geven. Het project bevat `vercel.json` (alle routes → `api/index.js`) en **`api/index.js`** die de Express-app exporteert.
+
+1. [vercel.com](https://vercel.com) → **Add New… → Project** → importeer deze GitHub-repo.
+2. **Environment Variables** (zelfde als bij Render, uit je `.env`): o.a. `DASHBOARD_PASSWORD`, `SHOPIFY_SHOP_DOMAIN`, `SHOPIFY_ACCESS_TOKEN`, `SHOPIFY_CLIENT_ID`, `SHOPIFY_CLIENT_SECRET`, `SHOPIFY_SCOPES` (indien afwijkend), SMTP/OpenAI/DPD naar behoefte.
+3. Zet **`SHOPIFY_REDIRECT_URI`** op `https://<jouw-project>.vercel.app/api/auth/callback` en **exact dezelfde URL** in de Shopify-app bij *Allowed redirection URL(s)*.
+4. **`TRUST_PROXY=true`** en **`DASHBOARD_COOKIE_SECURE=true`** aanbevolen op productie.
+5. **`VERCEL=1`** hoef je niet zelf te zetten; Vercel injecteert dat. Daardoor start de server niet dubbel met `listen`. Statische bestanden staan in **`static/`** (niet `public/`, anders serveert Vercel die map rechtstreeks zonder Express en valt het dashboardwachtwoord weg).
+6. **Timeout:** `vercel.json` vraagt **60s** `maxDuration` voor het overzicht. Op het **gratis Hobby-plan** is de function-limiet **kort** (vaak 10s) — een zware `/api/overview` kan dan **504** geven. **Vercel Pro** (of minder orders / lagere `SHOPIFY_ORDERS_MAX`) lost dat op.
+7. **Shopify-token:** zet bij voorkeur **`SHOPIFY_ACCESS_TOKEN`** (Custom App / Admin API-token) in Vercel. Sessies op schijf wonen op serverless in `/tmp` en zijn **niet gedeeld tussen instances**; zonder env-token kan de volgende pagina weer “niet gekoppeld” lijken.
+
+Lokaal test je Vercel-gedrag met `VERCEL=1` (geen `listen`) en eventueel `npx vercel dev`.
+
 ## Belangrijk
 
 - Commit **nooit** `.env`, `.env.local`, `.env.production` of `.shopify_token.json` (staan in `.gitignore`; alleen `.env.example` is bedoeld voor Git).

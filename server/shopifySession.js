@@ -3,7 +3,11 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-export const SESSION_FILE = path.join(__dirname, '..', '.shopify_token.json');
+export const SESSION_FILE =
+  process.env.SHOPIFY_SESSION_FILE?.trim() ||
+  (process.env.VERCEL
+    ? path.join('/tmp', 'reng_shopify_token.json')
+    : path.join(__dirname, '..', '.shopify_token.json'));
 
 /** @param {string | undefined} input */
 export function normalizeShop(input) {
@@ -36,11 +40,24 @@ export function readShopifySession() {
  * @param {string} accessToken
  */
 export function writeShopifySession(shopDomain, accessToken) {
-  fs.writeFileSync(
-    SESSION_FILE,
-    JSON.stringify({ shop: shopDomain, access_token: accessToken }, null, 2),
-    'utf8'
-  );
+  try {
+    fs.writeFileSync(
+      SESSION_FILE,
+      JSON.stringify({ shop: shopDomain, access_token: accessToken }, null, 2),
+      'utf8'
+    );
+  } catch (e) {
+    if (process.env.VERCEL) {
+      console.error('[shopifySession] writeShopifySession failed on Vercel:', e);
+      throw Object.assign(
+        new Error(
+          'Kan OAuth-token niet wegschrijven op Vercel. Zet SHOPIFY_ACCESS_TOKEN en SHOPIFY_SHOP_DOMAIN in Vercel → Settings → Environment Variables (Custom App-token uit Shopify Admin).'
+        ),
+        { code: 'SHOPIFY_SESSION_WRITE' }
+      );
+    }
+    throw e;
+  }
 }
 
 /** Voor foutmeldingen: wat ontbreekt er aan credentials? */

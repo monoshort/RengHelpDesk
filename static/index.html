@@ -6,7 +6,8 @@
   <title>Toddie helpdesk · orders &amp; mail</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet" /></noscript>
   <style>
     /* Toddie storefront: Quicksand + primair groen rgb(85,130,53) — toddie.nl */
     :root {
@@ -1420,7 +1421,7 @@
                 <th class="col-gutter">Tags / notitie</th>
               </tr>
             </thead>
-            <tbody id="tbody"></tbody>
+            <tbody id="tbody"><tr><td colspan="10" class="dim">Laden…</td></tr></tbody>
           </table>
         </div>
       </section>
@@ -2457,6 +2458,7 @@
 
     async function load() {
       const myGen = ++loadGeneration;
+      const overviewTimeoutMs = 120000;
       document.body.classList.add('is-loading');
       if (refreshBtn) {
         refreshBtn.disabled = true;
@@ -2478,7 +2480,17 @@
       if (stateThumbs) stateThumbs.hidden = true;
       tbody.innerHTML = tableSkeletonRows(6);
       try {
-        const res = await fetch('/api/overview', { credentials: 'same-origin' });
+        const overviewController = new AbortController();
+        const overviewTid = window.setTimeout(() => overviewController.abort(), overviewTimeoutMs);
+        let res;
+        try {
+          res = await fetch('/api/overview', {
+            credentials: 'same-origin',
+            signal: overviewController.signal,
+          });
+        } finally {
+          window.clearTimeout(overviewTid);
+        }
         if (myGen !== loadGeneration) return;
         const data = await res.json().catch(() => ({}));
         if (myGen !== loadGeneration) return;
@@ -2651,7 +2663,13 @@
       } catch (e) {
         if (myGen !== loadGeneration) return;
         errorBox.hidden = false;
-        errorBox.textContent = e instanceof Error ? e.message : String(e);
+        const msg =
+          e instanceof Error && e.name === 'AbortError'
+            ? `Geen reactie van de server binnen ${overviewTimeoutMs / 1000}s (overzicht). Controleer of Node draait, of zet in .env een hogere limiet alleen als nodig: SHOPIFY_ORDERS_MAX (veel orders + mail per order = langzaam). Ververs daarna.`
+            : e instanceof Error
+              ? e.message
+              : String(e);
+        errorBox.textContent = msg;
         tbody.innerHTML = '';
         lastOverviewSnapshot = {
           rows: [],

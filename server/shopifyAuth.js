@@ -1,5 +1,50 @@
 import crypto from 'crypto';
+import { parseCookies } from './dashboardAuth.js';
 import { normalizeShop, writeShopifySession } from './shopifySession.js';
+
+const OAUTH_COOKIE = 'reng_oauth';
+const OAUTH_MAX_AGE_SEC = 15 * 60;
+
+/**
+ * @param {import('express').Request} req
+ */
+function oauthCookieSecure(req) {
+  if (process.env.DASHBOARD_COOKIE_SECURE === 'true') {
+    if (req.secure) return true;
+    const raw = req.headers['x-forwarded-proto'];
+    const first = typeof raw === 'string' ? raw.split(',')[0].trim().toLowerCase() : '';
+    return first === 'https';
+  }
+  return (
+    Boolean(req.secure) ||
+    String(req.headers['x-forwarded-proto'] || '')
+      .split(',')[0]
+      .trim()
+      .toLowerCase() === 'https'
+  );
+}
+
+/**
+ * @param {import('express').Response} res
+ * @param {import('express').Request} req
+ * @param {{ state: string; shop: string; at: number }} payload
+ */
+function setOauthPendingCookie(res, req, payload) {
+  const body = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+  const flags = ['Path=/', 'HttpOnly', `SameSite=Lax`, `Max-Age=${OAUTH_MAX_AGE_SEC}`];
+  if (oauthCookieSecure(req)) flags.push('Secure');
+  res.append('Set-Cookie', `${OAUTH_COOKIE}=${encodeURIComponent(body)}; ${flags.join('; ')}`);
+}
+
+/**
+ * @param {import('express').Response} res
+ * @param {import('express').Request} req
+ */
+function clearOauthPendingCookie(res, req) {
+  const flags = ['Path=/', 'HttpOnly', 'SameSite=Lax', 'Max-Age=0'];
+  if (oauthCookieSecure(req)) flags.push('Secure');
+  res.append('Set-Cookie', `${OAUTH_COOKIE}=; ${flags.join('; ')}`);
+}
 
 /**
  * @param {Record<string, unknown>} query
@@ -32,16 +77,6 @@ function verifyOAuthHmac(query, secret) {
   }
 }
 
-/** @type {Map<string, { shop: string; at: number }>} */
-const oauthStates = new Map();
-
-setInterval(() => {
-  const now = Date.now();
-  for (const [k, v] of oauthStates) {
-    if (now - v.at > 15 * 60 * 1000) oauthStates.delete(k);
-  }
-}, 60 * 1000);
-
 /**
  * @param {import('express').Express} app
  * @param {{ port: number }} opts
@@ -72,7 +107,7 @@ export function mountShopifyAuth(app, opts) {
       process.env.SHOPIFY_SCOPES?.trim() ||
       'read_orders,read_customers,read_products';
     const state = crypto.randomBytes(20).toString('hex');
-    oauthStates.set(state, { shop, at: Date.now() });
+    setOauthPendingCookie(res, req, { state, shop, at: Date.now() });
     const url =
       `https://${shop}/admin/oauth/authorize?` +
       new URLSearchParams({
@@ -89,14 +124,30 @@ export function mountShopifyAuth(app, opts) {
     const state = typeof req.query.state === 'string' ? req.query.state : '';
     const shopQ = typeof req.query.shop === 'string' ? req.query.shop : '';
     const shop = normalizeShop(shopQ);
-    const pending = oauthStates.get(state);
+    let pending = null;
+    try {
+      const raw = parseCookies(req.headers.cookie || '')[OAUTH_COOKIE];
+      if (raw) {
+        const decoded = Buffer.from(decodeURIComponent(raw), 'base64url').toString('utf8');
+        pending = JSON.parse(decoded);
+      }
+    } catch {
+      pending = null;
+    }
+    const pendingOk =
+      pending &&
+      typeof pending.state === 'string' &&
+      pending.state === state &&
+      normalizeShop(String(pending.shop || '')) === shop &&
+      typeof pending.at === 'number' &&
+      Date.now() - pending.at < OAUTH_MAX_AGE_SEC * 1000;
 
-    if (!code || !state || !shop || !pending || pending.shop !== shop) {
-      oauthStates.delete(state);
+    if (!code || !state || !shop || !pendingOk) {
+      clearOauthPendingCookie(res, req);
       return res.status(400).send(
         'Ongeldige OAuth-response. Probeer opnieuw via /koppel.html. Controleer of de redirect-URL in je Shopify-app exact overeenkomt met SHOPIFY_REDIRECT_URI (standaard: ' +
           defaultRedirect +
-          ').'
+          '). Op serverless (Vercel): cookies aan, zelfde browser als bij start koppelen.'
       );
     }
 
@@ -104,11 +155,11 @@ export function mountShopifyAuth(app, opts) {
     const clientSecret = process.env.SHOPIFY_CLIENT_SECRET?.trim();
 
     if (!verifyOAuthHmac(req.query, clientSecret || '')) {
-      oauthStates.delete(state);
+      clearOauthPendingCookie(res, req);
       return res.status(400).send('HMAC-validatie mislukt (query gemanipuleerd of verkeerde app secret).');
     }
 
-    oauthStates.delete(state);
+    clearOauthPendingCookie(res, req);
 
     const tokenRes = await fetch(`https://${shop}/admin/oauth/access_token`, {
       method: 'POST',

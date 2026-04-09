@@ -33,7 +33,9 @@ import { mountShopifyAuth } from './shopifyAuth.js';
 import { mountDashboardAuthRoutes, dashboardAuthMiddleware } from './dashboardAuth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const publicDir = path.join(__dirname, '..', 'public');
+const publicDir = process.env.VERCEL
+  ? path.join(process.cwd(), 'static')
+  : path.join(__dirname, '..', 'static');
 
 const port = Number(process.env.PORT) || 3000;
 
@@ -129,7 +131,7 @@ app.get('/api/overview', async (req, res) => {
           const cap =
             Number.isFinite(envCap) && envCap > 0
               ? Math.min(50000, envCap)
-              : 10000;
+              : 250;
           ordersFetchMax = cap;
           orders = await fetchAllRecentOrders(c, { maxOrders: cap, pageSize: 250 });
           ordersMayBeTruncated = orders.length >= cap;
@@ -179,16 +181,32 @@ app.get('/api/overview', async (req, res) => {
       Object.values(thumbData.imageMap).some((u) => u && String(u).length > 0);
     const dpd = dpdCreds();
 
-    const enriched = [];
-    for (const row of rows) {
-      const out = { ...row, dpdTrackings: [] };
-      if (dpd) {
+    const enriched = rows.map((row) => ({ ...row, dpdTrackings: [] }));
+    if (dpd) {
+      /** @type {{ ri: number; t: { number?: string; company?: string | null } }[]} */
+      const dpdJobs = [];
+      for (let ri = 0; ri < enriched.length; ri++) {
+        const row = enriched[ri];
         for (const t of row.trackings) {
           if (!t.number) continue;
           const tryDpd =
             isLikelyDpdCarrier(t.company) ||
             /^\d{14}$/.test(t.number.replace(/\s/g, ''));
           if (!tryDpd) continue;
+          dpdJobs.push({ ri, t });
+        }
+      }
+      const dpdConc = Math.min(
+        12,
+        Math.max(1, Number(process.env.DPD_TRACKING_CONCURRENCY || 6))
+      );
+      let dpdCursor = 0;
+      async function dpdWorker() {
+        for (;;) {
+          const i = dpdCursor++;
+          if (i >= dpdJobs.length) return;
+          const { ri, t } = dpdJobs[i];
+          const out = enriched[ri];
           try {
             const d = await getDpdTracking({
               creds: dpd,
@@ -211,9 +229,11 @@ app.get('/api/overview', async (req, res) => {
           }
         }
       }
-      const mailLines = orderMailLogs[String(row.shopifyOrderId)] || [];
+      await Promise.all(Array.from({ length: Math.min(dpdConc, Math.max(1, dpdJobs.length)) }, () => dpdWorker()));
+    }
+    for (const out of enriched) {
+      const mailLines = orderMailLogs[String(out.shopifyOrderId)] || [];
       out.deskHint = deskHintForRow(out, mailLines);
-      enriched.push(out);
     }
 
     let deskHeuristics = null;
@@ -562,7 +582,11 @@ app.post('/api/mail/send', async (req, res) => {
   }
 });
 
-app.listen(port, () => {
-  // eslint-disable-next-line no-console
-  console.log(`Dashboard: http://localhost:${port}`);
-});
+export default app;
+
+if (!process.env.VERCEL) {
+  app.listen(port, () => {
+    // eslint-disable-next-line no-console
+    console.log(`Dashboard: http://localhost:${port}`);
+  });
+}

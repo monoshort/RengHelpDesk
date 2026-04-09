@@ -122,7 +122,7 @@ export async function fetchAllRecentOrders(cfg, opts = {}) {
   const envCap = Number(process.env.SHOPIFY_ORDERS_MAX || '');
   const maxOrders = Math.min(
     50000,
-    Math.max(1, Number(opts.maxOrders) || (Number.isFinite(envCap) && envCap > 0 ? envCap : 10000))
+    Math.max(1, Number(opts.maxOrders) || (Number.isFinite(envCap) && envCap > 0 ? envCap : 250))
   );
   /** @type {any[]} */
   const all = [];
@@ -334,8 +334,8 @@ export async function fetchMailLogsForOrderIds(cfg, orderIds) {
   /** @type {Record<string, Array<{ at: string; description: string }>>} */
   const map = {};
   const concurrency = Math.min(
-    8,
-    Math.max(1, Number(process.env.SHOPIFY_EVENTS_CONCURRENCY || 6))
+    20,
+    Math.max(1, Number(process.env.SHOPIFY_EVENTS_CONCURRENCY || 12))
   );
   let cursor = 0;
 
