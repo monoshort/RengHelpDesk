@@ -103,6 +103,19 @@ export function isDashboardSessionValid(req) {
 }
 
 /**
+ * `Secure`-vlag alleen op echte HTTPS (of proxy `x-forwarded-proto: https`).
+ * Zo werkt lokaal `http://localhost` nog als `DASHBOARD_COOKIE_SECURE=true` in .env staat (bv. gekopieerd van Render).
+ * @param {import('express').Request} req
+ */
+function shouldUseSecureSessionCookie(req) {
+  if (process.env.DASHBOARD_COOKIE_SECURE !== 'true') return false;
+  if (req.secure) return true;
+  const raw = req.headers['x-forwarded-proto'];
+  const first = typeof raw === 'string' ? raw.split(',')[0].trim().toLowerCase() : '';
+  return first === 'https';
+}
+
+/**
  * @param {import('express').Express} app
  */
 export function mountDashboardAuthRoutes(app) {
@@ -113,7 +126,7 @@ export function mountDashboardAuthRoutes(app) {
     }
     const token = signDashboardSession();
     const maxAgeSec = Math.floor(MAX_AGE_MS / 1000);
-    const secure = process.env.DASHBOARD_COOKIE_SECURE === 'true';
+    const secure = shouldUseSecureSessionCookie(req);
     const flags = ['Path=/', 'HttpOnly', 'SameSite=Lax', `Max-Age=${maxAgeSec}`];
     if (secure) flags.push('Secure');
     res.setHeader(
@@ -123,8 +136,8 @@ export function mountDashboardAuthRoutes(app) {
     return res.json({ ok: true });
   });
 
-  app.post('/api/dashboard/logout', (_req, res) => {
-    const secure = process.env.DASHBOARD_COOKIE_SECURE === 'true';
+  app.post('/api/dashboard/logout', (req, res) => {
+    const secure = shouldUseSecureSessionCookie(req);
     const flags = ['Path=/', 'HttpOnly', 'SameSite=Lax', 'Max-Age=0'];
     if (secure) flags.push('Secure');
     res.setHeader('Set-Cookie', `${COOKIE_NAME}=; ${flags.join('; ')}`);
