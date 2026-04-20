@@ -1,6 +1,7 @@
 import crypto from 'crypto';
-import { parseCookies } from './dashboardAuth.js';
-import { normalizeShop, writeShopifySession } from './shopifySession.js';
+import { parseCookies, getDashboardSessionId } from './dashboardAuth.js';
+import { normalizeShop } from './shopifySession.js';
+import { saveUserIntegrationDoc, sanitizeDashboardSid } from './userIntegrationsStore.js';
 
 const OAUTH_COOKIE = 'reng_oauth';
 const OAUTH_MAX_AGE_SEC = 15 * 60;
@@ -27,7 +28,7 @@ function oauthCookieSecure(req) {
 /**
  * @param {import('express').Response} res
  * @param {import('express').Request} req
- * @param {{ state: string; shop: string; at: number }} payload
+ * @param {{ state: string; shop: string; at: number; dashboardSid: string }} payload
  */
 function setOauthPendingCookie(res, req, payload) {
   const body = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
@@ -87,6 +88,12 @@ export function mountShopifyAuth(app, opts) {
     `http://localhost:${opts.port}/api/auth/callback`;
 
   app.get('/api/auth/install', (req, res) => {
+    const dashboardSid = sanitizeDashboardSid(getDashboardSessionId(req));
+    if (!dashboardSid) {
+      return res.status(401).send(
+        'Log eerst in op het dashboard (login.html), open daarna opnieuw /koppel.html en start de Shopify-koppeling.'
+      );
+    }
     const clientId = process.env.SHOPIFY_CLIENT_ID?.trim();
     const clientSecret = process.env.SHOPIFY_CLIENT_SECRET?.trim();
     const shop = normalizeShop(
@@ -107,7 +114,7 @@ export function mountShopifyAuth(app, opts) {
       process.env.SHOPIFY_SCOPES?.trim() ||
       'read_orders,read_customers,read_products';
     const state = crypto.randomBytes(20).toString('hex');
-    setOauthPendingCookie(res, req, { state, shop, at: Date.now() });
+    setOauthPendingCookie(res, req, { state, shop, at: Date.now(), dashboardSid });
     const url =
       `https://${shop}/admin/oauth/authorize?` +
       new URLSearchParams({
@@ -115,6 +122,7 @@ export function mountShopifyAuth(app, opts) {
         scope: scopes,
         redirect_uri: redirectUri,
         state,
+        expiring: '1',
       }).toString();
     res.redirect(302, url);
   });
@@ -134,13 +142,18 @@ export function mountShopifyAuth(app, opts) {
     } catch {
       pending = null;
     }
+    const dashSid = sanitizeDashboardSid(getDashboardSessionId(req));
+    const pendingSid = sanitizeDashboardSid(
+      pending && typeof pending.dashboardSid === 'string' ? pending.dashboardSid : ''
+    );
     const pendingOk =
       pending &&
       typeof pending.state === 'string' &&
       pending.state === state &&
       normalizeShop(String(pending.shop || '')) === shop &&
       typeof pending.at === 'number' &&
-      Date.now() - pending.at < OAUTH_MAX_AGE_SEC * 1000;
+      Date.now() - pending.at < OAUTH_MAX_AGE_SEC * 1000 &&
+      Boolean(dashSid && pendingSid && dashSid === pendingSid);
 
     if (!code || !state || !shop || !pendingOk) {
       clearOauthPendingCookie(res, req);
@@ -163,13 +176,17 @@ export function mountShopifyAuth(app, opts) {
 
     const tokenRes = await fetch(`https://${shop}/admin/oauth/access_token`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({
-        client_id: clientId,
-        client_secret: clientSecret,
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Accept: 'application/json',
+      },
+      body: new URLSearchParams({
+        client_id: clientId || '',
+        client_secret: clientSecret || '',
         code,
         redirect_uri: defaultRedirect,
-      }),
+        expiring: '1',
+      }).toString(),
     });
 
     const data = await tokenRes.json().catch(() => ({}));
@@ -184,7 +201,25 @@ export function mountShopifyAuth(app, opts) {
         .send(`Token-uitwisseling mislukt: ${msg}. Controleer client id/secret en redirect-URL.`);
     }
 
-    writeShopifySession(shop, data.access_token);
+    const sid = pendingSid;
+    if (!sid) {
+      return res.status(400).send('Sessie-id ontbreekt; log opnieuw in en koppel Shopify opnieuw.');
+    }
+    const now = Date.now();
+    /** @type {Record<string, unknown>} */
+    const doc = {
+      shop,
+      access_token: data.access_token,
+      ...(data.expires_in != null && Number.isFinite(Number(data.expires_in))
+        ? { expires_at: now + Number(data.expires_in) * 1000 }
+        : {}),
+      ...(data.refresh_token ? { refresh_token: String(data.refresh_token) } : {}),
+      ...(data.refresh_token_expires_in != null && Number.isFinite(Number(data.refresh_token_expires_in))
+        ? { refresh_token_expires_at: now + Number(data.refresh_token_expires_in) * 1000 }
+        : {}),
+      ...(data.scope ? { scope: String(data.scope) } : {}),
+    };
+    await saveUserIntegrationDoc(sid, 'shopify', doc);
     res.redirect(302, '/?gekoppeld=1');
   });
 }

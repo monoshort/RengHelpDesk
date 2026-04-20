@@ -39,7 +39,7 @@ GitHub draait deze app niet zelf; je hebt een **Node-host** nodig. Snelste optie
 
 ### Vercel (serverless Express)
 
-Geschikt om een klant een **https-URL** te geven. Het project bevat `vercel.json` (alle routes → `api/index.js`) en **`api/index.js`** die de Express-app exporteert.
+Geschikt om een klant een **https-URL** te geven. Het project bevat `vercel.json` (alle routes → `/api`) en **`api/[[...slug]].js`** (Vercel catch-all) die de Express-app exporteert — nodig zodat paden als `/api/mail/inbox` niet als 404 eindigen (één `api/index.js` ving dat niet af).
 
 1. [vercel.com](https://vercel.com) → **Add New… → Project** → importeer deze GitHub-repo.
 2. **Environment Variables** (zelfde als bij Render, uit je `.env`): o.a. `DASHBOARD_PASSWORD`, `SHOPIFY_SHOP_DOMAIN`, `SHOPIFY_ACCESS_TOKEN`, `SHOPIFY_CLIENT_ID`, `SHOPIFY_CLIENT_SECRET`, `SHOPIFY_SCOPES` (indien afwijkend), SMTP/OpenAI/DPD naar behoefte.

@@ -4,6 +4,12 @@ node_modules/
 .env.*
 !.env.example
 *.log
+.curl_cookies.txt
 .DS_Store
 .shopify_token.json
+.google_gmail_token.json
+# Google OAuth client download (bevat client_secret)
+client_secret*.json
 .vercel
+/data/
+*.db

@@ -1,4 +1,270 @@
+import {
+  ensureShopifySessionAccessTokenFresh,
+  readShopifySession,
+  shopifyPreferEnvTokenOverEphemeralSession,
+  writeShopifySession,
+  hydrateShopifySessionFromDatabase,
+} from './shopifySession.js';
+import { exchangeShopifyClientCredentials } from './shopifyClientCredentials.js';
+
 const API_VERSION = process.env.SHOPIFY_API_VERSION?.trim() || '2025-10';
+
+/**
+ * Laagste `created_at` voor orderlijsten (REST `created_at_min`). Standaard ~3 maanden.
+ * Zet `SHOPIFY_ORDERS_CREATED_WITHIN_DAYS=0` om geen ondergrens toe te passen (alle orders; trager).
+ * @returns {string | null} ISO 8601 (UTC) of null = geen filter
+ */
+export function shopifyOrdersCreatedAtMinIso() {
+  const raw = process.env.SHOPIFY_ORDERS_CREATED_WITHIN_DAYS;
+  if (raw != null && String(raw).trim() === '0') return null;
+  const d = Number(raw ?? '');
+  const days = Number.isFinite(d) && d > 0 ? Math.min(365 * 5, Math.floor(d)) : 90;
+  return new Date(Date.now() - days * 86400000).toISOString();
+}
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+function shopifyFetchTimeoutMs() {
+  const n = Number(process.env.SHOPIFY_FETCH_TIMEOUT_MS || '');
+  if (Number.isFinite(n) && n >= 8000 && n <= 180_000) return n;
+  return 55_000;
+}
+
+/**
+ * @param {AbortSignal | undefined | null} userSignal
+ * @param {number} timeoutMs
+ */
+function combineUserAndTimeoutSignal(userSignal, timeoutMs) {
+  if (timeoutMs <= 0) return userSignal ?? undefined;
+  if (typeof AbortSignal === 'undefined' || !('timeout' in AbortSignal)) return userSignal ?? undefined;
+  const t = AbortSignal.timeout(timeoutMs);
+  if (!userSignal) return t;
+  if ('any' in AbortSignal && typeof AbortSignal.any === 'function') {
+    return AbortSignal.any([userSignal, t]);
+  }
+  return t;
+}
+
+/** @param {unknown} e */
+function isAbortError(e) {
+  return Boolean(e && typeof e === 'object' && ('name' in e ? e.name === 'AbortError' : false));
+}
+
+/** @param {unknown} e */
+function isRetriableFetchFailure(e) {
+  if (isAbortError(e)) return false;
+  const err = /** @type {NodeJS.ErrnoException & { cause?: unknown }} */ (e);
+  const code = err?.code;
+  if (code === 'ENOTFOUND' || code === 'ECONNRESET' || code === 'ETIMEDOUT' || code === 'EPIPE')
+    return true;
+  const msg = String(err?.message || e || '').toLowerCase();
+  if (/fetch failed|network|socket|und_err|connect/i.test(msg)) return true;
+  return err?.cause != null && isRetriableFetchFailure(err.cause);
+}
+
+function parseShopifyRetryAfterMs(res) {
+  const raw = res.headers.get('retry-after');
+  if (!raw) return null;
+  const sec = Number(raw);
+  if (Number.isFinite(sec) && sec >= 0) return Math.min(120_000, Math.max(400, sec * 1000));
+  const t = Date.parse(raw);
+  if (Number.isFinite(t)) return Math.min(120_000, Math.max(400, t - Date.now()));
+  return null;
+}
+
+/** Tokens om na 401 te proberen: zelfde volgorde als shopifyCredentialAttempts (Vercel+env → env eerst). */
+function tokensFor401Retry(cfg, shop) {
+  const seen = new Set();
+  /** @type {string[]} */
+  const out = [];
+  const add = (t) => {
+    if (!t || seen.has(t)) return;
+    seen.add(t);
+    out.push(t);
+  };
+  const session = readShopifySession();
+  const envTok = process.env.SHOPIFY_ACCESS_TOKEN?.trim();
+  const envShop = process.env.SHOPIFY_SHOP_DOMAIN?.trim();
+  const envOk = Boolean(envTok && (!envShop || normShopHost(envShop) === shop));
+  const vercelEnvFirst = shopifyPreferEnvTokenOverEphemeralSession() && envOk;
+
+  if (vercelEnvFirst) {
+    add(envTok);
+    if (session?.accessToken && normShopHost(session.shopDomain) === shop) add(session.accessToken);
+  } else {
+    if (session?.accessToken && normShopHost(session.shopDomain) === shop) add(session.accessToken);
+    if (envOk) add(envTok);
+  }
+  add(cfg.accessToken);
+  return out;
+}
+
+/** @type {Promise<string | null> | null} */
+let cc401HealInflight = null;
+
+/**
+ * Na OAuth-refresh + token-rotatie nog steeds 401: één keer Client Credentials (Custom app) en token in gedeelde sessie.
+ * Wijzigt geen Vercel-/hosting-env (SHOPIFY_ACCESS_TOKEN); daarvoor is aparte tooling nodig.
+ * @param {string} shop genormaliseerde host (…myshopify.com)
+ */
+async function tryHeal401WithClientCredentials(shop) {
+  const opt = String(process.env.SHOPIFY_AUTO_CC_ON_401 ?? '1').trim().toLowerCase();
+  if (opt === '0' || opt === 'false' || opt === 'no') return null;
+
+  const clientId = process.env.SHOPIFY_CLIENT_ID?.trim();
+  const clientSecret = process.env.SHOPIFY_CLIENT_SECRET?.trim();
+  if (!clientId || !clientSecret) return null;
+
+  const shopNorm = normShopHost(shop);
+  if (!shopNorm || !/\.myshopify\.com$/i.test(shopNorm)) return null;
+
+  const run = async () => {
+    try {
+      const { shop: sShop, data } = await exchangeShopifyClientCredentials({
+        shopInput: shopNorm,
+        clientId,
+        clientSecret,
+      });
+      const normS = normShopHost(sShop);
+      if (normS !== shopNorm) {
+        console.warn('[shopify] auto client-credentials: shop mismatch', normS, shopNorm);
+        return null;
+      }
+      await writeShopifySession(normS, {
+        access_token: data.access_token,
+        ...(data.expires_in != null && Number.isFinite(Number(data.expires_in))
+          ? { expires_in: Number(data.expires_in) }
+          : {}),
+        ...(data.scope ? { scope: String(data.scope) } : {}),
+      });
+      await hydrateShopifySessionFromDatabase();
+      console.info('[shopify] auto client-credentials: nieuwe Admin-token in sessie opgeslagen');
+      return String(data.access_token);
+    } catch (e) {
+      console.warn('[shopify] auto client-credentials:', e instanceof Error ? e.message : e);
+      return null;
+    }
+  };
+
+  if (!cc401HealInflight) {
+    cc401HealInflight = run().finally(() => {
+      cc401HealInflight = null;
+    });
+  }
+  return cc401HealInflight;
+}
+
+/**
+ * Admin API `fetch`: 401 → refresh + meerdere tokens; 429 / 5xx → backoff + retry (configureerbaar via env).
+ * @param {{ shopDomain: string; accessToken: string }} cfg
+ * @param {string|URL} url
+ * @param {RequestInit} [init]
+ */
+export async function shopifyAdminFetch(cfg, url, init = {}) {
+  const shop = normShopHost(cfg.shopDomain);
+  const maxAttempts = Math.min(
+    12,
+    Math.max(1, Number(process.env.SHOPIFY_FETCH_MAX_ATTEMPTS || '') || 7)
+  );
+  const timeoutMs = shopifyFetchTimeoutMs();
+
+  async function doFetch(token) {
+    const extra =
+      init.headers && typeof init.headers === 'object' && !Array.isArray(init.headers)
+        ? { ...init.headers }
+        : {};
+    delete extra['X-Shopify-Access-Token'];
+    delete extra['x-shopify-access-token'];
+    const signal = combineUserAndTimeoutSignal(init.signal, timeoutMs);
+    return fetch(url, {
+      method: init.method,
+      body: init.body,
+      signal,
+      headers: {
+        Accept: 'application/json',
+        ...extra,
+        'X-Shopify-Access-Token': token,
+      },
+    });
+  }
+
+  let activeToken = cfg.accessToken;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    let res;
+    try {
+      res = await doFetch(activeToken);
+    } catch (e) {
+      if (attempt < maxAttempts - 1 && isRetriableFetchFailure(e)) {
+        await sleep(Math.min(20_000, 400 * 2 ** attempt + Math.random() * 350));
+        continue;
+      }
+      throw e;
+    }
+
+    if (res.status === 401) {
+      for (let round = 0; round < 2 && res.status === 401; round++) {
+        await ensureShopifySessionAccessTokenFresh();
+        await sleep(round === 0 ? 80 + Math.random() * 120 : 200 + Math.random() * 280);
+        for (const t of tokensFor401Retry(cfg, shop)) {
+          activeToken = t;
+          try {
+            res = await doFetch(t);
+          } catch (e) {
+            if (isRetriableFetchFailure(e)) {
+              await sleep(250 + Math.random() * 200);
+              try {
+                res = await doFetch(t);
+              } catch {
+                break;
+              }
+            } else {
+              throw e;
+            }
+          }
+          if (res.status !== 401) break;
+        }
+      }
+      if (res.status === 401) {
+        const healedTok = await tryHeal401WithClientCredentials(shop);
+        if (healedTok) {
+          activeToken = healedTok;
+          try {
+            res = await doFetch(healedTok);
+          } catch (e) {
+            if (isRetriableFetchFailure(e)) {
+              await sleep(300 + Math.random() * 200);
+              res = await doFetch(healedTok);
+            } else {
+              throw e;
+            }
+          }
+        }
+      }
+    }
+
+    if (res.ok) return res;
+
+    if (res.status === 429 && attempt < maxAttempts - 1) {
+      const w = parseShopifyRetryAfterMs(res) ?? Math.min(40_000, 800 * 2 ** attempt);
+      await sleep(w + Math.random() * 400);
+      continue;
+    }
+
+    const retryableHttp =
+      (res.status >= 500 && res.status <= 599) || res.status === 408 || res.status === 425;
+    if (retryableHttp && attempt < maxAttempts - 1) {
+      await sleep(Math.min(25_000, 550 * 2 ** attempt + Math.random() * 400));
+      continue;
+    }
+
+    return res;
+  }
+
+  return doFetch(activeToken);
+}
 
 export function normShopHost(domain) {
   return String(domain || '')
@@ -12,12 +278,7 @@ export function normShopHost(domain) {
 export async function fetchShop(cfg) {
   const shop = normShopHost(cfg.shopDomain);
   const url = `https://${shop}/admin/api/${API_VERSION}/shop.json`;
-  const res = await fetch(url, {
-    headers: {
-      'X-Shopify-Access-Token': cfg.accessToken,
-      Accept: 'application/json',
-    },
-  });
+  const res = await shopifyAdminFetch(cfg, url, {});
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`Shopify shop ${res.status}: ${text.slice(0, 400)}`);
@@ -72,13 +333,10 @@ export async function fetchRecentOrders(cfg, query = {}) {
   const url = new URL(`https://${shop}/admin/api/${API_VERSION}/orders.json`);
   url.searchParams.set('status', 'any');
   url.searchParams.set('limit', String(limit));
+  const minCreated = shopifyOrdersCreatedAtMinIso();
+  if (minCreated) url.searchParams.set('created_at_min', minCreated);
 
-  const res = await fetch(url, {
-    headers: {
-      'X-Shopify-Access-Token': cfg.accessToken,
-      Accept: 'application/json',
-    },
-  });
+  const res = await shopifyAdminFetch(cfg, url, {});
 
   if (!res.ok) {
     const text = await res.text();
@@ -87,6 +345,81 @@ export async function fetchRecentOrders(cfg, query = {}) {
 
   const body = await res.json();
   return Array.isArray(body.orders) ? body.orders : [];
+}
+
+/**
+ * Zoekt orders op ordernaam (zoals in Admin: #1001 of T0046587).
+ * Losse API-call; gebruik als fallback als de order niet in de cache/recente lijst staat.
+ * @param {{ shopDomain: string, accessToken: string }} cfg
+ * @param {string} nameHint
+ * @returns {Promise<any[]>}
+ */
+export async function fetchOrdersMatchingName(cfg, nameHint) {
+  const shop = normShopHost(cfg.shopDomain);
+  const raw = String(nameHint || '').trim();
+  if (!raw) return [];
+  /** @type {string[]} */
+  const variants = [];
+  variants.push(raw);
+  if (!raw.startsWith('#')) variants.push(`#${raw}`);
+  else variants.push(raw.slice(1));
+  const seen = new Set();
+  /** @type {any[]} */
+  const merged = [];
+  for (const name of variants) {
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const url =
+      `https://${shop}/admin/api/${API_VERSION}/orders.json?status=any&limit=10&name=` +
+      encodeURIComponent(name);
+    let res = await shopifyAdminFetch(cfg, url, {});
+    if (res.status === 429) {
+      const wait = Number(res.headers.get('retry-after')) || 2;
+      await new Promise((r) => setTimeout(r, Math.min(30, wait) * 1000));
+      res = await shopifyAdminFetch(cfg, url, {});
+    }
+    if (!res.ok) continue;
+    const body = await res.json().catch(() => ({}));
+    const batch = Array.isArray(body.orders) ? body.orders : [];
+    for (const o of batch) merged.push(o);
+    if (merged.length) break;
+  }
+  return merged;
+}
+
+/**
+ * Zoekt orders op klant-e-mail als losse fallback buiten de lokale cache.
+ * @param {{ shopDomain: string, accessToken: string }} cfg
+ * @param {string} email
+ * @returns {Promise<any[]>}
+ */
+export async function fetchOrdersMatchingEmail(cfg, email) {
+  const shop = normShopHost(cfg.shopDomain);
+  const raw = String(email || '').trim().toLowerCase();
+  if (!raw || !raw.includes('@')) return [];
+  const url =
+    `https://${shop}/admin/api/${API_VERSION}/orders.json?status=any&limit=20&email=` +
+    encodeURIComponent(raw);
+  let res = await shopifyAdminFetch(cfg, url, {});
+  if (res.status === 429) {
+    const wait = Number(res.headers.get('retry-after')) || 2;
+    await new Promise((r) => setTimeout(r, Math.min(30, wait) * 1000));
+    res = await shopifyAdminFetch(cfg, url, {});
+  }
+  if (!res.ok) return [];
+  const body = await res.json().catch(() => ({}));
+  const batch = Array.isArray(body.orders) ? body.orders : [];
+  return batch.filter((o) => {
+    const e =
+      o.email ||
+      o.contact_email ||
+      o.customer?.email ||
+      o.shipping_address?.email ||
+      o.billing_address?.email ||
+      '';
+    return String(e).trim().toLowerCase() === raw;
+  });
 }
 
 /**
@@ -114,7 +447,7 @@ export function parseLinkRel(linkHeader, rel) {
 /**
  * Haalt orders op in pagina's (max 250 per call) tot er geen volgende pagina is of het maximum is bereikt.
  * @param {{ shopDomain: string, accessToken: string }} cfg
- * @param {{ maxOrders?: number; pageSize?: number }} [opts]
+ * @param {{ maxOrders?: number; pageSize?: number; createdAtMinIso?: string | null }} [opts]
  */
 export async function fetchAllRecentOrders(cfg, opts = {}) {
   const shop = normShopHost(cfg.shopDomain);
@@ -124,16 +457,67 @@ export async function fetchAllRecentOrders(cfg, opts = {}) {
     50000,
     Math.max(1, Number(opts.maxOrders) || (Number.isFinite(envCap) && envCap > 0 ? envCap : 250))
   );
+  const createdMin = String(opts.createdAtMinIso ?? '').trim();
   /** @type {any[]} */
   const all = [];
   let requestUrl = `https://${shop}/admin/api/${API_VERSION}/orders.json?status=any&limit=${pageSize}`;
-  const headers = {
-    'X-Shopify-Access-Token': cfg.accessToken,
-    Accept: 'application/json',
-  };
+  if (createdMin) requestUrl += `&created_at_min=${encodeURIComponent(createdMin)}`;
 
   for (let guard = 0; guard < 500; guard++) {
-    const res = await fetch(requestUrl, { headers });
+    const res = await shopifyAdminFetch(cfg, requestUrl, {});
+    if (res.status === 429) {
+      const wait = Number(res.headers.get('retry-after')) || 2;
+      await new Promise((r) => setTimeout(r, Math.min(30, wait) * 1000));
+      guard--;
+      continue;
+    }
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Shopify orders ${res.status}: ${text.slice(0, 400)}`);
+    }
+    const body = await res.json();
+    const batch = Array.isArray(body.orders) ? body.orders : [];
+    for (const o of batch) {
+      if (all.length >= maxOrders) break;
+      all.push(o);
+    }
+    if (all.length >= maxOrders) break;
+    if (batch.length < pageSize) break;
+    const link = res.headers.get('link') || res.headers.get('Link');
+    const next = parseLinkRel(link, 'next');
+    if (!next) break;
+    requestUrl = next;
+  }
+
+  return all;
+}
+
+/**
+ * Orders gewijzigd sinds `updated_at_min` (ISO 8601). Zelfde paginatie als fetchAllRecentOrders.
+ * @param {{ shopDomain: string, accessToken: string }} cfg
+ * @param {{ updatedAtMinIso: string; maxOrders?: number; pageSize?: number; createdAtMinIso?: string | null }} opts
+ */
+export async function fetchOrdersUpdatedSince(cfg, opts) {
+  const shop = normShopHost(cfg.shopDomain);
+  const pageSize = Math.min(250, Math.max(1, Number(opts.pageSize) || 250));
+  const maxOrders = Math.min(
+    10000,
+    Math.max(1, Number(opts.maxOrders) || 5000)
+  );
+  const min = String(opts.updatedAtMinIso || '').trim();
+  if (!min) {
+    throw new Error('fetchOrdersUpdatedSince: updatedAtMinIso ontbreekt');
+  }
+  const createdMin = String(opts.createdAtMinIso ?? '').trim();
+  /** @type {any[]} */
+  const all = [];
+  let requestUrl =
+    `https://${shop}/admin/api/${API_VERSION}/orders.json?status=any&limit=${pageSize}` +
+    `&updated_at_min=${encodeURIComponent(min)}`;
+  if (createdMin) requestUrl += `&created_at_min=${encodeURIComponent(createdMin)}`;
+
+  for (let guard = 0; guard < 500; guard++) {
+    const res = await shopifyAdminFetch(cfg, requestUrl, {});
     if (res.status === 429) {
       const wait = Number(res.headers.get('retry-after')) || 2;
       await new Promise((r) => setTimeout(r, Math.min(30, wait) * 1000));
@@ -297,12 +681,7 @@ export async function fetchOrderMailSentEvents(cfg, orderId) {
   );
   url.searchParams.set('limit', '250');
 
-  const res = await fetch(url, {
-    headers: {
-      'X-Shopify-Access-Token': cfg.accessToken,
-      Accept: 'application/json',
-    },
-  });
+  const res = await shopifyAdminFetch(cfg, url, {});
 
   if (!res.ok) {
     const text = await res.text();
@@ -335,7 +714,7 @@ export async function fetchMailLogsForOrderIds(cfg, orderIds) {
   const map = {};
   const concurrency = Math.min(
     20,
-    Math.max(1, Number(process.env.SHOPIFY_EVENTS_CONCURRENCY || 12))
+    Math.max(1, Number(process.env.SHOPIFY_EVENTS_CONCURRENCY || 14))
   );
   let cursor = 0;
 
@@ -463,12 +842,7 @@ export async function fetchOrderTimelineEvents(cfg, orderId) {
   const url = new URL(`https://${shop}/admin/api/${API_VERSION}/orders/${orderId}/events.json`);
   url.searchParams.set('limit', '250');
 
-  const res = await fetch(url, {
-    headers: {
-      'X-Shopify-Access-Token': cfg.accessToken,
-      Accept: 'application/json',
-    },
-  });
+  const res = await shopifyAdminFetch(cfg, url, {});
 
   if (!res.ok) {
     const text = await res.text();
@@ -614,13 +988,9 @@ function resolveVariantImageSrc(product, variantId, imagesOverride) {
 async function fetchProductJson(cfg, productId) {
   const shop = normShopHost(cfg.shopDomain);
   const url = `https://${shop}/admin/api/${API_VERSION}/products/${productId}.json`;
-  const headers = {
-    'X-Shopify-Access-Token': cfg.accessToken,
-    Accept: 'application/json',
-  };
   const maxTry = 3;
   for (let attempt = 0; attempt < maxTry; attempt++) {
-    const res = await fetch(url, { headers });
+    const res = await shopifyAdminFetch(cfg, url, {});
     if (res.status === 429 && attempt < maxTry - 1) {
       const wait = Number(res.headers.get('retry-after')) || 2;
       await new Promise((r) => setTimeout(r, Math.min(30, wait) * 1000));
@@ -641,12 +1011,8 @@ async function fetchProductJson(cfg, productId) {
 async function fetchProductImagesList(cfg, productId) {
   const shop = normShopHost(cfg.shopDomain);
   const url = `https://${shop}/admin/api/${API_VERSION}/products/${productId}/images.json`;
-  const headers = {
-    'X-Shopify-Access-Token': cfg.accessToken,
-    Accept: 'application/json',
-  };
   for (let attempt = 0; attempt < 3; attempt++) {
-    const res = await fetch(url, { headers });
+    const res = await shopifyAdminFetch(cfg, url, {});
     if (res.status === 429 && attempt < 2) {
       const wait = Number(res.headers.get('retry-after')) || 2;
       await new Promise((r) => setTimeout(r, Math.min(30, wait) * 1000));
@@ -702,12 +1068,7 @@ async function fetchProductMetafields(cfg, productId) {
     `https://${shop}/admin/api/${API_VERSION}/products/${productId}/metafields.json`
   );
   url.searchParams.set('limit', '250');
-  const res = await fetch(url, {
-    headers: {
-      'X-Shopify-Access-Token': cfg.accessToken,
-      Accept: 'application/json',
-    },
-  });
+  const res = await shopifyAdminFetch(cfg, url, {});
   if (!res.ok) return [];
   const body = await res.json().catch(() => ({}));
   return Array.isArray(body.metafields) ? body.metafields : [];
@@ -718,13 +1079,15 @@ async function fetchProductMetafields(cfg, productId) {
  * Vereist read_products.
  * @param {{ shopDomain: string, accessToken: string }} cfg
  * @param {any[]} orders
- * @param {{ loadImages?: boolean; storefrontBaseUrl?: string | null }} [opts]
+ * @param {{ loadImages?: boolean; storefrontBaseUrl?: string | null; onlyProductIds?: Set<number> | null }} [opts]
  * storefrontBaseUrl: fallback voor afbeeldingen via /products/{handle}.json (publiek).
+ * onlyProductIds: alleen deze product-id's ophalen (voor incrementele cache).
  * @returns {Promise<{ imageMap: Record<string, string | null>, handles: Record<string, string>, productionByProductId: Record<string, { hint: string; workingDays: number | null }> }>}
  */
 export async function fetchProductThumbnailData(cfg, orders, opts = {}) {
   const loadImages = opts.loadImages !== false;
   const storefrontBaseUrl = opts.storefrontBaseUrl != null ? opts.storefrontBaseUrl : null;
+  const only = opts.onlyProductIds instanceof Set ? opts.onlyProductIds : null;
   /** @type {Record<string, string | null>} */
   const imageMap = {};
   /** @type {Record<string, string>} */
@@ -734,7 +1097,10 @@ export async function fetchProductThumbnailData(cfg, orders, opts = {}) {
   const productIds = new Set();
   for (const o of orders) {
     for (const li of o.line_items || []) {
-      if (li.product_id != null) productIds.add(Number(li.product_id));
+      if (li.product_id != null) {
+        const n = Number(li.product_id);
+        if (!only || only.has(n)) productIds.add(n);
+      }
     }
   }
   const list = [...productIds];

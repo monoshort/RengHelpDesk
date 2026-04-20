@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Toddie helpdesk · Gmail koppelen</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700&display=swap" rel="stylesheet" /></noscript>
+  <style>
+    :root {
+      --bg: #faf9f7;
+      --surface: #ffffff;
+      --border: #e0e3db;
+      --text: #444444;
+      --heading: #212529;
+      --muted: #6c7568;
+      --accent: #558235;
+      --accent-hover: #43672a;
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Quicksand", system-ui, sans-serif;
+      background:
+        radial-gradient(800px 400px at 0% 0%, rgba(85, 130, 53, 0.06) 0%, transparent 55%),
+        var(--bg);
+      color: var(--text);
+      padding: 2rem;
+      line-height: 1.5;
+    }
+    .box {
+      max-width: 32rem;
+      margin: 0 auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.5rem 1.75rem;
+      box-shadow: 0 4px 24px rgba(33, 37, 41, 0.06);
+    }
+    h1 { margin: 0 0 0.75rem; font-size: 1.25rem; color: var(--heading); font-weight: 700; }
+    p, li { color: var(--muted); font-size: 0.9rem; }
+    button {
+      margin-top: 1.25rem;
+      font: inherit;
+      font-weight: 600;
+      padding: 0.55rem 1.1rem;
+      border-radius: 8px;
+      border: none;
+      background: var(--accent);
+      color: #ffffff;
+      cursor: pointer;
+    }
+    button:hover { background: var(--accent-hover); }
+    .mono { font-family: ui-monospace, monospace; font-size: 0.8rem; color: var(--muted); word-break: break-all; }
+    a { color: var(--accent); font-weight: 600; text-decoration: none; }
+    a:hover { color: var(--accent-hover); text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h1>Gmail koppelen (Google OAuth)</h1>
+    <p>Verstuur klantmail vanuit het dashboard via de <strong>Gmail API</strong> in plaats van SMTP. Zet in <span class="mono">.env</span>: <span class="mono">GOOGLE_CLIENT_ID</span> en <span class="mono">GOOGLE_CLIENT_SECRET</span> (Google Cloud Console → APIs &amp; Services → Credentials → OAuth 2.0 Client).</p>
+    <p style="font-size:0.88rem"><strong>Error 400: redirect_uri_mismatch</strong> = de callback-URL hieronder staat <em>niet exact</em> in Google Cloud bij <strong>dezelfde</strong> OAuth-client als je client-id. Dat heeft niets te maken met welk Gmail-adres je kiest; Google toont soms alleen je standaardaccount op de foutpagina.</p>
+    <p style="font-size:0.88rem"><strong>Error 401: disabled_client</strong> (“The OAuth client was disabled”): in <strong>Google Cloud Console</strong> → <strong>APIs &amp; Services</strong> → <strong>Credentials</strong> → open de <strong>OAuth 2.0 Client ID</strong> die exact bij je <span class="mono">GOOGLE_CLIENT_ID</span> hoort (zelfde client als in Vercel / <span class="mono">.env</span>). Zet die client weer <strong>aan</strong> (niet verwijderd/archief). Controleer ook dat je niet per ongeluk een <em>oud</em> of ander project gebruikt.</p>
+    <p style="font-size:0.88rem"><strong>Error 403: access_denied</strong> / “support email” / “alleen testers”: de app staat op <em>Testing</em> of is niet geverifieerd. Voeg <strong>Test users</strong> toe (OAuth consent screen) voor elk Gmail-adres, of vul het consent-scherm volledig in en controleer het <strong>User support email</strong>-adres. Zie ook de punten hieronder.</p>
+    <ol>
+      <li>Schakel <strong>Gmail API</strong> in voor je Google Cloud-project.</li>
+      <li><strong>OAuth consent screen → Scopes:</strong> voeg <span class="mono">gmail.send</span> (versturen) en <span class="mono">gmail.readonly</span> (Postvak IN op <span class="mono">/mail.html</span>) toe. Zonder <span class="mono">gmail.send</span>: <span class="mono">Insufficient Permission</span> bij versturen. Zonder <span class="mono">gmail.readonly</span>: geen inbox op de Mail-pagina. Daarna app-toegang bij Google intrekken en hier opnieuw koppelen.</li>
+      <li>Bij die OAuth-client: <strong>Authorized redirect URIs</strong> — voeg exact toe (gekopieerd van de server):
+        <p class="mono" id="redirectUrl">…</p>
+        <span id="redirectLoading" style="font-size:0.85rem;color:var(--muted)">Laden…</span>
+        <p style="font-size:0.82rem;margin-top:0.35rem">Tip: open deze pagina via dezelfde URL als je straks koppelt (<span class="mono">localhost</span> of <span class="mono">127.0.0.1</span> — beide apart registreren als je beide gebruikt). Met vaste <span class="mono">GOOGLE_REDIRECT_URI</span> in <span class="mono">.env</span> moet diezelfde waarde in Google staan.</p>
+      </li>
+      <li>OAuth consent screen: als de app op <em>Testing</em> staat, voeg <strong>Test users</strong> toe voor elk adres waarmee je wilt inloggen (bijv. <span class="mono">toddiehelpdesk@gmail.com</span>).</li>
+      <li>Bij Google-inloggen: na “Inloggen…” zou je <strong>e-mail + wachtwoord</strong> en daarna het <strong>accountkiezer</strong>-scherm moeten zien (geen stille overschakeling naar een ander account). Werkt dat niet: probeer een <strong>incognito/private</strong> venster of log eerst uit bij Google (<a href="https://accounts.google.com/Logout" target="_blank" rel="noopener">accounts.google.com/Logout</a>) en probeer opnieuw.</li>
+      <li>Afzender: <span class="mono">GOOGLE_GMAIL_FROM</span> in <span class="mono">.env</span> (moet overeenkomen met het account waarmee je OAuth doet).</li>
+    </ol>
+    <p style="font-size:0.85rem;color:var(--muted)">Token: lokaal in <span class="mono">.google_gmail_token.json</span>. Met <span class="mono">DATABASE_URL</span> op Vercel wordt na koppelen in Postgres opgeslagen (aanbevolen). Optioneel kun je <span class="mono">GOOGLE_GMAIL_REFRESH_TOKEN</span> in Vercel zetten; werk die bij of haal weg na opnieuw koppelen. Bij conflicten: <span class="mono">GOOGLE_GMAIL_FORCE_ENV=true</span> laat het env-token leidend zijn.</p>
+    <p style="font-size:0.85rem;color:var(--muted)">Als Google tijdelijk <strong>“onveilige activiteit”</strong> of te veel inlogpogingen meldt: wacht een uur, bevestig je identiteit via <a href="https://g.co/verifyaccount" target="_blank" rel="noopener">g.co/verifyaccount</a>, en koppel daarna <strong>zo min mogelijk opnieuw</strong> (één gedeelde <span class="mono">GOOGLE_GMAIL_REFRESH_TOKEN</span> op Vercel scheelt veel OAuth vanaf verschillende IP’s).</p>
+    <button type="button" id="go">Inloggen bij Google en toestemming geven</button>
+    <p style="margin-top:1.25rem"><a href="/">← Terug naar Toddie helpdesk</a></p>
+  </div>
+  <script>
+    const el = document.getElementById('redirectUrl');
+    const loading = document.getElementById('redirectLoading');
+    fetch('/api/auth/gmail/redirect-uri')
+      .then((r) => r.json())
+      .then((j) => {
+        el.textContent = j.redirectUri || '';
+        if (loading) loading.remove();
+      })
+      .catch(() => {
+        const base = location.protocol + '//' + location.hostname + (location.port ? ':' + location.port : '');
+        el.textContent = base + '/api/auth/gmail/callback';
+        if (loading) loading.textContent = '(fallback — server niet bereikbaar)';
+      });
+    document.getElementById('go').addEventListener('click', () => {
+      window.location.href = '/api/auth/gmail/install';
+    });
+  </script>
+</body>
+</html>

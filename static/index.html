@@ -1316,12 +1316,13 @@
         <nav class="app-bar-nav" aria-label="Hoofdacties">
           <button type="button" class="primary" id="refresh">Vernieuwen</button>
           <a href="/koppel.html" class="link-pill">Shopify koppelen</a>
-          <a href="/mail.html" class="link-pill">Mail (concept)</a>
+          <a href="/gmail-koppel.html" class="link-pill" id="navGmailKoppel">Gmail koppelen</a>
+          <a href="/mail.html" class="link-pill">Mail</a>
           <button type="button" class="link-pill" id="dashboardLogout">Uitloggen</button>
         </nav>
         <div class="app-bar-meta" aria-live="polite">
           <span class="pill" id="stateShopify">Shopify: …</span>
-          <span class="pill" id="stateSmtp">SMTP: …</span>
+          <span class="pill" id="stateSmtp">Mail: …</span>
           <span class="pill" id="stateDpd">DPD: …</span>
           <span class="pill" id="stateThumbs" hidden>Productfoto's: …</span>
           <span class="dim" id="generated"></span>
@@ -1331,7 +1332,7 @@
         <summary>Uitleg voor deze pagina</summary>
         <p class="sub">
           Per order zie je <strong>klantmails en vergelijkbare meldingen</strong> uit de Shopify order-timeline (o.a. <span class="mono">mail_sent</span>, bevestiging, verzendmail via Sendcloud e.d.).
-          Het doel is vooral: <strong>op inkomende klantvragen een passend antwoord voorbereiden</strong> (bijv. verzendmoment, DPD-nummer, nog in productie) met ordergegevens uit Shopify en DPD — via AI als concept, daarna versturen met SMTP. DPD en mailhistorie staan per order in de tabel.
+          Het doel is vooral: <strong>op inkomende klantvragen een passend antwoord voorbereiden</strong> (bijv. verzendmoment, DPD-nummer, nog in productie) met ordergegevens uit Shopify en DPD — via AI als concept, daarna versturen via <strong>Gmail API</strong> of <strong>SMTP</strong>. DPD en mailhistorie staan per order in de tabel.
         </p>
       </details>
     </div>
@@ -1359,7 +1360,7 @@
           <p class="flow-kicker">Orders + mailhistorie</p>
           <h2 class="flow-title">Recente orders</h2>
           <p class="flow-desc">
-            Kolom <strong>Producten</strong>: per regel foto (zoveel mogelijk), link naar de winkel, prijs, en eventueel <strong>productie / werkdagen</strong>. Orders worden <strong>uit alle Shopify-pagina&apos;s</strong> geladen tot de ophaallimiet (.env <span class="mono">SHOPIFY_ORDERS_MAX</span>).
+            Kolom <strong>Producten</strong>: per regel foto (zoveel mogelijk), link naar de winkel, prijs, en eventueel <strong>productie / werkdagen</strong>. Orders en productfoto&apos;s worden <strong>gecached</strong> (SQLite of Postgres); bij een gewone verversing worden alleen <strong>gewijzigde orders</strong> opgehaald. Houd <strong>Shift</strong> ingedrukt bij Verversen voor een <strong>volledige</strong> her-sync. Limiet: .env <span class="mono">SHOPIFY_ORDERS_MAX</span>.
             <strong>Mailhistorie</strong>: e-mails naar de klant (Shopify, Sendcloud, …). Per order: knop <strong>Timeline</strong> voor de volledige Shopify-timeline, PDF-facturen (als de link in de events staat) en <strong>Bekijk mail</strong> met voorbeeld zoals in de admin.
           </p>
         </div>
@@ -1429,7 +1430,7 @@
   </main>
   <footer>
     <strong style="color:var(--text-heading);font-weight:600">Technische referentie</strong> —
-    <span class="mono">GET /api/overview</span> · <span class="mono">GET /api/orders/:id/timeline</span> · <span class="mono">POST /api/mail/send</span> · <span class="mono">POST /api/ai/reply-draft</span> · <span class="mono">POST /api/ai/desk-insight</span> · <span class="mono">.env.example</span>
+    <span class="mono">GET /api/overview</span> · <span class="mono">GET /api/orders/:id/timeline</span> · <span class="mono">GET /api/mail/inbox</span> · <span class="mono">POST /api/mail/send</span> · <span class="mono">POST /api/ai/reply-draft</span> · <span class="mono">POST /api/ai/desk-insight</span> · <span class="mono">.env.example</span>
   </footer>
 
   <div id="mailHoverTip" role="tooltip" hidden></div>
@@ -1960,10 +1961,28 @@
       }
       const when = data.generatedAt ? fmtDate(data.generatedAt) : '—';
       const dpdOn = Boolean(data.dpdConfigured);
-      const smtpOn = Boolean(data.smtpConfigured);
-      const extraHint = [dpdOn ? 'DPD aan' : null, smtpOn ? 'SMTP klaar' : null]
+      const mailOn = Boolean(data.mailOutboundConfigured);
+      const extraHint = [dpdOn ? 'DPD aan' : null, mailOn ? 'Mail verzenden klaar' : null]
         .filter(Boolean)
         .join(' · ') || 'Alleen Shopify in deze kaarten';
+
+      const cm = data.cacheMode ?? 'off';
+      const cd = data.cacheDeltaCount;
+      let cacheVal = '—';
+      let cacheHint = 'Geen database-cache (zet CACHE_DISABLED of gebruik Postgres op Vercel)';
+      if (cm === 'incremental') {
+        cacheVal = 'Incrementeel';
+        cacheHint =
+          cd != null
+            ? `${cd} order(s) bijgewerkt sinds vorige sync`
+            : 'Alleen wijzigingen opgehaald';
+      } else if (cm === 'full') {
+        cacheVal = 'Volledige sync';
+        cacheHint = 'Orders opnieuw opgebouwd in cache';
+      } else if (cm === 'off') {
+        cacheVal = 'Live / geen order-cache';
+        cacheHint = 'Volledige Shopify-pull (of testmodus met limiet)';
+      }
 
       let mailCardHtml = '';
       if (ordersMuted) {
@@ -2005,6 +2024,11 @@
           <div class="stat-hint">${esc(orderHint)}</div>
         </div>
         ${mailCardHtml}
+        <div class="stat-card">
+          <div class="stat-label">Cache</div>
+          <div class="stat-value" style="font-size:1rem;font-weight:600">${esc(cacheVal)}</div>
+          <div class="stat-hint">${esc(cacheHint)}</div>
+        </div>
         <div class="stat-card ${data.ordersUnavailable ? 'muted' : ''}">
           <div class="stat-label">Order-token</div>
           <div class="stat-value" style="font-size:1.05rem">${esc(tokenVal)}</div>
@@ -2271,7 +2295,7 @@
       });
     }
 
-    let smtpOk = false;
+    let mailOutboundOk = false;
 
     function openMailModal(to, orderName) {
       mailModalErr.hidden = true;
@@ -2288,9 +2312,10 @@
       if (mAiDraft) mAiDraft.disabled = !openAiOk;
       mailModal.classList.add('open');
       mailModal.setAttribute('aria-hidden', 'false');
-      if (!smtpOk) {
+      if (!mailOutboundOk) {
         mailModalErr.hidden = false;
-        mailModalErr.textContent = 'SMTP staat niet in .env (SMTP_HOST + SMTP_FROM). Versturen werkt dan niet.';
+        mailModalErr.textContent =
+          'Geen mail-uitgang: koppel Gmail (/gmail-koppel.html) of zet SMTP_HOST + SMTP_FROM in .env.';
       }
       requestAnimationFrame(() => {
         try {
@@ -2456,9 +2481,34 @@
       }
     }
 
-    async function load() {
+    async function healShopifyClientCredentials(btn) {
+      if (!(btn instanceof HTMLButtonElement)) return;
+      btn.disabled = true;
+      const prev = btn.textContent;
+      btn.textContent = 'Bezig…';
+      try {
+        const res = await fetch('/api/shopify/token-client-credentials', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok || !d.ok) {
+          throw new Error(d.error || res.statusText || 'Token ophalen mislukt');
+        }
+        await load();
+      } catch (e) {
+        window.alert(e instanceof Error ? e.message : String(e));
+        btn.disabled = false;
+        btn.textContent = prev;
+      }
+    }
+
+    async function load(ev) {
       const myGen = ++loadGeneration;
-      const overviewTimeoutMs = 120000;
+      /** Past bij Vercel `maxDuration` 300s; browser gaf bij 120s te vroeg op. */
+      const overviewTimeoutMs = 280000;
       document.body.classList.add('is-loading');
       if (refreshBtn) {
         refreshBtn.disabled = true;
@@ -2475,7 +2525,7 @@
       }
       if (ordersSectionMeta) ordersSectionMeta.textContent = 'Laden…';
       stateShopify.textContent = 'Shopify: …';
-      stateSmtp.textContent = 'SMTP: …';
+      stateSmtp.textContent = 'Mail: …';
       stateDpd.textContent = 'DPD: …';
       if (stateThumbs) stateThumbs.hidden = true;
       tbody.innerHTML = tableSkeletonRows(6);
@@ -2484,7 +2534,9 @@
         const overviewTid = window.setTimeout(() => overviewController.abort(), overviewTimeoutMs);
         let res;
         try {
-          res = await fetch('/api/overview', {
+          const overviewUrl =
+            '/api/overview' + (ev && ev.shiftKey ? '?fullSync=1' : '');
+          res = await fetch(overviewUrl, {
             credentials: 'same-origin',
             signal: overviewController.signal,
           });
@@ -2570,18 +2622,38 @@
               '<strong>Orders worden niet getoond.</strong> Je token heeft (nog) geen goedgekeurde scope <span class="mono">read_orders</span>. ' +
               'In Shopify: <strong>Instellingen → App-ontwikkeling → jouw app → Configuration → Admin API</strong>: vink <span class="mono">read_orders</span> (en liefst <span class="mono">read_customers</span>) aan, sla op, <strong>installeer de app opnieuw</strong> en werk zo nodig het Admin API-token in <span class="mono">.env</span> bij.';
           } else {
+            const detailRaw = String(data.ordersUnavailableDetail || 'Onbekende fout');
+            const authFail =
+              /\b401\b/i.test(detailRaw) ||
+              /Invalid API key/i.test(detailRaw) ||
+              /wrong password/i.test(detailRaw);
+            const healBlock = authFail
+              ? '<p style="margin:0.65rem 0 0" class="dim">Met een Custom app (client credentials): <button type="button" class="primary" data-action="shopify-cc-heal">Ververs Admin-token</button> (server gebruikt <span class="mono">SHOPIFY_CLIENT_ID</span> / <span class="mono">SHOPIFY_CLIENT_SECRET</span>). Op Vercel: als <span class="mono">SHOPIFY_ACCESS_TOKEN</span> ongeldig is maar nog in env staat, werk die bij of zet <span class="mono">SHOPIFY_ENV_TOKEN_FIRST=false</span>.</p>'
+              : '';
             scopeWarn.innerHTML =
-              '<strong>Orders konden niet worden geladen.</strong> ' +
-              esc(data.ordersUnavailableDetail || 'Onbekende fout');
+              '<strong>Orders konden niet worden geladen.</strong> ' + esc(detailRaw) + healBlock;
           }
         } else {
           stateShopify.textContent = data.shopifyConfigured ? 'Shopify: verbonden' : 'Shopify: ?';
           stateShopify.className = 'pill ok';
         }
-        smtpOk = Boolean(data.smtpConfigured);
+        mailOutboundOk = Boolean(data.mailOutboundConfigured);
         openAiOk = Boolean(data.openAiConfigured);
-        stateSmtp.textContent = smtpOk ? 'SMTP: klaar' : 'SMTP: niet geconfigureerd';
-        stateSmtp.className = smtpOk ? 'pill ok' : 'pill off';
+        const gmailOn = Boolean(data.gmailApiConfigured);
+        const smtpOn = Boolean(data.smtpConfigured);
+        if (mailOutboundOk) {
+          if (gmailOn) {
+            stateSmtp.textContent = 'Mail: Gmail API';
+          } else if (smtpOn) {
+            stateSmtp.textContent = 'Mail: SMTP';
+          } else {
+            stateSmtp.textContent = 'Mail: klaar';
+          }
+          stateSmtp.className = 'pill ok';
+        } else {
+          stateSmtp.textContent = 'Mail: niet geconfigureerd';
+          stateSmtp.className = 'pill off';
+        }
         stateDpd.textContent = data.dpdConfigured ? 'DPD: credentials geladen' : 'DPD: alleen Shopify (geen DPD in .env)';
         stateDpd.className = data.dpdConfigured ? 'pill ok' : 'pill off';
         generatedEl.textContent = data.generatedAt ? `Laatste ophalen: ${fmtDate(data.generatedAt)}` : '';
@@ -2665,11 +2737,28 @@
         errorBox.hidden = false;
         const msg =
           e instanceof Error && e.name === 'AbortError'
-            ? `Geen reactie van de server binnen ${overviewTimeoutMs / 1000}s (overzicht). Controleer of Node draait, of zet in .env een hogere limiet alleen als nodig: SHOPIFY_ORDERS_MAX (veel orders + mail per order = langzaam). Ververs daarna.`
+            ? `Geen reactie van de server binnen ${overviewTimeoutMs / 1000}s (overzicht). ` +
+                `Op Vercel: verlaag tijdelijk het werk — zet SHOPIFY_VERCEL_OVERVIEW_ORDERS_MAX of SHOPIFY_ORDERS_MAX lager (hoger = trager), of open /api/overview?mailLog=0 voor minder mail-work. ` +
+                `Controleer of de server draait en ververs.`
             : e instanceof Error
               ? e.message
               : String(e);
-        errorBox.textContent = msg;
+        const networkFail =
+          (e instanceof TypeError && String(e.message).toLowerCase() === 'failed to fetch') ||
+          (e instanceof Error && /failed to fetch/i.test(String(e.message)));
+        if (networkFail) {
+          errorBox.innerHTML = '';
+          errorBox.append(document.createTextNode(msg + ' '));
+          const retry = document.createElement('button');
+          retry.type = 'button';
+          retry.className = 'primary';
+          retry.style.marginLeft = '0.35rem';
+          retry.textContent = 'Opnieuw proberen';
+          retry.addEventListener('click', () => load());
+          errorBox.appendChild(retry);
+        } else {
+          errorBox.textContent = msg;
+        }
         tbody.innerHTML = '';
         lastOverviewSnapshot = {
           rows: [],
@@ -2827,10 +2916,13 @@
           mSubject.value = data.subject || mSubject.value;
           mBody.value = data.body || '';
           if (mAiHint) {
-            mAiHint.textContent =
-              (data.matchedOrderName
-                ? `Concept voor order ${data.matchedOrderName} (${data.model || 'OpenAI'}). `
-                : '') + 'Controleer de tekst voordat je op Versturen drukt.';
+            const mo = data.matchedOrderName;
+            const cm = data.customerMatched;
+            let line = '';
+            if (cm === true && mo) line = `Concept voor order ${mo} (${data.model || 'OpenAI'}). `;
+            else if (cm === false) line = `Geen ordermatch — ${data.model || 'OpenAI'} zonder Shopify-details. `;
+            else if (mo) line = `Concept voor order ${mo} (${data.model || 'OpenAI'}). `;
+            mAiHint.textContent = line + 'Controleer de tekst voordat je op Versturen drukt.';
           }
         } catch (e) {
           mailModalErr.hidden = false;
@@ -2910,10 +3002,44 @@
       });
     }
 
-    if (refreshBtn) refreshBtn.addEventListener('click', load);
-    if (new URLSearchParams(location.search).get('gekoppeld') === '1') {
-      history.replaceState({}, '', location.pathname);
+    if (scopeWarn) {
+      scopeWarn.addEventListener('click', (ev) => {
+        const t = ev.target;
+        if (!(t instanceof HTMLElement)) return;
+        const btn = t.closest('[data-action="shopify-cc-heal"]');
+        if (btn instanceof HTMLButtonElement) {
+          ev.preventDefault();
+          void healShopifyClientCredentials(btn);
+        }
+      });
     }
+    (function hideGmailKoppelWhenReady() {
+      const a = document.getElementById('navGmailKoppel');
+      if (!a) return;
+      fetch('/api/config', { credentials: 'same-origin' })
+        .then((r) => r.json().catch(() => ({})))
+        .then((cfg) => {
+          if (cfg.gmailReady) a.hidden = true;
+        })
+        .catch(() => {});
+    })();
+    if (refreshBtn) refreshBtn.addEventListener('click', load);
+    (function oauthReturnCleanup() {
+      const sp = new URLSearchParams(location.search);
+      const gmailOk = sp.get('gmail') === '1';
+      const gekoppeld = sp.get('gekoppeld') === '1';
+      if (!gmailOk && !gekoppeld) return;
+      if (gmailOk && sp.get('gmail_env_refresh_stale') === '1') {
+        const bar = document.createElement('div');
+        bar.setAttribute('role', 'status');
+        bar.style.cssText =
+          'background:#fff8e6;border-bottom:1px solid var(--border);padding:0.65rem 1rem;font-size:0.9rem;color:var(--text-heading);text-align:center;line-height:1.45';
+        bar.innerHTML =
+          'Gmail is opnieuw gekoppeld. <strong>Werk <span style="font-family:ui-monospace,monospace">GOOGLE_GMAIL_REFRESH_TOKEN</span> in Vercel bij op de nieuwe token, of verwijder die variabele</strong> — anders kan een oude env-token nog problemen geven als je <span style="font-family:ui-monospace,monospace">GOOGLE_GMAIL_FORCE_ENV</span> gebruikt.';
+        document.body.insertBefore(bar, document.body.firstChild);
+      }
+      history.replaceState({}, '', location.pathname);
+    })();
     (function initProductDetailsToggle() {
       const el = document.getElementById('productDetailsToggle');
       if (!el) return;

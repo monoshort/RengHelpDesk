@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Toddie helpdesk · Mail (concept)</title>
+  <title>Toddie helpdesk · Mail</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
@@ -24,6 +24,9 @@
       --ready-bg: rgba(85, 130, 53, 0.08);
       --gen-border: #a67c00;
       --gen-bg: rgba(166, 124, 0, 0.08);
+      --success: #2d6a4a;
+      --success-bg: #e8f5ee;
+      --success-border: #b8dcc8;
     }
     * { box-sizing: border-box; }
     html, body { height: 100%; margin: 0; }
@@ -222,7 +225,13 @@
       padding: 2rem;
       text-align: center;
     }
-    .read-pane { display: none; flex-direction: column; flex: 1; min-height: 0; }
+    .read-pane {
+      display: none;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
     .read-pane.open { display: flex; }
     .read-toolbar {
       display: flex;
@@ -257,6 +266,182 @@
       border-bottom: 1px solid var(--border);
     }
     .read-participants strong { color: var(--text); }
+    .mail-head-card {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      flex-shrink: 0;
+      margin: 0 1rem 0.65rem;
+      padding: 0.85rem 1rem;
+      border: 1px solid #c5d4b8;
+      border-radius: 12px;
+      background: linear-gradient(165deg, rgba(85, 130, 53, 0.14) 0%, #fafcf8 50%);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .mail-head-card .subj {
+      font-size: 1.12rem;
+      font-weight: 700;
+      color: var(--heading);
+      line-height: 1.3;
+      margin: 0 0 0.4rem;
+    }
+    .mail-head-card .meta {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin: 0;
+      line-height: 1.45;
+    }
+    .mail-head-card .meta strong { color: var(--text); font-weight: 600; }
+    .mail-head-card .snip {
+      margin: 0.55rem 0 0;
+      padding: 0.55rem 0.65rem;
+      font-size: 0.86rem;
+      line-height: 1.45;
+      color: #333;
+      background: rgba(255,255,255,0.75);
+      border-radius: 8px;
+      border-left: 3px solid var(--accent-mail);
+    }
+    .mail-order-strip {
+      flex-shrink: 0;
+      margin: 0 1rem 0.65rem;
+      padding: 0.65rem 0.9rem;
+      font-size: 0.82rem;
+      line-height: 1.45;
+      background: linear-gradient(135deg, rgba(85, 130, 53, 0.12) 0%, #f8faf5 100%);
+      border: 1px solid #c5d4b8;
+      border-radius: 10px;
+      color: var(--text);
+    }
+    .mail-order-strip a {
+      color: var(--accent-mail);
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .mail-order-strip a:hover { text-decoration: underline; }
+    .mail-order-strip .order-meta {
+      font-size: 0.76rem;
+      color: var(--muted);
+      margin-top: 0.4rem;
+      line-height: 1.4;
+    }
+    .mail-order-strip.loading { color: var(--muted); font-style: italic; }
+    .mail-order-strip.order-strip-none {
+      background: linear-gradient(135deg, #f5f5f3 0%, #fafafa 100%);
+      border-color: var(--border);
+    }
+    .mail-order-strip.order-strip-match {
+      border-color: #a8c090;
+    }
+    .order-strip-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.4rem 0.65rem;
+      margin-bottom: 0.35rem;
+    }
+    .order-strip-badge {
+      display: inline-block;
+      font-size: 0.62rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 0.2rem 0.45rem;
+      border-radius: 6px;
+      background: rgba(85, 130, 53, 0.18);
+      color: #3d5c26;
+    }
+    .order-strip-badge.neutral {
+      background: #e8e8e6;
+      color: var(--muted);
+    }
+    .order-strip-status {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem 0.5rem;
+      font-size: 0.78rem;
+      margin-top: 0.25rem;
+    }
+    .order-strip-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.15rem 0.45rem;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.85);
+      border: 1px solid rgba(85, 130, 53, 0.25);
+      color: var(--text);
+    }
+    /* Split-pane: klantmail (boven) + sleepbare tussenbalk + antwoord (onder) */
+    .read-split-host {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .read-split-host .read-original-wrap {
+      flex: 0 0 auto;
+      height: 48vh;
+      min-height: 100px;
+      max-height: none;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-bottom: none;
+      background: var(--read-bg);
+    }
+    .read-split-host .read-body-scroll {
+      min-height: 0;
+    }
+    .read-splitter {
+      flex: 0 0 11px;
+      height: 11px;
+      margin: 0;
+      padding: 0;
+      border: none;
+      border-top: 1px solid #c8d0b8;
+      border-bottom: 1px solid #c8d0b8;
+      cursor: row-resize;
+      touch-action: none;
+      background: linear-gradient(180deg, #eef1e8 0%, #dfe6d6 50%, #eef1e8 100%);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
+      position: relative;
+    }
+    .read-splitter:hover,
+    .read-splitter:focus-visible {
+      background: linear-gradient(180deg, #e4edd8 0%, #d0dcc4 50%, #e4edd8 100%);
+      outline: none;
+    }
+    .read-splitter::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 48px;
+      height: 5px;
+      border-radius: 3px;
+      background: var(--muted);
+      opacity: 0.35;
+      pointer-events: none;
+    }
+    .read-split-host .compose-card {
+      flex: 1 1 auto;
+      min-height: 140px;
+      max-height: none;
+      overflow-x: hidden;
+      overflow-y: auto;
+      border-top: none;
+    }
+    .read-original-label {
+      flex-shrink: 0;
+      padding: 0.5rem 1rem 0.25rem;
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--muted);
+    }
     .ai-strip {
       display: flex;
       flex-wrap: wrap;
@@ -296,11 +481,12 @@
       background: var(--gen-bg);
     }
     .read-body-scroll {
-      flex: 1;
+      flex: 1 1 auto;
+      min-height: 12rem;
       overflow-y: auto;
-      padding: 1rem 1.25rem 2rem;
-      font-size: 0.9rem;
-      line-height: 1.55;
+      padding: 0.5rem 1.25rem 1rem;
+      font-size: 0.95rem;
+      line-height: 1.6;
       color: #222;
     }
     .read-body-scroll blockquote {
@@ -310,18 +496,340 @@
       color: var(--muted);
       font-size: 0.85rem;
     }
+    .mono { font-family: ui-monospace, monospace; font-size: 0.85em; }
+    .compose-card {
+      margin: 0;
+      padding: 0.65rem 1rem 0.85rem;
+      border: none;
+      border-radius: 0;
+      background: linear-gradient(180deg, #f8f9f5 0%, #fff 12%);
+      box-shadow: none;
+    }
+    .compose-title {
+      margin: 0 0 0.35rem;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--heading);
+    }
+    .compose-subtitle {
+      margin: 0 0 0.65rem;
+      font-size: 0.82rem;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+    .flow-steps {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 0.85rem;
+      margin: 0 0 0.75rem;
+      padding: 0.55rem 0.65rem;
+      background: rgba(85, 130, 53, 0.06);
+      border: 1px solid #dfe6d6;
+      border-radius: 10px;
+    }
+    .flow-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.45rem;
+      font-size: 0.78rem;
+      line-height: 1.45;
+      color: var(--text);
+      min-width: 0;
+      flex: 1 1 160px;
+    }
+    .flow-step-num {
+      flex-shrink: 0;
+      width: 1.4rem;
+      height: 1.4rem;
+      border-radius: 50%;
+      background: var(--accent-mail);
+      color: #fff;
+      font-size: 0.72rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .compose-actions-primary {
+      display: flex;
+      flex-direction: column;
+      flex-wrap: nowrap;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .compose-actions-single .btn-gen-openai-full {
+      width: 100%;
+    }
+    .btn-std-link {
+      align-self: flex-start;
+      margin: 0;
+      padding: 0;
+      border: none;
+      background: none;
+      font: inherit;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--accent-mail);
+      text-decoration: underline;
+      cursor: pointer;
+    }
+    .btn-std-link:hover {
+      color: var(--accent-hover-mail, #43672a);
+    }
+    .mail-ai-context {
+      margin: 0 0 0.65rem;
+      padding: 0.55rem 0.65rem;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.8rem;
+      line-height: 1.45;
+    }
+    .mail-ai-context-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem 0.65rem;
+      align-items: baseline;
+    }
+    .mail-ai-context-row + .mail-ai-context-row {
+      margin-top: 0.4rem;
+    }
+    .mail-ai-label {
+      flex: 0 0 auto;
+      font-weight: 700;
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+    }
+    .mail-ai-status.match-yes {
+      color: var(--success, #3d7a2e);
+    }
+    .mail-ai-status.match-no {
+      color: #a65d00;
+    }
+    .mail-ai-kw-row .mail-ai-keywords {
+      flex: 1 1 200px;
+      min-width: 0;
+      word-break: break-word;
+      color: var(--text);
+    }
+    .compose-action-caption {
+      margin: 0;
+      font-size: 0.72rem;
+      line-height: 1.35;
+      color: var(--muted);
+      padding: 0 0.15rem;
+    }
+    .btn-gen-openai-full {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      padding: 0.75rem 1rem;
+      font: inherit;
+      font-size: 0.98rem;
+      font-weight: 700;
+      border-radius: 12px;
+      border: 2px solid #2d6a8f;
+      background: linear-gradient(180deg, #e8f4fa 0%, #d4e9f5 100%);
+      color: #143d52;
+      cursor: pointer;
+      box-shadow: 0 2px 10px rgba(45, 106, 143, 0.12);
+    }
+    .btn-gen-openai-full:hover:not(:disabled) {
+      filter: brightness(1.03);
+    }
+    .btn-gen-openai-full:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .compose-kern label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      margin-bottom: 0.25rem;
+      display: block;
+    }
+    #aiKernzinnen {
+      width: 100%;
+      min-height: 4.5rem;
+      font: inherit;
+      font-size: 0.86rem;
+      line-height: 1.4;
+      padding: 0.45rem 0.55rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      resize: vertical;
+      box-sizing: border-box;
+      margin-bottom: 0.45rem;
+    }
+    .compose-ai-note {
+      margin: 0.25rem 0 0;
+      font-size: 0.75rem;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+    .compose-warn {
+      margin: 0 0 0.5rem;
+      padding: 0.45rem 0.6rem;
+      font-size: 0.78rem;
+      line-height: 1.4;
+      color: #6b2d2d;
+      background: #fdeaea;
+      border: 1px solid #f0b4b4;
+      border-radius: 8px;
+    }
+    .compose-row { margin-bottom: 0.65rem; }
+    .compose-row label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      margin-bottom: 0.25rem;
+    }
+    .compose-row input[type="text"],
+    .compose-row select {
+      width: 100%;
+      font: inherit;
+      font-size: 0.88rem;
+      padding: 0.45rem 0.55rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      box-sizing: border-box;
+    }
+    .compose-row textarea {
+      width: 100%;
+      min-height: 100px;
+      max-height: 220px;
+      font: inherit;
+      font-size: 0.88rem;
+      line-height: 1.45;
+      padding: 0.5rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      resize: vertical;
+      box-sizing: border-box;
+    }
+    .compose-row-split {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      gap: 0.65rem;
+    }
+    .compose-row-split > div:first-child { flex: 1; min-width: 200px; }
+    .compose-row-split.full-width > div:first-child { width: 100%; flex: 1 1 100%; }
+    .compose-row-bottom {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-top: 0.35rem;
+      padding-top: 0.5rem;
+      border-top: 1px solid #e8ebe3;
+    }
+    .compose-ontvanger {
+      flex: 1 1 220px;
+      min-width: 0;
+    }
+    .compose-ontvanger input[type="email"] {
+      width: 100%;
+      font: inherit;
+      font-size: 0.88rem;
+      padding: 0.45rem 0.55rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      box-sizing: border-box;
+    }
+    .compose-actions-send {
+      margin-top: 0;
+      flex-shrink: 0;
+    }
+    .btn-send {
+      font: inherit;
+      font-size: 0.88rem;
+      font-weight: 700;
+      padding: 0.5rem 1.1rem;
+      border-radius: 10px;
+      border: none;
+      background: var(--accent-mail);
+      color: #fff;
+      cursor: pointer;
+    }
+    .btn-send:hover:not(:disabled) { background: #43672a; }
+    .btn-send:disabled { opacity: 0.55; cursor: not-allowed; }
+    .compose-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      margin-top: 0.5rem;
+    }
+    .compose-actions .ghost {
+      font: inherit;
+      font-size: 0.85rem;
+      padding: 0.45rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #fff;
+      cursor: pointer;
+    }
+    .compose-hint {
+      margin: 0.5rem 0 0;
+      padding: 0.5rem 0.65rem;
+      font-size: 0.8rem;
+      line-height: 1.45;
+      color: var(--muted);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #fafaf8;
+    }
+    .compose-hint.compose-hint-success {
+      color: #1f4a33;
+      background: var(--success-bg);
+      border-color: var(--success-border);
+    }
+    .compose-hint.compose-hint-warn {
+      color: #5c3d12;
+      background: #fff8e6;
+      border-color: #e8d4a0;
+    }
+    .mail-compose-err {
+      margin-top: 0.5rem;
+      padding: 0.6rem 0.85rem;
+      background: #fdeaea;
+      border: 1px solid #e8b4b4;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      color: #722;
+    }
     @media (max-width: 960px) {
       .shell { flex-direction: column; }
       .sidebar { width: 100%; max-height: 160px; }
       .list-col { width: 100%; max-height: 40vh; }
+      .read-split-host .read-original-wrap {
+        min-height: 88px;
+      }
+      .read-split-host .compose-card {
+        min-height: 120px;
+      }
     }
   </style>
 </head>
 <body>
   <header class="topbar">
     <h1>Toddie helpdesk · Mail</h1>
-    <p class="hint">Statische opzet — geen Microsoft Graph. Later: echte inbox + kant-en-klare templates + AI-voorstel.</p>
-    <a href="/">← Terug naar orders</a>
+    <p class="hint" id="mailHint">Inkomende mail van Gmail — kies een bericht, vul met één klik een standaardantwoord, controleer en verstuur.</p>
+    <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap">
+      <a href="/">← Terug naar orders</a>
+      <a href="/gmail-koppel.html" class="hint" style="font-weight:600" id="mailNavGmailKoppel">Gmail koppelen</a>
+    </div>
   </header>
   <div class="shell">
     <aside class="sidebar" aria-label="Mappen">
@@ -339,101 +847,265 @@
       <div class="folder"><span>Ongewenste e-mail</span></div>
     </aside>
     <section class="list-col" aria-label="Berichtenlijst">
-      <div class="list-head">Postvak IN · Toddie.nl</div>
+      <div class="list-head" id="listHead">Postvak IN</div>
       <div class="list-scroll" id="listScroll"></div>
     </section>
     <section class="read-col" aria-label="Leesvenster">
       <div class="read-empty" id="readEmpty">Selecteer een bericht in de lijst.</div>
       <div class="read-pane" id="readPane" hidden>
-        <div class="read-toolbar">
-          <div class="read-actions">
-            <button type="button" id="btnReply">Beantwoorden</button>
-            <button type="button" id="btnReplyAll">Allen beantwoorden</button>
-            <button type="button" id="btnForward">Doorsturen</button>
+        <div class="mail-head-card" id="mailHeadCard">
+          <p class="subj" id="readSubject"></p>
+          <p class="meta" id="readHeadLine"></p>
+          <p class="snip" id="readSnippet"></p>
+        </div>
+        <div class="mail-order-strip loading" id="mailOrderStrip" hidden aria-live="polite"></div>
+        <div class="read-split-host" id="readSplitHost">
+          <div class="read-original-wrap" id="readOriginalWrap">
+            <div class="read-original-label">Inkomende mail van de klant</div>
+            <div class="read-body-scroll" id="readBody"></div>
           </div>
-          <span class="msg-meta" id="readDate"></span>
+          <button
+            type="button"
+            class="read-splitter"
+            id="readSplitter"
+            aria-orientation="horizontal"
+            aria-label="Sleep om het venster voor de klantmail groter of kleiner te maken. Dubbelklik voor gelijke hoogte."
+            title="Sleep omhoog of omlaag · dubbelklik voor fifty-fifty"
+          ></button>
+          <div class="compose-card" id="composeCard">
+          <h2 class="compose-title">Jouw antwoord</h2>
+          <p class="compose-subtitle">
+            Eén knop <strong>Genereer met AI</strong>: we tonen welke zoektermen we gebruiken en of de klant/order in Shopify gevonden is. Optioneel: vaste tekst zonder AI via de link daaronder.
+          </p>
+          <div class="flow-steps" aria-label="Werkwijze">
+            <div class="flow-step">
+              <span class="flow-step-num" aria-hidden="true">1</span>
+              <span>Lees de mail en controleer de status hieronder (gevonden / niet gevonden) en de zoektermen.</span>
+            </div>
+            <div class="flow-step">
+              <span class="flow-step-num" aria-hidden="true">2</span>
+              <span>Vul eventueel <strong>kernzinnen</strong> in en druk op <strong>Genereer met AI</strong>.</span>
+            </div>
+            <div class="flow-step">
+              <span class="flow-step-num" aria-hidden="true">3</span>
+              <span>Controleer het concept en druk op <strong>Verstuur</strong>.</span>
+            </div>
+          </div>
+          <div class="mail-ai-context" id="mailAiContext" hidden>
+            <div class="mail-ai-context-row">
+              <span class="mail-ai-label">Shopify</span>
+              <strong class="mail-ai-status" id="mailMatchStatus" aria-live="polite">—</strong>
+            </div>
+            <div class="mail-ai-context-row mail-ai-kw-row">
+              <span class="mail-ai-label">Zoektermen</span>
+              <div class="mail-ai-keywords mono" id="mailKeywords">—</div>
+            </div>
+          </div>
+          <div class="compose-actions-primary compose-actions-single">
+            <button type="button" class="btn-gen-openai-full" id="btnGenOpenAi" title="OpenAI-concept op basis van ordercontext (als gevonden) en jouw kernzinnen">
+              <span class="sparkle" aria-hidden="true">✦</span>
+              Genereer met AI
+            </button>
+            <p class="compose-action-caption">
+              Zonder ordermatch schrijft de AI alsnog een net antwoord en vraagt om ordergegevens — controleer altijd zelf.
+            </p>
+            <button type="button" class="btn-std-link" id="btnFillStandard" title="Vult vaste tekst met order/DPD als die er zijn, anders een basisantwoord">
+              Vul standaardtekst zonder AI
+            </button>
+          </div>
+          <div class="compose-row compose-kern">
+            <label for="aiKernzinnen">Kernwoorden / instructies voor AI (optioneel)</label>
+            <textarea
+              id="aiKernzinnen"
+              name="aiKernzinnen"
+              placeholder="Bijv.: verwijs naar de levertijd, excuses voor de vertraging, toon …"
+              spellcheck="true"
+            ></textarea>
+            <p class="compose-ai-note">
+              AI gebruikt de zoektermen hierboven plus deze instructies. Bij een gevonden order komen Shopify- en DPD-feiten in de prompt.
+            </p>
+          </div>
+          <p class="compose-warn" role="note">
+            Let op: controleer altijd het antwoord voordat je het verstuurt.
+          </p>
+          <div class="mail-compose-err" id="mailComposeErr" role="alert" hidden></div>
+          <div class="compose-row">
+            <label for="mailSubject">Onderwerp van jouw antwoord</label>
+            <input type="text" id="mailSubject" name="subject" placeholder="Wordt Re: … ingevuld bij standaard antwoord" />
+          </div>
+          <div class="compose-row">
+            <label for="mailBody">Bericht aan de klant</label>
+            <textarea id="mailBody" name="body" spellcheck="true" placeholder="Genereer met AI of gebruik standaardtekst — controleer altijd zelf."></textarea>
+          </div>
+          <div class="compose-row">
+            <label for="mailFrom">Afzender</label>
+            <select id="mailFrom" aria-label="Afzenderadres"></select>
+            <p class="compose-ai-note" id="mailFromHint" style="margin-top:0.35rem"></p>
+          </div>
+          <div class="compose-row compose-row-bottom">
+            <div class="compose-ontvanger">
+              <label for="mailTo">Ontvanger</label>
+              <input type="email" id="mailTo" name="to" autocomplete="email" placeholder="klant@voorbeeld.nl" />
+            </div>
+            <div class="compose-actions compose-actions-send">
+              <button type="button" class="btn-send" id="btnSendMail">Verstuur</button>
+            </div>
+          </div>
+          <p class="compose-hint" id="composeHint" hidden></p>
+          </div>
         </div>
-        <div class="read-subject" id="readSubject"></div>
-        <div class="read-participants" id="readParticipants"></div>
-        <div class="ai-strip">
-          <button type="button" class="ai-big-btn ready" id="btnReadyMail" disabled>
-            <span class="sparkle" aria-hidden="true">✦</span>
-            <span id="readyLabel">Kant-en-klare mail</span>
-          </button>
-          <button type="button" class="ai-big-btn gen" id="btnGenAi">
-            <span class="sparkle" aria-hidden="true">✦</span>
-            Genereer voorstel met AI
-          </button>
-        </div>
-        <div class="read-body-scroll" id="readBody"></div>
       </div>
     </section>
   </div>
 
   <script>
-    /** Mock — later vervangen door Graph API */
-    const MOCK = [
-      {
-        id: 'm1',
-        group: 'Vandaag',
-        from: 'Rikke Stausholm',
-        email: 'Stausholm@live.dk',
-        subject: 'Re: Issue with bookshelf – cosmetic damage upon delivery',
-        snippet: 'The compensation is too low — damage on multiple parts. 400–500 DKK would be fair…',
-        time: '14:32',
-        hasTemplate: false,
-        body: `<p>Hallo Edith,</p>
-<p>Thank you for your reply. Unfortunately the amount you offer is too low for the damage we see — it is not only one spot but several visible marks on multiple parts of the bookshelf. We would need something in the range of <strong>400–500 DKK</strong> to feel this is resolved fairly.</p>
-<p>Kind regards,<br/>Rikke</p>
-<blockquote>
-  <p>Van: info@toddie.nl<br/>Verzonden: woensdag 8 april 2026 …</p>
-</blockquote>`,
-      },
-      {
-        id: 'm2',
-        group: 'Vandaag',
-        from: 'Sendcloud',
-        email: 'noreply@sendcloud.com',
-        subject: 'Je zending is onderweg',
-        snippet: 'Track & trace: uw pakket wordt vandaag bezorgd…',
-        time: '09:10',
-        hasTemplate: true,
-        body: '<p>Beste klant,</p><p>Uw zending is meegegeven aan de vervoerder. Gebruik de tracklink in uw account.</p>',
-      },
-      {
-        id: 'm3',
-        group: 'Vorige week',
-        from: 'bol.com Partner',
-        email: 'partner@bol.com',
-        subject: 'Nieuwe bestelling #BOL-99821',
-        snippet: 'Er staat een nieuwe bestelling klaar voor verzending…',
-        time: 'ma 31-3',
-        hasTemplate: true,
-        body: '<p>Goedemiddag,</p><p>Er is een nieuwe bestelling binnengekomen via bol.com. Verwerk deze in jullie systeem.</p>',
-      },
-      {
-        id: 'm4',
-        group: 'Vorige week',
-        from: 'Jan de Vries',
-        email: 'jan@example.nl',
-        subject: 'Vraag over levertijd wandlamp',
-        snippet: 'Wanneer verwachten jullie de Bosdieren lamp weer op voorraad?',
-        time: 'vr 28-3',
-        hasTemplate: false,
-        body: '<p>Hoi Toddie,</p><p>Kunnen jullie aangeven wanneer de wandlamp Bosdieren weer leverbaar is?</p><p>Groet, Jan</p>',
-      },
-    ];
+    /** Alleen Gmail INBOX via GET /api/mail/inbox — geen mockdata. */
+    let messages = [];
 
     const listScroll = document.getElementById('listScroll');
+    const listHead = document.getElementById('listHead');
+    const mailHint = document.getElementById('mailHint');
     const readEmpty = document.getElementById('readEmpty');
     const readPane = document.getElementById('readPane');
     const readSubject = document.getElementById('readSubject');
-    const readParticipants = document.getElementById('readParticipants');
-    const readDate = document.getElementById('readDate');
+    const readHeadLine = document.getElementById('readHeadLine');
+    const readSnippet = document.getElementById('readSnippet');
+    const mailOrderStrip = document.getElementById('mailOrderStrip');
     const readBody = document.getElementById('readBody');
-    const btnReadyMail = document.getElementById('btnReadyMail');
-    const readyLabel = document.getElementById('readyLabel');
-    const btnGenAi = document.getElementById('btnGenAi');
+    const composeCard = document.getElementById('composeCard');
+    const readSplitHost = document.getElementById('readSplitHost');
+    const readOriginalWrap = document.getElementById('readOriginalWrap');
+    const readSplitter = document.getElementById('readSplitter');
+
+    const READ_SPLIT_LS = 'mailReadSplitTopPx';
+    const READ_SPLIT_MIN_TOP = 100;
+    const READ_SPLIT_MIN_BOTTOM = 140;
+    const READ_SPLITTER_H = 11;
+    /** @type {{ startY: number; startTopPx: number } | null} */
+    let readSplitPointer = null;
+    let readSplitInitRetries = 0;
+
+    function readSplitBounds() {
+      if (!readSplitHost) return null;
+      const hostH = readSplitHost.getBoundingClientRect().height;
+      if (hostH < READ_SPLIT_MIN_TOP + READ_SPLIT_MIN_BOTTOM + READ_SPLITTER_H + 8) return null;
+      const maxTop = hostH - READ_SPLITTER_H - READ_SPLIT_MIN_BOTTOM;
+      return { hostH, maxTop };
+    }
+
+    /** @param {number} px */
+    function applyReadSplitTopPx(px) {
+      if (!readOriginalWrap) return;
+      const b = readSplitBounds();
+      if (!b) return;
+      let n = Math.round(Number(px));
+      if (!Number.isFinite(n)) n = Math.round(b.hostH * 0.48);
+      n = Math.max(READ_SPLIT_MIN_TOP, Math.min(b.maxTop, n));
+      readOriginalWrap.style.height = `${n}px`;
+      try {
+        localStorage.setItem(READ_SPLIT_LS, String(n));
+      } catch {
+        /* ignore */
+      }
+    }
+
+    function initReadSplit() {
+      if (!readSplitHost || !readOriginalWrap) return;
+      const b = readSplitBounds();
+      if (!b) {
+        readSplitInitRetries += 1;
+        if (readSplitInitRetries < 25) requestAnimationFrame(initReadSplit);
+        return;
+      }
+      readSplitInitRetries = 0;
+      let stored = NaN;
+      try {
+        stored = parseInt(localStorage.getItem(READ_SPLIT_LS) || '', 10);
+      } catch {
+        /* ignore */
+      }
+      if (Number.isFinite(stored) && stored >= READ_SPLIT_MIN_TOP) {
+        applyReadSplitTopPx(stored);
+      } else {
+        applyReadSplitTopPx(Math.round(b.hostH * 0.48));
+      }
+    }
+
+    function scheduleReadSplitInit() {
+      readSplitInitRetries = 0;
+      requestAnimationFrame(() => {
+        initReadSplit();
+        requestAnimationFrame(initReadSplit);
+      });
+    }
+
+    let readSplitResizeTimer = 0;
+    function onReadSplitResize() {
+      if (readSplitResizeTimer) window.clearTimeout(readSplitResizeTimer);
+      readSplitResizeTimer = window.setTimeout(() => {
+        readSplitResizeTimer = 0;
+        const cur = readOriginalWrap ? readOriginalWrap.getBoundingClientRect().height : 0;
+        if (cur > 0) applyReadSplitTopPx(cur);
+      }, 100);
+    }
+
+    if (readSplitter && readOriginalWrap) {
+      readSplitter.addEventListener('pointerdown', (ev) => {
+        if (ev.button !== 0) return;
+        if (!readSplitBounds()) return;
+        ev.preventDefault();
+        readSplitPointer = {
+          startY: ev.clientY,
+          startTopPx: readOriginalWrap.getBoundingClientRect().height,
+        };
+        try {
+          readSplitter.setPointerCapture(ev.pointerId);
+        } catch {
+          /* ignore */
+        }
+        document.body.style.cursor = 'row-resize';
+        document.body.style.userSelect = 'none';
+      });
+      readSplitter.addEventListener('pointermove', (ev) => {
+        if (!readSplitPointer) return;
+        const dy = ev.clientY - readSplitPointer.startY;
+        applyReadSplitTopPx(readSplitPointer.startTopPx + dy);
+      });
+      function endReadSplit(ev) {
+        if (!readSplitPointer) return;
+        readSplitPointer = null;
+        try {
+          readSplitter.releasePointerCapture(ev.pointerId);
+        } catch {
+          /* ignore */
+        }
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+      readSplitter.addEventListener('pointerup', endReadSplit);
+      readSplitter.addEventListener('pointercancel', endReadSplit);
+      readSplitter.addEventListener('dblclick', () => {
+        const b = readSplitBounds();
+        if (!b) return;
+        const half = (b.hostH - READ_SPLITTER_H) / 2;
+        applyReadSplitTopPx(half);
+      });
+    }
+    window.addEventListener('resize', onReadSplitResize);
+    const btnFillStandard = document.getElementById('btnFillStandard');
+    const btnGenOpenAi = document.getElementById('btnGenOpenAi');
+    const mailAiContext = document.getElementById('mailAiContext');
+    const mailMatchStatus = document.getElementById('mailMatchStatus');
+    const mailKeywords = document.getElementById('mailKeywords');
+    const aiKernzinnen = document.getElementById('aiKernzinnen');
+    const mailFrom = document.getElementById('mailFrom');
+    const mailFromHint = document.getElementById('mailFromHint');
+    const mailTo = document.getElementById('mailTo');
+    const mailSubject = document.getElementById('mailSubject');
+    const mailBody = document.getElementById('mailBody');
+    const btnSendMail = document.getElementById('btnSendMail');
+    const composeHint = document.getElementById('composeHint');
+    const mailComposeErr = document.getElementById('mailComposeErr');
 
     let selectedId = null;
 
@@ -444,13 +1116,352 @@
       return d.innerHTML;
     }
 
+    function escAttr(s) {
+      return String(s ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;');
+    }
+
+    /**
+     * Toont gekoppelde Shopify-order + DPD bij geselecteerde mail.
+     * @param {object} m
+     */
+    /**
+     * @param {unknown} sk
+     */
+    function formatSearchKeywordsLine(sk) {
+      if (!sk || typeof sk !== 'object') return '—';
+      const o = /** @type {{ email?: string; senderName?: string; orderHintsFromSubject?: string[] }} */ (sk);
+      const parts = [];
+      if (o.email) parts.push(`e-mail ${o.email}`);
+      if (o.senderName) parts.push(`naam ${o.senderName}`);
+      if (Array.isArray(o.orderHintsFromSubject) && o.orderHintsFromSubject.length) {
+        parts.push(`orderhints ${o.orderHintsFromSubject.join(', ')}`);
+      }
+      return parts.length ? parts.join(' · ') : '—';
+    }
+
+    /**
+     * @param {'loading' | 'yes' | 'no'} state
+     * @param {unknown} [searchKeywords]
+     */
+    function updateMailAiContextRow(state, searchKeywords) {
+      if (!mailAiContext || !mailMatchStatus || !mailKeywords) return;
+      mailAiContext.hidden = false;
+      mailMatchStatus.className = 'mail-ai-status';
+      if (state === 'loading') {
+        mailMatchStatus.textContent = 'Zoeken naar klant/order…';
+        mailKeywords.textContent = '—';
+        return;
+      }
+      mailKeywords.textContent = formatSearchKeywordsLine(searchKeywords);
+      if (state === 'yes') {
+        mailMatchStatus.textContent = 'Klant/order gevonden — order- en verzendcontext voor AI';
+        mailMatchStatus.classList.add('match-yes');
+      } else {
+        mailMatchStatus.textContent = 'Geen ordermatch — AI antwoordt zonder Shopify-details';
+        mailMatchStatus.classList.add('match-no');
+      }
+    }
+
+    function hideMailAiContext() {
+      if (mailAiContext) mailAiContext.hidden = true;
+    }
+
+    async function loadMailOrderStrip(m) {
+      if (!mailOrderStrip) return;
+      const contact = extractCustomerContactFromMessage(m);
+      const email = (contact.email || '').trim();
+      const name = (contact.name || '').trim();
+      mailOrderStrip.hidden = false;
+      mailOrderStrip.className = 'mail-order-strip loading';
+      mailOrderStrip.textContent = 'Orderstatus ophalen…';
+      if (!email && !name) {
+        mailOrderStrip.hidden = true;
+        hideMailAiContext();
+        return;
+      }
+      updateMailAiContextRow('loading');
+      const hintFromSubj = guessShopifyOrderName(m.subject);
+      const fallbackKeywords = {
+        email,
+        senderName: name,
+        orderHintsFromSubject: hintFromSubj ? [hintFromSubj] : [],
+      };
+      try {
+        const u = new URL('/api/mail/order-context', location.origin);
+        if (email) u.searchParams.set('email', email);
+        if (name) u.searchParams.set('name', name);
+        if (m.subject) u.searchParams.set('subject', m.subject);
+        const r = await fetch(u.toString(), { credentials: 'same-origin' });
+        const data = await r.json().catch(() => ({}));
+        if (dashboardLoginRequired(r, data)) {
+          redirectDashboardLogin();
+          return;
+        }
+        if (!r.ok || data.ok === false) {
+          mailOrderStrip.className = 'mail-order-strip order-strip-none';
+          mailOrderStrip.innerHTML =
+            '<div class="order-strip-head"><span class="order-strip-badge neutral">Shopify</span></div>' +
+            `<div>${esc(String(data.error || r.statusText || 'Niet bereikbaar'))}</div>`;
+          updateMailAiContextRow('no', data.searchKeywords || fallbackKeywords);
+          return;
+        }
+        const sk = data.searchKeywords || fallbackKeywords;
+        if (!data.match) {
+          mailOrderStrip.className = 'mail-order-strip order-strip-none';
+          mailOrderStrip.innerHTML =
+            '<div class="order-strip-head">' +
+            '<span class="order-strip-badge neutral">Geen ordermatch</span>' +
+            '</div>' +
+            '<div>We vinden (nog) geen recente Shopify-order op dit adres, deze afzendernaam of een ordernummer in het onderwerp. ' +
+            '<strong>Genereer met AI</strong> kan wél een antwoord maken en vraagt om ordergegevens; of gebruik <strong>standaardtekst zonder AI</strong>.</div>';
+          updateMailAiContextRow('no', sk);
+          return;
+        }
+        const x = data.match;
+        const href = escAttr(x.adminOrderUrl || '');
+        const dpdBits = (x.dpdTrackings || []).map((d) => {
+          if (d.error) {
+            const num = d.number ? esc(String(d.number)) : '—';
+            const msg = d.errorMessage ? esc(String(d.errorMessage).slice(0, 120)) : 'DPD-fout';
+            return `<span style="color:#a33">${num}: ${msg}</span>`;
+          }
+          if (!d.label) return '';
+          let t = esc(d.label);
+          if (d.date) t += ' · ' + esc(d.date);
+          if (d.location) t += ' · ' + esc(d.location);
+          return t;
+        }).filter(Boolean);
+        const trackBits = (x.trackings || [])
+          .filter((t) => t.number)
+          .map((t) => esc([t.company, t.number].filter(Boolean).join(' ').trim()))
+          .filter(Boolean);
+        const line = esc((x.lineItemsSummary || '').slice(0, 220));
+        const lineEll = (x.lineItemsSummary || '').length > 220 ? '…' : '';
+        const fs = esc(x.displayFulfillmentStatus || '—');
+        const pay = esc(x.displayFinancialStatus || '—');
+        mailOrderStrip.className = 'mail-order-strip order-strip-match';
+        updateMailAiContextRow('yes', data.searchKeywords);
+        mailOrderStrip.innerHTML =
+          '<div class="order-strip-head">' +
+          '<span class="order-strip-badge">Order herkend</span>' +
+          `<strong><a href="${href}" target="_blank" rel="noopener">${esc(x.shopifyOrderName || 'Order')}</a></strong>` +
+          '</div>' +
+          `<div class="order-strip-status">` +
+          `<span class="order-strip-pill">Verzending: ${fs}</span>` +
+          `<span class="order-strip-pill">Betaling: ${pay}</span>` +
+          `</div>` +
+          `<div class="order-meta">${line}${lineEll}</div>` +
+          (dpdBits.length
+            ? `<div class="order-meta"><strong>DPD</strong> · ${dpdBits.join(' · ')}</div>`
+            : trackBits.length
+              ? `<div class="order-meta"><strong>Tracking</strong> · ${trackBits.join(' · ')}</div>`
+              : '');
+      } catch {
+        mailOrderStrip.className = 'mail-order-strip';
+        mailOrderStrip.textContent = 'Kon orderstatus niet laden.';
+        if (mailMatchStatus) {
+          mailMatchStatus.className = 'mail-ai-status match-no';
+          mailMatchStatus.textContent = 'Shopify-context niet geladen';
+        }
+        if (mailKeywords) mailKeywords.textContent = '—';
+        if (mailAiContext) mailAiContext.hidden = false;
+      }
+    }
+
+    /** @param {string} [subj] */
+    function replySubjectLine(subj) {
+      const raw = String(subj || '').trim();
+      if (/^re:\s*/i.test(raw)) return raw;
+      return raw ? `Re: ${raw}` : 'Re: uw bericht';
+    }
+
+    function voornaam(fromName) {
+      const s = String(fromName || '')
+        .replace(/^["'«»]+|["'«»]+$/g, '')
+        .trim();
+      if (!s) return 'daar';
+      const part = s.split(/[\s,]+/)[0];
+      return part || 'daar';
+    }
+
+    /**
+     * @param {Response} res
+     * @param {unknown} body
+     */
+    function dashboardLoginRequired(res, body) {
+      return (
+        res.status === 401 &&
+        body &&
+        typeof body === 'object' &&
+        /** @type {{ loginRequired?: boolean }} */ (body).loginRequired === true
+      );
+    }
+
+    function redirectDashboardLogin() {
+      location.href = '/login.html?next=' + encodeURIComponent(location.pathname + location.search);
+    }
+
+    async function loadMailFromOptions() {
+      if (!mailFrom) return;
+      try {
+        const r = await fetch('/api/mail/from-options', { credentials: 'same-origin' });
+        const data = await r.json().catch(() => ({}));
+        if (r.status === 401) {
+          return;
+        }
+        if (!r.ok || !Array.isArray(data.options) || data.options.length === 0) {
+          mailFrom.innerHTML = '<option value="">Standaard (zie .env)</option>';
+          mailFrom.disabled = true;
+          if (mailFromHint) {
+            mailFromHint.textContent =
+              'Afzender komt uit GOOGLE_GMAIL_FROM of SMTP_FROM. Zet MAIL_FROM_ALLOWLIST voor extra adressen (bijv. info@toddie.nl).';
+          }
+          return;
+        }
+        mailFrom.innerHTML = data.options
+          .map((e) => `<option value="${esc(e)}">${esc(e)}</option>`)
+          .join('');
+        const defRaw = data.defaultFrom || data.options[0];
+        const def =
+          data.options.find((x) => String(x).toLowerCase() === String(defRaw).toLowerCase()) || data.options[0];
+        mailFrom.value = def;
+        mailFrom.disabled = false;
+        if (mailFromHint) {
+          const smtpNote = data.smtpSendFirst
+            ? 'Verzenden loopt via SMTP (SMTP_SEND_FIRST=true). '
+            : '';
+          mailFromHint.textContent =
+            smtpNote +
+            (data.options.length > 1
+              ? 'Extra adressen via MAIL_FROM_ALLOWLIST. Bij alleen Gmail: “Verzenden als” voor dat adres.'
+              : 'Afzender uit .env. Meer adressen: MAIL_FROM_ALLOWLIST.');
+        }
+      } catch {
+        mailFrom.innerHTML = '<option value="">—</option>';
+        mailFrom.disabled = true;
+      }
+    }
+
+    /** @param {string} html */
+    function htmlToPlain(html) {
+      const d = document.createElement('div');
+      d.innerHTML = html || '';
+      try {
+        d.querySelectorAll('script,style,noscript').forEach((el) => el.remove());
+      } catch {
+        /* ignore */
+      }
+      const t = d.textContent || d.innerText || '';
+      return t.replace(/\r\n/g, '\n').replace(/[ \t]+\n/g, '\n').trim();
+    }
+
+    /**
+     * Haalt (bij forwarded/contactformulier mails) de echte klant-e-mail + naam uit de inhoud.
+     * @param {object} m
+     * @returns {{ email: string, name: string }}
+     */
+    function extractCustomerContactFromMessage(m) {
+      const fallbackEmail = String(m.email || '').trim();
+      const fallbackName = String(m.from || '').trim();
+      const bodyText = htmlToPlain(typeof m.body === 'string' ? m.body : '');
+      const snippet = String(m.snippet || '').trim();
+      const text = [bodyText, snippet].filter(Boolean).join('\n');
+      if (!text) return { email: fallbackEmail, name: fallbackName };
+
+      const roleInbox = /^(info|support|sales|contact|service|noreply|no-reply)@/i;
+      let email = '';
+      const angled = text.match(/<([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})>/i);
+      if (angled?.[1]) email = angled[1].trim();
+      if (!email) {
+        const plain = text.match(/\b([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})\b/i);
+        if (plain?.[1]) email = plain[1].trim();
+      }
+      if (!email || roleInbox.test(email)) {
+        const direct = text.match(/(?:^|\n)\s*E-?mail:\s*([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})/i);
+        if (direct?.[1]) email = direct[1].trim();
+      }
+      if (!email || roleInbox.test(email)) email = fallbackEmail;
+
+      let name = '';
+      const fromLine = text.match(/(?:^|\n)\s*(?:Van|From):\s*([^<\n]+)\s*</i);
+      if (fromLine?.[1]) name = fromLine[1].trim();
+      if (!name) {
+        const nameLine = text.match(/(?:^|\n)\s*Naam:\s*([^\n]+)/i);
+        if (nameLine?.[1]) name = nameLine[1].trim();
+      }
+      if (!name) {
+        const sign = text.match(/(?:groet(?:en)?|met vriendelijke groet|mvg|br)[,\s]*\n+([A-Za-z][A-Za-z .'-]{1,40})/i);
+        if (sign?.[1]) name = sign[1].trim();
+      }
+      if (!name) name = fallbackName;
+
+      return { email, name };
+    }
+
+    /** @param {string} [subject] */
+    function guessShopifyOrderName(subject) {
+      if (!subject) return undefined;
+      const m = subject.match(/#\d{3,}/);
+      if (m) return m[0];
+      const m2 = subject.match(
+        /\b(?:order|bestelling)\s*(?:no|nr|number)\.?[\s#:,-]*\s*([#A-Za-z][A-Za-z0-9\-]*)\b/i
+      );
+      if (m2) return m2[1].replace(/^#/, '');
+      const m3 = subject.match(/\b([A-Z]\d{5,})\b/);
+      return m3 ? m3[1] : undefined;
+    }
+
+    function clearComposeFeedback() {
+      if (mailComposeErr) {
+        mailComposeErr.hidden = true;
+        mailComposeErr.textContent = '';
+      }
+      if (composeHint) {
+        composeHint.hidden = true;
+        composeHint.textContent = '';
+        composeHint.className = 'compose-hint';
+      }
+    }
+
+    /** @param {string} text @param {'success' | 'warn' | 'neutral'} [variant] */
+    function setComposeHint(text, variant) {
+      if (!composeHint) return;
+      composeHint.hidden = false;
+      composeHint.textContent = text;
+      const v = variant || 'neutral';
+      composeHint.className =
+        'compose-hint' +
+        (v === 'success' ? ' compose-hint-success' : v === 'warn' ? ' compose-hint-warn' : '');
+    }
+
+    /** @param {object} m */
+    function applyComposeDefaults(m) {
+      const contact = extractCustomerContactFromMessage(m);
+      const em = (contact.email || '').trim();
+      const emailOk = em && em !== '—' && em.includes('@');
+      if (mailTo) mailTo.value = emailOk ? em : '';
+      if (mailSubject) mailSubject.value = replySubjectLine(m.subject);
+      if (mailBody) mailBody.value = '';
+      if (aiKernzinnen) aiKernzinnen.value = '';
+      hideMailAiContext();
+      clearComposeFeedback();
+    }
+
     function renderList() {
+      if (messages.length === 0) {
+        listScroll.innerHTML =
+          '<p style="padding:1.25rem 0.85rem;color:var(--muted)">Geen berichten in Postvak IN.</p>';
+        return;
+      }
       const groups = {};
-      for (const m of MOCK) {
+      for (const m of messages) {
         if (!groups[m.group]) groups[m.group] = [];
         groups[m.group].push(m);
       }
-      const order = ['Vandaag', 'Vorige week', 'Twee weken geleden'];
+      const order = ['Vandaag', 'Deze week', 'Vorige week', 'Eerder'];
       let html = '';
       for (const g of order) {
         const items = groups[g];
@@ -458,9 +1469,6 @@
         html += `<div class="group-label">${esc(g)}</div>`;
         for (const m of items) {
           const sel = m.id === selectedId ? ' selected' : '';
-          const readyTitle = m.hasTemplate
-            ? 'Kant-en-klare mail beschikbaar — klik om te gebruiken (later)'
-            : 'Geen kant-en-klare mail voor dit type bericht';
           html += `<div class="msg-row${sel}" data-id="${esc(m.id)}" role="button" tabindex="0">
             <div class="msg-main">
               <div class="msg-from">${esc(m.from)}</div>
@@ -468,63 +1476,53 @@
               <div class="msg-snip">${esc(m.snippet)}</div>
               <div class="msg-meta">${esc(m.time)}</div>
             </div>
-            <div class="ai-actions">
-              <button type="button" class="ai-icon-btn ready" data-action="ready" data-id="${esc(m.id)}" title="${esc(readyTitle)}" ${m.hasTemplate ? '' : 'disabled'} aria-label="Kant-en-klare mail">
-                <span class="sparkle">✦</span>
-              </button>
-              <button type="button" class="ai-icon-btn gen" data-action="gen" data-id="${esc(m.id)}" title="Genereer voorstel met AI (later)" aria-label="AI-voorstel">
-                <span class="sparkle">✦</span>
-              </button>
-            </div>
           </div>`;
         }
       }
       listScroll.innerHTML = html;
     }
 
-    function openMessage(id, opts = {}) {
-      const m = MOCK.find((x) => x.id === id);
+    function openMessage(id) {
+      const m = messages.find((x) => x.id === id);
       if (!m) return;
       selectedId = id;
       renderList();
       readEmpty.style.display = 'none';
       readPane.hidden = false;
       readPane.classList.add('open');
-      readSubject.textContent = m.subject;
-      readParticipants.innerHTML = `<strong>${esc(m.from)}</strong> &lt;${esc(m.email)}&gt; · Aan Toddie.nl`;
-      readDate.textContent = m.time;
+      readPane.scrollTop = 0;
+      readSubject.textContent = m.subject || '(Geen onderwerp)';
+      if (readHeadLine) {
+        readHeadLine.innerHTML = `<strong>${esc(m.from)}</strong> · ${esc(m.email)} · ${esc(m.time)}`;
+      }
+      if (readSnippet) {
+        readSnippet.textContent = m.snippet
+          ? String(m.snippet).trim()
+          : 'Geen voorbeeldregel — zie hieronder het volledige bericht.';
+      }
       readBody.innerHTML = m.body;
-      if (m.hasTemplate) {
-        btnReadyMail.disabled = false;
-        readyLabel.textContent = 'Kant-en-klare mail gebruiken';
-      } else {
-        btnReadyMail.disabled = true;
-        readyLabel.textContent = 'Niet beschikbaar';
+      applyComposeDefaults(m);
+      scheduleReadSplitInit();
+      void loadMailOrderStrip(m);
+    }
+
+    function showInboxError(title, detailHtml) {
+      if (listHead) listHead.textContent = 'Postvak IN';
+      if (mailHint) {
+        mailHint.innerHTML = `<strong style="color:#a33">${esc(title)}</strong> ${detailHtml}`;
       }
-      if (opts.flash === 'ready' && m.hasTemplate) {
-        btnReadyMail.animate(
-          [{ boxShadow: '0 0 0 0 rgba(16,124,16,0.4)' }, { boxShadow: '0 0 0 10px rgba(16,124,16,0)' }],
-          { duration: 450 }
-        );
-      }
-      if (opts.flash === 'gen') {
-        btnGenAi.animate(
-          [{ boxShadow: '0 0 0 0 rgba(193,156,0,0.45)' }, { boxShadow: '0 0 0 12px rgba(193,156,0,0)' }],
-          { duration: 450 }
-        );
+      listScroll.innerHTML = `<div style="padding:1rem 0.85rem;color:var(--muted);line-height:1.5">${detailHtml}</div>`;
+      readPane.hidden = true;
+      readEmpty.style.display = 'block';
+      readEmpty.textContent = 'Geen berichten geladen.';
+      if (mailOrderStrip) {
+        mailOrderStrip.hidden = true;
+        mailOrderStrip.textContent = '';
       }
     }
 
     listScroll.addEventListener('click', (ev) => {
       const row = ev.target.closest('.msg-row');
-      const btn = ev.target.closest('[data-action]');
-      if (btn) {
-        const id = btn.getAttribute('data-id');
-        const action = btn.getAttribute('data-action');
-        ev.stopPropagation();
-        openMessage(id, { flash: action });
-        return;
-      }
       if (row && row.dataset.id) openMessage(row.dataset.id);
     });
 
@@ -536,16 +1534,336 @@
       }
     });
 
-    btnReadyMail.addEventListener('click', () => {
-      alert('Later: template invoegen of concept openen in Outlook/Graph. (Mock)');
-    });
-    btnGenAi.addEventListener('click', () => {
-      alert('Later: thread naar LLM, concept terug in UI of als draft. (Mock)');
-    });
-    document.getElementById('btnReply').addEventListener('click', () => alert('Later: Graph reply draft. (Mock)'));
+    function scrollReplyIntoView() {
+      if (composeCard) {
+        composeCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
 
-    renderList();
-    openMessage('m1');
+    const OPEN_AI_BTN_LABEL = 'Genereer met AI';
+
+    /**
+     * Fallback zonder server (geen Shopify/DPD).
+     * @param {object} m bericht uit inbox
+     */
+    function fillReplyFromTemplateLocal(m) {
+      const vn = voornaam(m.from);
+      const rawTopic = String(m.snippet || m.subject || '').replace(/\s+/g, ' ').trim();
+      const topicHint =
+        rawTopic.length > 140 ? `${rawTopic.slice(0, 137).trim()}…` : rawTopic || 'je vraag';
+      mailSubject.value = replySubjectLine(m.subject);
+      mailBody.value = `Beste ${vn},
+
+Dank je wel voor je bericht — we hebben het gelezen en nemen je serieus.${topicHint ? `\n\nWaar het (kort) om gaat in je mail: ${topicHint}.` : ''}
+
+We konden nu geen live order- of DPD-gegevens ophalen; mail je eventueel je ordernummer en het adres waarmee je bestelde, dan koppelen we het alsnog.
+
+Nog iets nodig? Antwoord op deze thread — we reageren bij voorkeur dezelfde werkdag (ma–vr).
+
+Met vriendelijke groet,
+Het team`;
+      const em = (m.email || '').trim();
+      const emailOk = em && em !== '—' && em.includes('@');
+      if (mailTo) {
+        if (emailOk) mailTo.value = em;
+        else if (!mailTo.value.trim()) mailTo.value = '';
+      }
+    }
+
+    /**
+     * Standaard antwoord met order + DPD-tijdlijn (server) of fallback (lokaal).
+     */
+    async function fillReplyFromTemplate() {
+      if (!selectedId || !mailSubject || !mailBody) return;
+      const m = messages.find((x) => x.id === selectedId);
+      if (!m) return;
+      clearComposeFeedback();
+      const contact = extractCustomerContactFromMessage(m);
+      const email = (contact.email || '').trim();
+      const emailOk = email && email !== '—' && email.includes('@');
+      if (!emailOk) {
+        mailComposeErr.hidden = false;
+        mailComposeErr.textContent = 'Geen geldig afzender-e-mail. Vul Ontvanger handmatig in.';
+        return;
+      }
+      if (btnFillStandard) {
+        btnFillStandard.disabled = true;
+      }
+      let incomingText = htmlToPlain(typeof m.body === 'string' ? m.body : '');
+      if (!incomingText && m.snippet) incomingText = String(m.snippet).trim();
+      try {
+        const res = await fetch('/api/mail/standard-reply', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customerEmail: email,
+            senderDisplayName: (contact.name || '').trim() || undefined,
+            shopifyOrderName: guessShopifyOrderName(m.subject) || undefined,
+            subject: m.subject || '',
+            snippet: m.snippet || '',
+            incomingText: incomingText || undefined,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (dashboardLoginRequired(res, data)) {
+          redirectDashboardLogin();
+          return;
+        }
+        if (!res.ok) {
+          throw new Error(data.error || res.statusText);
+        }
+        mailSubject.value = data.subject || replySubjectLine(m.subject);
+        mailBody.value = typeof data.body === 'string' ? data.body : '';
+        if (mailTo) mailTo.value = email;
+        const bits = [];
+        if (data.matchedOrderName) bits.push(`Order ${data.matchedOrderName} automatisch meegenomen`);
+        if (data.hasDpd) bits.push('DPD-status in de tekst');
+        if (data.dpdSummary) bits.push(`Laatste DPD: ${data.dpdSummary}`);
+        setComposeHint(
+          bits.length > 0
+            ? `${bits.join(' · ')}. Lees even mee en druk op Verstuur.`
+            : 'Standaard antwoord ingevuld. Controleer de toon en druk op Verstuur.',
+          bits.length > 0 ? 'success' : 'neutral'
+        );
+        scrollReplyIntoView();
+        try {
+          mailBody.focus();
+        } catch {
+          /* ignore */
+        }
+      } catch (e) {
+        fillReplyFromTemplateLocal(m);
+        setComposeHint(
+          'Order/DPD tijdelijk niet beschikbaar — er staat een veilig basisantwoord klaar. ' +
+            (e instanceof Error ? e.message.slice(0, 140) : String(e)),
+          'warn'
+        );
+        scrollReplyIntoView();
+        try {
+          mailBody.focus();
+        } catch {
+          /* ignore */
+        }
+      } finally {
+        if (btnFillStandard) {
+          btnFillStandard.disabled = false;
+        }
+      }
+    }
+
+    async function runOpenAiReply() {
+      if (!selectedId || !mailComposeErr || !btnGenOpenAi) return;
+      const m = messages.find((x) => x.id === selectedId);
+      if (!m) return;
+      const contact = extractCustomerContactFromMessage(m);
+      const email = (contact.email || '').trim();
+      const emailOk = email && email !== '—' && email.includes('@');
+      let incoming = htmlToPlain(typeof m.body === 'string' ? m.body : '');
+      if (!incoming && m.snippet) incoming = String(m.snippet).trim();
+      clearComposeFeedback();
+      if (!emailOk) {
+        mailComposeErr.hidden = false;
+        mailComposeErr.textContent = 'Geen geldig afzender-e-mail. Vul Ontvanger handmatig in.';
+        return;
+      }
+      if (!incoming) {
+        mailComposeErr.hidden = false;
+        mailComposeErr.textContent = 'Geen tekst in dit bericht om op te reageren.';
+        return;
+      }
+      const orderHint = guessShopifyOrderName(m.subject);
+      const extraInstructions = aiKernzinnen ? aiKernzinnen.value.trim() : '';
+      btnGenOpenAi.disabled = true;
+      btnGenOpenAi.textContent = 'Bezig…';
+      try {
+        const res = await fetch('/api/ai/reply-draft', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customerEmail: email,
+            senderDisplayName: (contact.name || '').trim() || undefined,
+            shopifyOrderName: orderHint,
+            incomingText: incoming,
+            incomingSubject: (m.subject && String(m.subject).trim()) || undefined,
+            replyStyle: 'default',
+            extraInstructions: extraInstructions || undefined,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (dashboardLoginRequired(res, data)) {
+          redirectDashboardLogin();
+          return;
+        }
+        if (!res.ok) throw new Error(data.error || res.statusText);
+        if (mailSubject) mailSubject.value = data.subject || mailSubject.value;
+        if (mailBody) mailBody.value = data.body || '';
+        if (mailTo && !mailTo.value.trim()) mailTo.value = email;
+        const matched =
+          data.customerMatched === true ||
+          (data.customerMatched == null && Boolean(data.matchedOrderName));
+        const parts = [];
+        if (matched && data.matchedOrderName) parts.push(`Order ${data.matchedOrderName} in de prompt.`);
+        if (!matched) parts.push('Geen order in Shopify — AI vraagt om ordergegevens. ');
+        if (data.model) parts.push(`Model: ${data.model}.`);
+        parts.push('Controleer en druk op Verstuur.');
+        setComposeHint(parts.join(' '), matched ? 'success' : 'warn');
+        scrollReplyIntoView();
+        try {
+          mailBody.focus();
+        } catch {
+          /* ignore */
+        }
+      } catch (e) {
+        mailComposeErr.hidden = false;
+        mailComposeErr.textContent = e instanceof Error ? e.message : String(e);
+      } finally {
+        btnGenOpenAi.disabled = false;
+        btnGenOpenAi.textContent = OPEN_AI_BTN_LABEL;
+      }
+    }
+
+    if (btnFillStandard) {
+      btnFillStandard.addEventListener('click', () => {
+        fillReplyFromTemplate();
+      });
+    }
+    if (btnGenOpenAi) {
+      btnGenOpenAi.addEventListener('click', () => {
+        runOpenAiReply();
+      });
+    }
+
+    if (btnSendMail) {
+      btnSendMail.addEventListener('click', async () => {
+        clearComposeFeedback();
+        const to = mailTo ? mailTo.value.trim() : '';
+        const subject = mailSubject ? mailSubject.value.trim() : '';
+        const text = mailBody ? mailBody.value.trim() : '';
+        if (!to || !to.includes('@')) {
+          mailComposeErr.hidden = false;
+          mailComposeErr.textContent = 'Vul een geldig e-mailadres bij Ontvanger.';
+          return;
+        }
+        if (!subject) {
+          mailComposeErr.hidden = false;
+          mailComposeErr.textContent = 'Vul een onderwerp in.';
+          return;
+        }
+        if (!text) {
+          mailComposeErr.hidden = false;
+          mailComposeErr.textContent = 'Vul een berichttekst in.';
+          return;
+        }
+        const prev = btnSendMail.textContent;
+        btnSendMail.disabled = true;
+        btnSendMail.textContent = 'Verzenden…';
+        try {
+          const fromVal = mailFrom && !mailFrom.disabled && mailFrom.value ? mailFrom.value.trim() : '';
+          const payload = { to, subject, text };
+          if (fromVal) payload.from = fromVal;
+          if (selectedId) {
+            const sel = messages.find((x) => x.id === selectedId);
+            if (sel && sel.threadId) payload.threadId = sel.threadId;
+          }
+          const res = await fetch('/api/mail/send', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (dashboardLoginRequired(res, data)) {
+            redirectDashboardLogin();
+            return;
+          }
+          if (!res.ok) throw new Error(data.error || res.statusText);
+          setComposeHint(`Verzonden via ${data.via || 'mail'}.`, 'success');
+        } catch (e) {
+          mailComposeErr.hidden = false;
+          mailComposeErr.textContent = e instanceof Error ? e.message : String(e);
+        } finally {
+          btnSendMail.disabled = false;
+          btnSendMail.textContent = prev;
+        }
+      });
+    }
+    (async function init() {
+      const koppel = document.getElementById('mailNavGmailKoppel');
+      try {
+        const cfgR = await fetch('/api/config', { credentials: 'same-origin' });
+        const cfg = await cfgR.json().catch(() => ({}));
+        if (koppel && cfg.gmailReady) koppel.hidden = true;
+      } catch {
+        /* ignore */
+      }
+      try {
+        const r = await fetch('/api/mail/inbox?maxResults=50', { credentials: 'same-origin' });
+        const data = await r.json().catch(() => ({}));
+        if (r.status === 401) {
+          location.href = '/login.html?next=' + encodeURIComponent('/mail.html');
+          return;
+        }
+        if (r.status === 503) {
+          const hintLines = Array.isArray(data.hints)
+            ? data.hints.map((h) => `<li style="margin:0.35rem 0">${esc(String(h))}</li>`).join('')
+            : '';
+          const extra =
+            hintLines ||
+            '<li style="margin:0.35rem 0">Koppel Gmail via <a href="/gmail-koppel.html">gmail-koppel.html</a> (scopes <span class="mono">gmail.readonly</span> + <span class="mono">gmail.send</span>).</li>';
+          showInboxError(
+            'Gmail niet gekoppeld.',
+            `<p style="margin:0 0 0.5rem">Op productie (Vercel) heb je óf een <strong>refresh-token</strong> in de omgeving (<span class="mono">GOOGLE_GMAIL_REFRESH_TOKEN</span>), óf <strong>Postgres</strong> (<span class="mono">DATABASE_URL</span>) en daarna opnieuw koppelen op deze site.</p><ul style="margin:0;padding-left:1.1rem;line-height:1.45">${extra}</ul>`
+          );
+          return;
+        }
+        if (r.status === 403 && data.gmailInvalidGrant) {
+          showInboxError(
+            'Gmail-token ongeldig.',
+            '<p style="margin:0 0 0.5rem">Google geeft <strong>invalid_grant</strong>: de refresh-token is verlopen, ingetrokken, of hoort niet bij deze OAuth-client (bijv. ander <span class="mono">GOOGLE_CLIENT_SECRET</span> op Vercel).</p><ol style="margin:0;padding-left:1.1rem;line-height:1.5"><li>Gebruik je <span class="mono">GOOGLE_GMAIL_REFRESH_TOKEN</span> in Vercel? Werk die variabele bij met een nieuwe token (OAuth eenmalig lokaal of opnieuw koppelen). Zonder <span class="mono">GOOGLE_GMAIL_PREFER_USER_LINK=true</span> wint het env-token boven een oude DB-koppeling.</li><li>Per-gebruiker gekoppeld via de database: ga naar <a href="/gmail-koppel.html">gmail-koppel.html</a> en koppel opnieuw (met <span class="mono">DATABASE_URL</span> blijft de token bewaard).</li><li>Rotte DB-token maar geldige env: zet <span class="mono">GOOGLE_GMAIL_FORCE_ENV=true</span> of wis de koppeling met <span class="mono">POST /api/auth/gmail/disconnect</span> (ingelogd).</li><li>Controleer dat <span class="mono">GOOGLE_REDIRECT_URI</span> exact gelijk is aan de redirect-URL in Google Cloud.</li></ol>'
+          );
+          return;
+        }
+        if (r.status === 403 && data.needsGmailReadonly) {
+          showInboxError(
+            'Inbox niet leesbaar.',
+            'Voeg in Google Cloud de scope <span class="mono">gmail.readonly</span> toe, trek app-toegang in bij Google en koppel opnieuw via <a href="/gmail-koppel.html">gmail-koppel.html</a>.'
+          );
+          return;
+        }
+        if (r.status === 429 || data.rateLimited) {
+          showInboxError(
+            'Even wachten.',
+            'Gmail hanteert een aanvraaglimiet. Probeer over een minuut opnieuw.'
+          );
+          return;
+        }
+        if (!r.ok || !Array.isArray(data.messages)) {
+          const errText = data.error || r.statusText || 'Onbekende fout';
+          showInboxError('Laden mislukt.', `<p style="margin:0">${esc(errText)}</p>`);
+          return;
+        }
+        messages = data.messages.map(({ internalDate: _x, ...rest }) => rest);
+        if (listHead) listHead.textContent = `Postvak IN · ${messages.length} bericht${messages.length === 1 ? '' : 'en'}`;
+        if (mailHint) {
+          mailHint.textContent = 'Gmail Postvak IN — gekoppeld account.';
+        }
+        renderList();
+        if (messages.length > 0) {
+          openMessage(messages[0].id);
+        } else {
+          readPane.hidden = true;
+          readEmpty.style.display = 'block';
+          readEmpty.textContent = 'Geen berichten in Postvak IN.';
+        }
+        await loadMailFromOptions();
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        showInboxError('Netwerkfout.', `<p style="margin:0">${esc(msg)}</p>`);
+        console.error(e);
+      }
+    })();
   </script>
 </body>
 </html>

@@ -70,6 +70,29 @@
       cursor: pointer;
     }
     button:hover { background: var(--accent-hover); }
+    button.secondary {
+      background: #fff;
+      color: var(--accent);
+      border: 2px solid var(--accent);
+      margin-top: 0.65rem;
+    }
+    button.secondary:hover { background: var(--accent-soft); }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+    .status {
+      margin-top: 0.75rem;
+      padding: 0.55rem 0.65rem;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      line-height: 1.45;
+      display: none;
+    }
+    .status.ok { display: block; background: #e8f5ee; border: 1px solid #b8dcc8; color: #1f4a33; }
+    .status.err { display: block; background: #fdeaea; border: 1px solid #f0b4b4; color: #722; }
+    .hr {
+      margin: 1.35rem 0 1rem;
+      border: none;
+      border-top: 1px solid var(--border);
+    }
     .mono { font-family: ui-monospace, monospace; font-size: 0.8rem; color: var(--muted); word-break: break-all; }
     a { color: var(--accent); font-weight: 600; text-decoration: none; }
     a:hover { color: var(--accent-hover); text-decoration: underline; }
@@ -91,6 +114,11 @@
     <p style="margin:0 0 0.5rem;font-size:0.8rem">Gebruik de <strong>myshopify.com</strong>-naam uit Shopify Admin (bij een streepje in de slug: <span class="mono">toddie-nl</span>, niet alleen <span class="mono">toddie</span>).</p>
     <input id="shop" type="text" placeholder="bijv. toddie-nl of toddie-nl.myshopify.com" autocomplete="off" />
     <button type="button" id="go">Ga naar Shopify om toestemming te geven</button>
+    <hr class="hr" />
+    <h2 style="margin:0 0 0.5rem;font-size:1rem;color:var(--heading)">Of: token via app-credentials (automatisch)</h2>
+    <p style="margin:0 0 0.75rem">Voor een <strong>Custom app</strong> met <em>Client credentials</em>: de server haalt een Admin API-token op met <span class="mono">SHOPIFY_CLIENT_ID</span> + <span class="mono">SHOPIFY_CLIENT_SECRET</span> uit <span class="mono">.env</span> (niet invullen hier). Optioneel: vul hierboven dezelfde shop in; anders wordt <span class="mono">SHOPIFY_SHOP_DOMAIN</span> uit de omgeving gebruikt.</p>
+    <button type="button" class="secondary" id="btnClientCreds">Zet Shopify-token automatisch (client credentials)</button>
+    <div class="status" id="ccStatus" role="status" aria-live="polite"></div>
     <p style="margin-top:1rem;font-size:0.8rem;color:var(--muted)">Werkt OAuth niet met &quot;HMAC-validatie mislukt&quot;? Zet tijdelijk in <span class="mono">.env</span>: <span class="mono">OAUTH_SKIP_HMAC_VERIFY=true</span> (alleen lokaal). Test verbinding: <a href="/api/shopify/ping">/api/shopify/ping</a></p>
     <p style="margin-top:1.25rem"><a href="/">← Terug naar Toddie helpdesk</a></p>
   </div>
@@ -107,6 +135,56 @@
       }
       window.location.href = '/api/auth/install?shop=' + encodeURIComponent(s);
     });
+
+    const ccStatus = document.getElementById('ccStatus');
+    const btnCc = document.getElementById('btnClientCreds');
+    function showCc(msg, ok) {
+      ccStatus.className = 'status ' + (ok ? 'ok' : 'err');
+      ccStatus.innerHTML = msg;
+    }
+    btnCc.addEventListener('click', async () => {
+      const shop = document.getElementById('shop').value.trim();
+      btnCc.disabled = true;
+      showCc('Bezig met ophalen…', true);
+      try {
+        const r = await fetch('/api/shopify/token-client-credentials', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(shop ? { shop } : {}),
+        });
+        const data = await r.json().catch(() => ({}));
+        if (r.status === 401) {
+          showCc(
+            'Je bent niet ingelogd op het dashboard. <a href="/login.html?next=' +
+              encodeURIComponent('/koppel.html') +
+              '">Log in</a> en probeer opnieuw.',
+            false
+          );
+          return;
+        }
+        if (!r.ok || !data.ok) {
+          showCc(esc(data.error || r.statusText || 'Fout'), false);
+          return;
+        }
+        showCc(
+          '<strong>Gelukt.</strong> ' +
+            esc(data.message || '') +
+            (data.tokenMasked ? '<br /><span class="mono">Token: ' + esc(data.tokenMasked) + '</span>' : '') +
+            ' <a href="/">→ Naar orderoverzicht</a>',
+          true
+        );
+      } catch (e) {
+        showCc(esc(e instanceof Error ? e.message : String(e)), false);
+      } finally {
+        btnCc.disabled = false;
+      }
+    });
+    function esc(s) {
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
   </script>
 </body>
 </html>

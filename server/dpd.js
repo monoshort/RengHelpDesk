@@ -94,6 +94,25 @@ export async function getDpdTracking(opts) {
   const list = Array.isArray(statusInfo) ? statusInfo : [];
   const current = [...list].reverse().find((s) => s.isCurrentStatus) || list[list.length - 1];
 
+  /** @param {Record<string, unknown>} s */
+  function stepDesc(s) {
+    const c = s?.description?.content;
+    if (Array.isArray(c)) return c.map((x) => x.content).filter(Boolean).join(' ').trim() || null;
+    if (typeof c === 'string') return c.trim() || null;
+    return null;
+  }
+
+  const timeline = list
+    .map((s) => ({
+      label: s?.label?.content || s?.status || '',
+      status: s?.status || null,
+      location: s?.location?.content || null,
+      date: s?.date?.content || null,
+      description: stepDesc(s),
+      isCurrent: Boolean(s?.isCurrentStatus),
+    }))
+    .filter((x) => x.label || x.status);
+
   return {
     rawStatus: current?.status || null,
     label: current?.label?.content || current?.status || null,
@@ -101,6 +120,7 @@ export async function getDpdTracking(opts) {
     date: current?.date?.content || null,
     description:
       current?.description?.content?.map((c) => c.content).filter(Boolean).join(' ') || null,
+    timeline,
   };
 }
 

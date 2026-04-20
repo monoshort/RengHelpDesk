@@ -57,7 +57,8 @@ function timingSafeEqualString(a, b) {
 
 export function signDashboardSession() {
   const exp = Date.now() + MAX_AGE_MS;
-  const payload = JSON.stringify({ exp, v: 1 });
+  const sid = crypto.randomBytes(24).toString('hex');
+  const payload = JSON.stringify({ exp, v: 2, sid });
   const body = Buffer.from(payload, 'utf8');
   const sig = crypto
     .createHmac('sha256', sessionSecret())
@@ -69,11 +70,12 @@ export function signDashboardSession() {
 
 /**
  * @param {string | undefined} token
+ * @returns {{ exp: number; v: number; sid: string } | null}
  */
-export function verifyDashboardSession(token) {
-  if (!token || typeof token !== 'string') return false;
+export function parseDashboardSessionClaimsFromToken(token) {
+  if (!token || typeof token !== 'string') return null;
   const dot = token.indexOf('.');
-  if (dot === -1) return false;
+  if (dot === -1) return null;
   const bodyB64 = token.slice(0, dot);
   const sig = token.slice(dot + 1);
   try {
@@ -84,14 +86,31 @@ export function verifyDashboardSession(token) {
       .digest('base64url');
     const sigBuf = Buffer.from(sig, 'utf8');
     const expBuf = Buffer.from(expected, 'utf8');
-    if (sigBuf.length !== expBuf.length) return false;
-    if (!crypto.timingSafeEqual(sigBuf, expBuf)) return false;
+    if (sigBuf.length !== expBuf.length) return null;
+    if (!crypto.timingSafeEqual(sigBuf, expBuf)) return null;
     const j = JSON.parse(body.toString('utf8'));
-    if (typeof j.exp !== 'number' || j.exp < Date.now()) return false;
-    return true;
+    if (typeof j.exp !== 'number' || j.exp < Date.now()) return null;
+    if (j.v !== 2 || typeof j.sid !== 'string' || !/^[a-f0-9]{48}$/i.test(j.sid)) return null;
+    return { exp: j.exp, v: 2, sid: j.sid.toLowerCase() };
   } catch {
-    return false;
+    return null;
   }
+}
+
+/**
+ * @param {string | undefined} token
+ */
+export function verifyDashboardSession(token) {
+  return parseDashboardSessionClaimsFromToken(token) !== null;
+}
+
+/**
+ * @param {import('express').Request} req
+ * @returns {string | null}
+ */
+export function getDashboardSessionId(req) {
+  const cookies = parseCookies(req.headers.cookie || '');
+  return parseDashboardSessionClaimsFromToken(cookies[COOKIE_NAME])?.sid ?? null;
 }
 
 /**
@@ -99,7 +118,7 @@ export function verifyDashboardSession(token) {
  */
 export function isDashboardSessionValid(req) {
   const cookies = parseCookies(req.headers.cookie || '');
-  return verifyDashboardSession(cookies[COOKIE_NAME]);
+  return parseDashboardSessionClaimsFromToken(cookies[COOKIE_NAME]) !== null;
 }
 
 /**
@@ -152,15 +171,21 @@ export function mountDashboardAuthRoutes(app) {
  */
 export function dashboardAuthMiddleware(req, res, next) {
   const path = req.path || '/';
+  const publicAuth =
+    path === '/api/auth/callback' ||
+    path === '/api/auth/gmail/callback' ||
+    path === '/api/auth/gmail/redirect-uri';
   if (
     path === '/login.html' ||
     path === '/api/dashboard/login' ||
     path === '/api/health' ||
-    path.startsWith('/api/auth/')
+    path === '/api/shopify/ping' ||
+    publicAuth
   ) {
     return next();
   }
   if (isDashboardSessionValid(req)) {
+    req.dashboardSid = getDashboardSessionId(req);
     return next();
   }
   if (path.startsWith('/api/')) {
