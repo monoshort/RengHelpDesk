@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mail werkend krijgen</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 36rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.55; color: #222; }
+    code { background: #f4f4f4; padding: 0.1rem 0.35rem; border-radius: 4px; font-size: 0.9em; }
+    ol { padding-left: 1.2rem; }
+    a { color: #1a73e8; }
+  </style>
+</head>
+<body>
+  <h1 style="font-size:1.2rem">Mail (Gmail) werkend — stappen</h1>
+  <p>Als mail niet werkt, moet Google een <strong>geldige refresh-token</strong> geven. Dat kan alleen in de browser (eenmalig), daarna kun je alles vanaf de terminal doen.</p>
+  <p>Staat er in <code>.env</code> nog een oude <code>GOOGLE_GMAIL_REFRESH_TOKEN</code> (van Vercel)? Dan wint die boven je nieuwe koppeling. Zet lokaal <code>GOOGLE_GMAIL_USE_STORED_LINK_ONLY=true</code> of haal die regel weg — zie <code>.env.example</code>.</p>
+  <ol>
+    <li>In de projectmap: <code>npm start</code> — open <a href="/login.html?next=/gmail-koppel.html">login</a> → <a href="/gmail-koppel.html">Gmail koppelen</a> en rond OAuth af.</li>
+    <li>Terminal: <code>npm run mail:sync-env</code> (zet de token uit <code>.google_gmail_token.json</code> in <code>.env</code>).</li>
+    <li>Terminal: <code>npm run mail:doctor</code> — moet “Gmail API werkt” tonen. Zo niet: opnieuw stap 1.</li>
+    <li>Productie: <code>npm run mail:publish</code> (Vercel-env + deploy), of <code>npm run mail:publish-all</code> als je stap 2 net deed.</li>
+  </ol>
+  <p>In Google Cloud moet bij je OAuth-client de redirect exact zijn: <code>https://reng-help-desk.vercel.app/api/auth/gmail/callback</code> (en lokaal <code>http://localhost:3000/api/auth/gmail/callback</code>).</p>
+  <p><a href="/mail.html">← Naar Mail</a> · <a href="/orders.html">Shopify-orders</a></p>
+</body>
+</html>

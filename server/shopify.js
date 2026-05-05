@@ -14,11 +14,20 @@ const API_VERSION = process.env.SHOPIFY_API_VERSION?.trim() || '2025-10';
  * Zet `SHOPIFY_ORDERS_CREATED_WITHIN_DAYS=0` om geen ondergrens toe te passen (alle orders; trager).
  * @returns {string | null} ISO 8601 (UTC) of null = geen filter
  */
-export function shopifyOrdersCreatedAtMinIso() {
+/**
+ * Effectief venster “orders met created_at vanaf nu − N dagen”. `null` = geen ondergrens (alle datums; trager).
+ * @returns {number | null}
+ */
+export function shopifyOrdersCreatedWithinDaysEffective() {
   const raw = process.env.SHOPIFY_ORDERS_CREATED_WITHIN_DAYS;
   if (raw != null && String(raw).trim() === '0') return null;
   const d = Number(raw ?? '');
-  const days = Number.isFinite(d) && d > 0 ? Math.min(365 * 5, Math.floor(d)) : 90;
+  return Number.isFinite(d) && d > 0 ? Math.min(365 * 5, Math.floor(d)) : 90;
+}
+
+export function shopifyOrdersCreatedAtMinIso() {
+  const days = shopifyOrdersCreatedWithinDaysEffective();
+  if (days == null) return null;
   return new Date(Date.now() - days * 86400000).toISOString();
 }
 
@@ -420,6 +429,154 @@ export async function fetchOrdersMatchingEmail(cfg, email) {
       '';
     return String(e).trim().toLowerCase() === raw;
   });
+}
+
+/**
+ * Admin GraphQL (POST graphql.json).
+ * @param {{ shopDomain: string, accessToken: string }} cfg
+ * @param {{ query: string, variables?: Record<string, unknown> }} payload
+ */
+export async function shopifyAdminGraphql(cfg, payload) {
+  const shop = normShopHost(cfg.shopDomain);
+  const url = `https://${shop}/admin/api/${API_VERSION}/graphql.json`;
+  const res = await shopifyAdminFetch(cfg, url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { errors: [{ message: text.slice(0, 400) }], _parseError: true };
+  }
+}
+
+/**
+ * Enkele order op id (REST) — voor zoekresultaten buiten de geladen lijst.
+ * @param {{ shopDomain: string, accessToken: string }} cfg
+ * @param {string|number} orderId
+ */
+export async function fetchOrderById(cfg, orderId) {
+  const shop = normShopHost(cfg.shopDomain);
+  const id = String(orderId ?? '').replace(/\D/g, '');
+  if (!id) return null;
+  const url = `https://${shop}/admin/api/${API_VERSION}/orders/${id}.json`;
+  const res = await shopifyAdminFetch(cfg, url, {});
+  if (!res.ok) return null;
+  const body = await res.json().catch(() => ({}));
+  return body.order || null;
+}
+
+/** @param {any} o */
+function orderSearchHaystack(o) {
+  const li = Array.isArray(o.line_items) ? o.line_items : [];
+  const parts = [
+    o.name,
+    o.email,
+    o.contact_email,
+    o.phone,
+    o.customer?.email,
+    o.customer?.first_name,
+    o.customer?.last_name,
+    o.shipping_address?.first_name,
+    o.shipping_address?.last_name,
+    o.shipping_address?.city,
+    o.shipping_address?.zip,
+    o.billing_address?.first_name,
+    o.billing_address?.last_name,
+    ...li.map((x) => x.title),
+    ...li.map((x) => x.sku),
+  ];
+  return parts.filter(Boolean).join(' ').toLowerCase();
+}
+
+/**
+ * Zoekactie voor het dashboard (klantfilter): GraphQL-zoek + REST name/email.
+ * Niet gebonden aan het order-overzicht-cap of created_at_min van de lijst.
+ * @param {{ shopDomain: string, accessToken: string }} cfg
+ * @param {string} rawQuery
+ * @returns {Promise<any[]>}
+ */
+export async function searchOrdersForDashboard(cfg, rawQuery) {
+  const q = String(rawQuery || '')
+    .trim()
+    .replace(/["\n\r]/g, ' ')
+    .slice(0, 200);
+  if (q.length < 2) return [];
+  const qLower = q.toLowerCase();
+  const tokens = [...new Set(q.split(/\s+/).filter((t) => t.length >= 1))];
+  const maxGql = Math.min(
+    40,
+    Math.max(8, Number(process.env.SHOPIFY_ORDER_SEARCH_GRAPHQL_MAX || '') || 25)
+  );
+  const maxRestName = Math.min(8, Math.max(2, Number(process.env.SHOPIFY_ORDER_SEARCH_NAME_ATTEMPTS || '') || 5));
+
+  /** @type {Map<string, any>} */
+  const byId = new Map();
+  const add = (orders) => {
+    for (const o of orders || []) {
+      if (o?.id != null) byId.set(String(o.id), o);
+    }
+  };
+
+  if (q.includes('@')) {
+    try {
+      add(await fetchOrdersMatchingEmail(cfg, qLower));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  let nameAttempts = 0;
+  for (const t of tokens) {
+    if (nameAttempts >= maxRestName) break;
+    if (t.includes('@')) continue;
+    try {
+      add(await fetchOrdersMatchingName(cfg, t));
+      nameAttempts++;
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const gqlQuery = `query Os($q: String!, $n: Int!) {
+    orders(first: $n, query: $q, sortKey: CREATED_AT, reverse: true) {
+      edges { node { legacyResourceId } }
+    }
+  }`;
+  const gqlRes = await shopifyAdminGraphql(cfg, { query: gqlQuery, variables: { q, n: maxGql } });
+  const gqlErr = gqlRes?.errors;
+  if (!gqlErr?.length && gqlRes?.data?.orders?.edges) {
+    const ids = gqlRes.data.orders.edges
+      .map((e) => e?.node?.legacyResourceId)
+      .filter((x) => x != null && String(x).length > 0);
+    const conc = Math.min(
+      10,
+      Math.max(1, Number(process.env.SHOPIFY_ORDER_SEARCH_FETCH_CONCURRENCY || '') || 6)
+    );
+    for (let i = 0; i < ids.length; i += conc) {
+      const chunk = ids.slice(i, i + conc);
+      const got = await Promise.all(chunk.map((id) => fetchOrderById(cfg, id)));
+      for (const full of got) {
+        if (full) byId.set(String(full.id), full);
+      }
+    }
+  } else if (gqlErr?.length) {
+    console.warn('[shopify] order search GraphQL:', gqlErr.map((e) => e.message).join('; '));
+  }
+
+  const out = [...byId.values()].filter((o) => {
+    const h = orderSearchHaystack(o);
+    if (h.includes(qLower)) return true;
+    return tokens.every((t) => h.includes(t.toLowerCase()));
+  });
+  out.sort(
+    (a, b) =>
+      new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+  );
+  const cap = Math.min(60, Math.max(10, Number(process.env.SHOPIFY_ORDER_SEARCH_RESULT_MAX || '') || 40));
+  return out.slice(0, cap);
 }
 
 /**
@@ -1079,7 +1236,7 @@ async function fetchProductMetafields(cfg, productId) {
  * Vereist read_products.
  * @param {{ shopDomain: string, accessToken: string }} cfg
  * @param {any[]} orders
- * @param {{ loadImages?: boolean; storefrontBaseUrl?: string | null; onlyProductIds?: Set<number> | null }} [opts]
+ * @param {{ loadImages?: boolean; storefrontBaseUrl?: string | null; onlyProductIds?: Set<number> | null; skipMetafields?: boolean }} [opts]
  * storefrontBaseUrl: fallback voor afbeeldingen via /products/{handle}.json (publiek).
  * onlyProductIds: alleen deze product-id's ophalen (voor incrementele cache).
  * @returns {Promise<{ imageMap: Record<string, string | null>, handles: Record<string, string>, productionByProductId: Record<string, { hint: string; workingDays: number | null }> }>}
@@ -1088,6 +1245,9 @@ export async function fetchProductThumbnailData(cfg, orders, opts = {}) {
   const loadImages = opts.loadImages !== false;
   const storefrontBaseUrl = opts.storefrontBaseUrl != null ? opts.storefrontBaseUrl : null;
   const only = opts.onlyProductIds instanceof Set ? opts.onlyProductIds : null;
+  const skipMetafields =
+    opts.skipMetafields === true ||
+    String(process.env.SHOPIFY_PRODUCT_SKIP_METAFIELDS || '').trim().toLowerCase() === 'true';
   /** @type {Record<string, string | null>} */
   const imageMap = {};
   /** @type {Record<string, string>} */
@@ -1122,11 +1282,13 @@ export async function fetchProductThumbnailData(cfg, orders, opts = {}) {
 
         const bodyText = stripHtml(product.body_html || '').slice(0, 5000);
         let mfBlob = '';
-        try {
-          const metafields = await fetchProductMetafields(cfg, pid);
-          mfBlob = metafields.map((m) => metafieldValueString(m)).join('\n');
-        } catch {
-          mfBlob = '';
+        if (!skipMetafields) {
+          try {
+            const metafields = await fetchProductMetafields(cfg, pid);
+            mfBlob = metafields.map((m) => metafieldValueString(m)).join('\n');
+          } catch {
+            mfBlob = '';
+          }
         }
         const combined = [bodyText, mfBlob].filter(Boolean).join('\n');
         const prodHint = extractProductionLeadFromBlob(combined);

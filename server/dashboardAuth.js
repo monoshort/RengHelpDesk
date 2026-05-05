@@ -192,8 +192,9 @@ export function dashboardAuthMiddleware(req, res, next) {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     return res.status(401).json({ error: 'Niet ingelogd', loginRequired: true });
   }
-  const nextPath = req.originalUrl || '/';
-  const loginUrl =
-    '/login.html?next=' + encodeURIComponent(nextPath === '/login.html' ? '/' : nextPath);
+  const pathOnly = req.path || '/';
+  const rawNext = req.originalUrl || '/';
+  const loginNext = pathOnly === '/' || pathOnly === '' ? '/mail.html' : rawNext;
+  const loginUrl = '/login.html?next=' + encodeURIComponent(loginNext);
   return res.redirect(302, loginUrl);
 }

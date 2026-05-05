@@ -14,10 +14,10 @@ import {
   pruneOrdersOlderThanCreated,
   loadOrdersFromCache,
   countOrdersInCache,
-  upsertProductCache,
+  upsertProductCacheBatch,
   getMailCacheRowsBatch,
   getProductCacheRowsBatch,
-  upsertMailCache,
+  upsertMailCacheBatch,
 } from './cache/overviewStore.js';
 
 function maxIso(a, b) {
@@ -62,11 +62,21 @@ function filterImageMapForProduct(imageMap, pid) {
   return out;
 }
 
-export async function buildCachedThumbData(backend, cfg, shopDomain, orders, { loadImages, storeBaseUrl }) {
+export async function buildCachedThumbData(
+  backend,
+  cfg,
+  shopDomain,
+  orders,
+  { loadImages, storeBaseUrl, skipMetafields }
+) {
+  const skipMeta =
+    skipMetafields === true ||
+    String(process.env.SHOPIFY_PRODUCT_SKIP_METAFIELDS || '').trim().toLowerCase() === 'true';
   if (backend.kind === 'none' || !loadImages) {
     return await fetchProductThumbnailData(cfg, orders, {
       loadImages,
       storefrontBaseUrl: storeBaseUrl,
+      skipMetafields: skipMeta,
     });
   }
 
@@ -116,19 +126,24 @@ export async function buildCachedThumbData(backend, cfg, shopDomain, orders, { l
     loadImages: true,
     storefrontBaseUrl: storeBaseUrl,
     onlyProductIds: missing,
+    skipMetafields: skipMeta,
   });
 
   Object.assign(imageMap, fetched.imageMap || {});
   Object.assign(handles, fetched.handles || {});
   Object.assign(productionByProductId, fetched.productionByProductId || {});
 
+  /** @type {Array<{ productId: number; handle: string | null; imageMap: Record<string, string | null>; production: object | null }>} */
+  const productSaveBatch = [];
   for (const pid of missing) {
-    await upsertProductCache(backend, shopDomain, pid, {
+    productSaveBatch.push({
+      productId: pid,
       handle: handles[String(pid)] || null,
       imageMap: filterImageMapForProduct(imageMap, pid),
       production: productionByProductId[String(pid)] || null,
     });
   }
+  await upsertProductCacheBatch(backend, shopDomain, productSaveBatch);
 
   return { imageMap, handles, productionByProductId };
 }
@@ -171,13 +186,17 @@ export async function buildCachedMailLogs(backend, cfg, shopDomain, orders, incl
 
   if (needFetch.length) {
     const fresh = await fetchMailLogsForOrderIds(cfg, needFetch);
+    const orderById = new Map(orders.map((o) => [String(o.id), o]));
+    /** @type {Array<{ orderId: number; orderUpdatedAt: string; events: unknown }>} */
+    const mailSaveBatch = [];
     for (const sid of needFetch) {
       const ev = fresh[sid] || [];
       out[sid] = ev;
-      const order = orders.find((x) => String(x.id) === sid);
+      const order = orderById.get(sid);
       const ou = order ? String(order.updated_at || '') : '';
-      await upsertMailCache(backend, shopDomain, Number(sid), ou, ev);
+      mailSaveBatch.push({ orderId: Number(sid), orderUpdatedAt: ou, events: ev });
     }
+    await upsertMailCacheBatch(backend, shopDomain, mailSaveBatch);
   }
 
   return out;

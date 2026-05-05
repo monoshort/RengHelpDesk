@@ -42,6 +42,65 @@ function readEpochMsGmail(raw) {
 }
 
 /**
+ * Verwijdert per ongeluk omhullende quotes (copy-paste uit Vercel / JSON).
+ * @param {unknown} raw
+ */
+export function sanitizeGmailRefreshToken(raw) {
+  let s = String(raw ?? '').trim();
+  if (s.length >= 2) {
+    if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+      s = s.slice(1, -1).trim();
+    }
+  }
+  return s;
+}
+
+/**
+ * Redirect URI voor `google.auth.OAuth2` (o.a. bij refresh). Moet overeenkomen met een URI in Google Cloud
+ * voor dezelfde client, of met `oauth_redirect_uri` uit het token bij OAuth.
+ * Zonder `GOOGLE_REDIRECT_URI` op Vercel mag niet naar localhost worden teruggevallen.
+ * @param {import('express').Request | undefined} req
+ * @param {{ oauth_redirect_uri?: string } | null | undefined} tokens
+ */
+export function resolveGmailOAuthRedirectUriForApi(req, tokens) {
+  const fromToken =
+    typeof tokens?.oauth_redirect_uri === 'string' ? tokens.oauth_redirect_uri.trim() : '';
+  if (fromToken) return fromToken;
+  const envUri = process.env.GOOGLE_REDIRECT_URI?.trim();
+  if (envUri) return envUri;
+  if (String(process.env.VERCEL || '').trim() === '1') {
+    const vu = process.env.VERCEL_URL?.trim();
+    if (vu) {
+      const host = vu.replace(/^https?:\/\//i, '').split('/')[0];
+      if (host) return `https://${host}/api/auth/gmail/callback`;
+    }
+  }
+  if (req && typeof req.get === 'function') {
+    const host = req.get('host');
+    if (host) {
+      const xf = req.headers?.['x-forwarded-proto'];
+      const first =
+        typeof xf === 'string' ? xf.split(',')[0].trim().toLowerCase().replace(/:$/, '') : '';
+      const proto =
+        first === 'https' || first === 'http'
+          ? first
+          : req.secure
+            ? 'https'
+            : 'http';
+      const hostName = host.includes(']') ? host : host.split(':')[0];
+      const isLoopback =
+        hostName === 'localhost' ||
+        hostName === '127.0.0.1' ||
+        hostName === '[::1]' ||
+        host.startsWith('[::1]:');
+      const p = isLoopback ? 'http' : proto === 'http' ? 'http' : 'https';
+      return `${p}://${host}/api/auth/gmail/callback`;
+    }
+  }
+  return `http://localhost:${Number(process.env.PORT) || 3000}/api/auth/gmail/callback`;
+}
+
+/**
  * Als `GOOGLE_GMAIL_REFRESH_TOKEN` in .env staat, kan de vernieuwde access niet naar schijf.
  * Dan bewaren we die in het proces zodat volgende requests niet opnieuw een verlopen env-access_token pakken.
  */
@@ -73,13 +132,17 @@ export function clearGmailRuntimeAccessCache() {
  * @returns {{ refresh_token?: string; access_token?: string; expiry_date?: number; sender_email?: string; oauth_redirect_uri?: string } | null}
  */
 export function readGmailTokens(req) {
-  const envRt = process.env.GOOGLE_GMAIL_REFRESH_TOKEN?.trim();
   const forceEnv = envFlagTrue('GOOGLE_GMAIL_FORCE_ENV');
+  /** Lokaal: negeer env-refresh voor lezen/opslag zodat gmail-koppel + bestand/DB wint boven een dode Vercel-copy in .env */
+  const useStoredOnly = envFlagTrue('GOOGLE_GMAIL_USE_STORED_LINK_ONLY');
+  const rawEnvRt = sanitizeGmailRefreshToken(process.env.GOOGLE_GMAIL_REFRESH_TOKEN);
+  const envRt = forceEnv ? rawEnvRt : useStoredOnly ? '' : rawEnvRt;
 
   /**
    * 1) GOOGLE_GMAIL_FORCE_ENV + env-refresh → handmatige recovery (goede token in Vercel, rotte rij in DB).
    * 2) GOOGLE_GMAIL_REFRESH_TOKEN in env + niet GOOGLE_GMAIL_PREFER_USER_LINK → gedeeld organisatie-account (geen browser-koppel nodig).
    * 3) Anders: per-gebruiker OAuth (Postgres), daarna env, dan lokaal bestand.
+   * GOOGLE_GMAIL_USE_STORED_LINK_ONLY=true (zonder FORCE_ENV): slaat stap 2 over — handig lokaal als env-token oud is.
    */
   const envBlock = () => {
     if (!envRt) return null;
@@ -118,7 +181,7 @@ export function readGmailTokens(req) {
   const u = req?.userIntegrationGmail;
   if (u && typeof u === 'object' && u.refresh_token) {
     return {
-      refresh_token: String(u.refresh_token),
+      refresh_token: sanitizeGmailRefreshToken(u.refresh_token) || String(u.refresh_token).trim(),
       access_token: u.access_token ? String(u.access_token) : undefined,
       expiry_date: readEpochMsGmail(u.expiry_date),
       sender_email: u.sender_email ? String(u.sender_email) : undefined,
@@ -135,7 +198,7 @@ export function readGmailTokens(req) {
       const j = JSON.parse(fs.readFileSync(GMAIL_TOKEN_FILE, 'utf8'));
       if (!j?.refresh_token) return null;
       return {
-        refresh_token: String(j.refresh_token),
+        refresh_token: sanitizeGmailRefreshToken(j.refresh_token) || String(j.refresh_token).trim(),
         access_token: j.access_token ? String(j.access_token) : undefined,
         expiry_date: readEpochMsGmail(j.expiry_date),
         sender_email: j.sender_email ? String(j.sender_email) : undefined,
@@ -161,7 +224,9 @@ export function readGmailTokensFileOnly() {
       const j = JSON.parse(fs.readFileSync(GMAIL_TOKEN_FILE, 'utf8'));
       if (!j || typeof j !== 'object') return null;
       return {
-        refresh_token: j.refresh_token ? String(j.refresh_token) : undefined,
+        refresh_token: j.refresh_token
+          ? sanitizeGmailRefreshToken(j.refresh_token) || String(j.refresh_token).trim()
+          : undefined,
         access_token: j.access_token ? String(j.access_token) : undefined,
         expiry_date: readEpochMsGmail(j.expiry_date),
         sender_email: j.sender_email ? String(j.sender_email) : undefined,
@@ -181,7 +246,10 @@ export function readGmailTokensFileOnly() {
  * @param {import('express').Request | undefined} [req] bij ingelogde sessie: schrijf naar per-gebruiker opslag
  */
 export async function writeGmailTokens(tokens, req) {
-  if (process.env.GOOGLE_GMAIL_REFRESH_TOKEN?.trim()) {
+  const envLock =
+    Boolean(sanitizeGmailRefreshToken(process.env.GOOGLE_GMAIL_REFRESH_TOKEN)) &&
+    !envFlagTrue('GOOGLE_GMAIL_USE_STORED_LINK_ONLY');
+  if (envLock) {
     throw Object.assign(
       new Error(
         'Tokens worden uit env gelezen (GOOGLE_GMAIL_REFRESH_TOKEN). Schrijven naar schijf uitgeschakeld.'
@@ -204,7 +272,10 @@ export async function writeGmailTokens(tokens, req) {
  * @param {import('express').Request | undefined} [req]
  */
 export async function mergeGmailTokens(partial, req) {
-  if (process.env.GOOGLE_GMAIL_REFRESH_TOKEN?.trim()) {
+  const envLock =
+    Boolean(sanitizeGmailRefreshToken(process.env.GOOGLE_GMAIL_REFRESH_TOKEN)) &&
+    !envFlagTrue('GOOGLE_GMAIL_USE_STORED_LINK_ONLY');
+  if (envLock) {
     throw Object.assign(
       new Error(
         'Tokens komen uit .env (GOOGLE_GMAIL_REFRESH_TOKEN). Werk .env bij of verwijder die variabele om het bestand te gebruiken.'
@@ -242,12 +313,29 @@ export function getGmailOAuthCreds() {
 }
 
 /**
+ * Alle medewerkers delen `GOOGLE_GMAIL_REFRESH_TOKEN` uit de omgeving (aanbevolen helpdesk-setup).
+ * Niet waar bij `GOOGLE_GMAIL_PREFER_USER_LINK=true` zonder `GOOGLE_GMAIL_FORCE_ENV` — dan wint DB-koppeling per gebruiker.
+ */
+export function isGmailSharedEnvMailboxMode() {
+  if (envFlagTrue('GOOGLE_GMAIL_USE_STORED_LINK_ONLY') && !envFlagTrue('GOOGLE_GMAIL_FORCE_ENV')) {
+    return false;
+  }
+  const envRt = sanitizeGmailRefreshToken(process.env.GOOGLE_GMAIL_REFRESH_TOKEN);
+  if (!envRt) return false;
+  if (envFlagTrue('GOOGLE_GMAIL_FORCE_ENV')) return true;
+  if (!envFlagTrue('GOOGLE_GMAIL_PREFER_USER_LINK')) return true;
+  return false;
+}
+
+/**
  * @param {import('express').Request | undefined} [req]
  */
 export function getGmailAuthStatus(req) {
   const { clientId, clientSecret } = getGmailOAuthCreds();
   const t = readGmailTokens(req);
-  const envRt = Boolean(process.env.GOOGLE_GMAIL_REFRESH_TOKEN?.trim());
+  const envRt =
+    Boolean(sanitizeGmailRefreshToken(process.env.GOOGLE_GMAIL_REFRESH_TOKEN)) &&
+    !envFlagTrue('GOOGLE_GMAIL_USE_STORED_LINK_ONLY');
   const userRow = Boolean(req?.userIntegrationGmail && req.userIntegrationGmail.refresh_token);
   return {
     hasOAuthCreds: Boolean(clientId && clientSecret),
@@ -257,6 +345,8 @@ export function getGmailAuthStatus(req) {
     userGmailLinked: userRow,
     /** Refresh-token uit omgeving (Vercel/.env) — geen /gmail-koppel nodig */
     gmailUsesSharedEnvToken: envRt,
+    /** Iedereen gebruikt het env-token; medewerkers hoeven niet per persoon OAuth te doen */
+    gmailSharedMailboxMode: isGmailSharedEnvMailboxMode(),
   };
 }
 
@@ -271,7 +361,7 @@ export function gmailConnectionHints(req) {
   const hasRefresh = Boolean(t?.refresh_token);
   const vercel = Boolean(process.env.VERCEL);
   const hasDb = Boolean(process.env.DATABASE_URL?.trim());
-  const hasEnvRt = Boolean(process.env.GOOGLE_GMAIL_REFRESH_TOKEN?.trim());
+  const hasEnvRt = Boolean(sanitizeGmailRefreshToken(process.env.GOOGLE_GMAIL_REFRESH_TOKEN));
   const forceEnv = envFlagTrue('GOOGLE_GMAIL_FORCE_ENV');
   /** @type {string[]} */
   const hints = [];

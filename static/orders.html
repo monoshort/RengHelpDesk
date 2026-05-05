@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Toddie helpdesk · orders &amp; mail</title>
+  <title>Toddie helpdesk · Shopify-orders</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
@@ -46,11 +46,90 @@
       color: var(--text);
     }
     body.is-loading {
-      cursor: progress;
+      cursor: wait;
     }
     body.is-loading .layout-main {
-      opacity: 0.92;
-      transition: opacity 0.25s ease;
+      opacity: 1;
+    }
+    /** Dunne voortgangsbalk: voelt sneller dan alleen “wacht-cursor”. */
+    .ux-progress {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      z-index: 100;
+      pointer-events: none;
+      overflow: hidden;
+      background: transparent;
+    }
+    .ux-progress::before {
+      content: "";
+      position: absolute;
+      left: -40%;
+      width: 40%;
+      height: 100%;
+      background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(85, 130, 53, 0.15),
+        var(--accent),
+        rgba(107, 154, 68, 0.95),
+        transparent
+      );
+      animation: ux-progress-slide 1.1s ease-in-out infinite;
+      border-radius: 2px;
+    }
+    @keyframes ux-progress-slide {
+      0% {
+        transform: translateX(0);
+      }
+      100% {
+        transform: translateX(350%);
+      }
+    }
+    .orders-meta-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      min-height: 1.25rem;
+      max-width: min(100%, 28rem);
+      justify-content: flex-end;
+    }
+    .orders-meta-wrap .dash-card-meta {
+      text-align: right;
+    }
+    .ux-inline-spinner {
+      width: 0.85rem;
+      height: 0.85rem;
+      border: 2px solid rgba(85, 130, 53, 0.2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      flex-shrink: 0;
+      animation: ux-spin 0.65s linear infinite;
+    }
+    @keyframes ux-spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html {
+        scroll-behavior: auto;
+      }
+      .ux-progress::before {
+        animation: none;
+        left: 0;
+        width: 100%;
+        opacity: 0.85;
+      }
+      .ux-inline-spinner {
+        animation: none;
+        border-top-color: rgba(85, 130, 53, 0.45);
+      }
+      .stats-grid .stat-card {
+        animation: none !important;
+      }
     }
     header {
       padding: 0;
@@ -129,6 +208,19 @@
       padding: 0.32rem 0.65rem;
       font-size: 0.8125rem;
       border-radius: 7px;
+    }
+    .overview-fast-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.28rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .overview-fast-label input {
+      cursor: pointer;
     }
     .app-bar-meta {
       display: flex;
@@ -234,9 +326,12 @@
       cursor: pointer;
       transition: background 0.15s, border-color 0.15s;
     }
-    button:hover {
+    button:hover:not(:disabled) {
       background: var(--surface-muted);
       border-color: #c8cdc3;
+    }
+    button:active:not(:disabled) {
+      transform: translateY(1px);
     }
     button.primary {
       background: var(--accent);
@@ -512,6 +607,9 @@
       line-height: 1.2;
       vertical-align: bottom;
     }
+    .orders-table tbody tr {
+      transition: background-color 0.14s ease;
+    }
     .orders-table tbody tr:nth-child(even) {
       background: rgba(85, 130, 53, 0.03);
     }
@@ -739,10 +837,19 @@
       color: var(--text);
       width: 100%;
       box-sizing: border-box;
+      transition:
+        border-color 0.18s ease,
+        box-shadow 0.18s ease,
+        background 0.18s ease;
+    }
+    .customer-filter-field input:hover {
+      border-color: #c8cdc3;
     }
     .customer-filter-field input:focus {
-      outline: 2px solid rgba(85, 130, 53, 0.35);
-      outline-offset: 1px;
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+      background: var(--surface);
     }
     #mailHoverTip {
       position: fixed;
@@ -1306,18 +1413,23 @@
   </style>
 </head>
 <body>
+  <div class="ux-progress" id="uxProgress" hidden></div>
   <header>
     <div class="header-inner">
       <div class="app-bar-row">
         <div class="app-bar-brand">
           <h1>Toddie helpdesk</h1>
-          <p class="app-bar-tagline">Orders, verzending &amp; klantmail — in stijl met toddie.nl</p>
+          <p class="app-bar-tagline">Shopify-orderoverzicht — startscherm is <a href="/mail.html" style="color:var(--accent);font-weight:600">mail</a></p>
         </div>
         <nav class="app-bar-nav" aria-label="Hoofdacties">
+          <a href="/mail.html" class="link-pill">← Mail</a>
           <button type="button" class="primary" id="refresh">Vernieuwen</button>
+          <label class="overview-fast-label" title="Vink aan: minder werk op de server (geen mail-historie uit timeline, geen DPD-live; productfoto’s wel). Uit = volledige mailkolom + DPD.">
+            <input type="checkbox" id="overviewFastToggle" checked />
+            Snel laden
+          </label>
           <a href="/koppel.html" class="link-pill">Shopify koppelen</a>
           <a href="/gmail-koppel.html" class="link-pill" id="navGmailKoppel">Gmail koppelen</a>
-          <a href="/mail.html" class="link-pill">Mail</a>
           <button type="button" class="link-pill" id="dashboardLogout">Uitloggen</button>
         </nav>
         <div class="app-bar-meta" aria-live="polite">
@@ -1380,10 +1492,14 @@
                 placeholder="Naam, e-mail, telefoon of ordernr…"
                 autocomplete="off"
                 enterkeyhint="search"
+                title="Zoekt lokaal en daarna in Shopify (vanaf 2 tekens). Escape wist het veld."
               />
             </div>
           </div>
-          <span class="dash-card-meta" id="ordersSectionMeta">Laden…</span>
+          <span class="orders-meta-wrap">
+            <span class="ux-inline-spinner" id="ordersSearchSpinner" hidden aria-hidden="true"></span>
+            <span class="dash-card-meta" id="ordersSectionMeta">Laden…</span>
+          </span>
         </div>
         <div class="desk-insight-panel" id="deskInsightPanel" hidden></div>
         <div class="mail-audit-bar" id="mailAuditBar" hidden></div>
@@ -1512,12 +1628,15 @@
     const mSubject = document.getElementById('mSubject');
     const mBody = document.getElementById('mBody');
     const refreshBtn = document.getElementById('refresh');
+    const overviewFastToggle = document.getElementById('overviewFastToggle');
     const stateThumbs = document.getElementById('stateThumbs');
     const mSendBtn = document.getElementById('mSend');
     const mIncoming = document.getElementById('mIncoming');
     const mAiDraft = document.getElementById('mAiDraft');
     const mAiHint = document.getElementById('mAiHint');
     const customerFilter = document.getElementById('customerFilter');
+    const ordersSearchSpinner = document.getElementById('ordersSearchSpinner');
+    const uxProgress = document.getElementById('uxProgress');
     const mailHoverTip = document.getElementById('mailHoverTip');
     const deskInsightPanel = document.getElementById('deskInsightPanel');
     const timelineModal = document.getElementById('timelineModal');
@@ -1535,9 +1654,18 @@
     let lastTimelineEvents = [];
 
     let loadGeneration = 0;
+    let customerFilterSearchSeq = 0;
+    /** @type {AbortController | null} */
+    let customerFilterAbort = null;
     /** @type {string} */
     let mailModalOrderName = '';
     let openAiOk = false;
+    const REFRESH_BTN_LABEL = 'Vernieuwen';
+
+    /** @param {boolean} on */
+    function setOrdersSearchBusy(on) {
+      if (ordersSearchSpinner) ordersSearchSpinner.hidden = !on;
+    }
 
     /** Laatste geladen orders (voor klantfilter zonder opnieuw te fetchen). */
     let lastOverviewSnapshot = {
@@ -1732,22 +1860,30 @@
 
     /** @param {Record<string, unknown>} r */
     function customerRowMatches(r, q) {
-      const parts = [
+      const tokens = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+      if (!tokens.length) return true;
+      /** Alles wat doorzoekbaar is als één string (meerdere woorden mogen over velden heen matchen). */
+      const haystack = [
         r.customerDisplayName,
         r.customerEmail,
         r.phone,
         r.shopifyOrderName,
+        r.shopifyOrderId != null && r.shopifyOrderId !== '' ? String(r.shopifyOrderId) : null,
       ]
         .filter(Boolean)
-        .map((s) => String(s).toLowerCase());
-      return parts.some((p) => p.includes(q));
+        .map((s) => String(s).toLowerCase())
+        .join(' ');
+      return tokens.every((t) => haystack.includes(t));
     }
 
-    function ordersTableMetaText(total, snap, filteredCount) {
+    function ordersTableMetaText(total, snap, filteredCount, filterMode) {
       if (snap.ordersUnavailable) return '';
       const cap = snap.ordersFetchMax;
       const trunc = snap.ordersMayBeTruncated;
       if (filteredCount != null) {
+        if (filterMode === 'shopify') {
+          return `${filteredCount} order(s) · klantfilter (Shopify)`;
+        }
         return `${filteredCount} van ${total} order(s) · klantfilter`;
       }
       if (trunc && cap != null) {
@@ -1759,21 +1895,114 @@
       return `${total} order(s) uit Shopify`;
     }
 
-    function applyCustomerFilter() {
+    async function applyCustomerFilter() {
       const snap = lastOverviewSnapshot;
       const logs = snap.orderMailLogs || {};
       const all = snap.rows || [];
-      const q = (customerFilter && customerFilter.value ? customerFilter.value : '').trim().toLowerCase();
-      const filtered = q ? all.filter((r) => customerRowMatches(r, q)) : all;
-      if (ordersSectionMeta && !snap.ordersUnavailable) {
-        const total = all.length;
-        ordersSectionMeta.textContent = ordersTableMetaText(
-          total,
-          snap,
-          q ? filtered.length : null
-        );
+      const rawQ = customerFilter && customerFilter.value ? customerFilter.value : '';
+      const qTrim = (rawQ || '').trim();
+      const qLower = qTrim.toLowerCase();
+
+      if (!qTrim) {
+        setOrdersSearchBusy(false);
+        if (customerFilterAbort) {
+          customerFilterAbort.abort();
+          customerFilterAbort = null;
+        }
+        if (ordersSectionMeta && !snap.ordersUnavailable) {
+          ordersSectionMeta.textContent = ordersTableMetaText(all.length, snap, null);
+        }
+        renderOrderRows(all, logs);
+        return;
       }
-      renderOrderRows(filtered, logs);
+
+      const localHit = all.filter((r) => customerRowMatches(r, qLower));
+
+      if (qTrim.length < 2) {
+        setOrdersSearchBusy(false);
+        if (customerFilterAbort) {
+          customerFilterAbort.abort();
+          customerFilterAbort = null;
+        }
+        if (ordersSectionMeta && !snap.ordersUnavailable) {
+          ordersSectionMeta.textContent = ordersTableMetaText(all.length, snap, localHit.length);
+        }
+        renderOrderRows(localHit, logs);
+        return;
+      }
+
+      customerFilterSearchSeq++;
+      const mySeq = customerFilterSearchSeq;
+      if (customerFilterAbort) customerFilterAbort.abort();
+      customerFilterAbort = new AbortController();
+
+      if (ordersSectionMeta && !snap.ordersUnavailable) {
+        ordersSectionMeta.textContent = 'Zoeken in Shopify…';
+      }
+      setOrdersSearchBusy(true);
+      renderOrderRows(localHit, logs);
+
+      let remoteRows = [];
+      try {
+        const res = await fetch(
+          `/api/orders/search?q=${encodeURIComponent(qTrim)}`,
+          { credentials: 'same-origin', signal: customerFilterAbort.signal }
+        );
+        const body = await res.json().catch(() => ({}));
+        if (mySeq !== customerFilterSearchSeq) return;
+        if (dashboardLoginRequired(res, body)) {
+          if (mySeq === customerFilterSearchSeq) setOrdersSearchBusy(false);
+          redirectDashboardLogin();
+          return;
+        }
+        if (!res.ok) {
+          const err =
+            body && typeof body === 'object' && body.error != null
+              ? String(body.error)
+              : res.statusText;
+          throw new Error(err || 'Zoeken mislukt');
+        }
+        remoteRows = Array.isArray(body.rows) ? body.rows : [];
+      } catch (e) {
+        const aborted = e && typeof e === 'object' && e.name === 'AbortError';
+        if (aborted) return;
+        if (mySeq !== customerFilterSearchSeq) return;
+        setOrdersSearchBusy(false);
+        if (ordersSectionMeta && !snap.ordersUnavailable) {
+          ordersSectionMeta.textContent = `${localHit.length} van ${all.length} order(s) · klantfilter (API niet bereikbaar)`;
+        }
+        renderOrderRows(localHit, logs);
+        return;
+      }
+
+      if (mySeq !== customerFilterSearchSeq) return;
+
+      const byId = new Map();
+      const allIdSet = new Set(all.map((r) => String(r.shopifyOrderId)));
+      for (const r of localHit) {
+        byId.set(String(r.shopifyOrderId), r);
+      }
+      let apiOutside = 0;
+      for (const r of remoteRows) {
+        const id = String(r.shopifyOrderId);
+        if (byId.has(id)) continue;
+        byId.set(id, r);
+        if (!allIdSet.has(id)) apiOutside++;
+      }
+
+      const merged = [...byId.values()].sort((a, b) => {
+        const ta = new Date(a.createdAt || 0).getTime();
+        const tb = new Date(b.createdAt || 0).getTime();
+        return tb - ta;
+      });
+
+      if (ordersSectionMeta && !snap.ordersUnavailable) {
+        const base = ordersTableMetaText(all.length, snap, merged.length, 'shopify');
+        ordersSectionMeta.textContent =
+          apiOutside > 0 ? `${base} — ${apiOutside} buiten geladen lijst` : base;
+      }
+      setOrdersSearchBusy(false);
+      renderOrderRows(merged, logs);
     }
 
     function tableSkeletonRows(count) {
@@ -1795,8 +2024,8 @@
 
     function redirectDashboardLogin() {
       const path = location.pathname + location.search;
-      const next = path.startsWith('/login.html') ? '/' : path;
-      location.href = '/login.html?next=' + encodeURIComponent(next || '/');
+      const next = path.startsWith('/login.html') ? '/mail.html' : path;
+      location.href = '/login.html?next=' + encodeURIComponent(next || '/mail.html');
     }
 
     /**
@@ -1940,9 +2169,17 @@
         : data.ordersMayBeTruncated
           ? `Minstens ${data.orderCount ?? 0} orders · limiet ${
               data.ordersFetchMax ?? '—'
-            } (zie SHOPIFY_ORDERS_MAX in .env)`
+            } (zie SHOPIFY_ORDERS_MAX in .env)${
+              data.ordersCreatedWithinDays != null
+                ? ` · created ±${data.ordersCreatedWithinDays} dagen`
+                : ''
+            }`
           : `Uit Shopify · ${data.orderCount ?? 0} orders${
-              data.ordersFetchMax != null ? ` (cap ${data.ordersFetchMax})` : ''
+              data.ordersFetchMax != null ? ` (max. ${data.ordersFetchMax} in lijst)` : ''
+            }${
+              data.ordersCreatedWithinDays != null
+                ? ` · alleen created ±${data.ordersCreatedWithinDays} dagen`
+                : ' · alle datums (tot aan cap)'
             }`;
       let tokenVal;
       let tokenHint;
@@ -2151,8 +2388,7 @@
       const logs = orderMailLogs || {};
       /** @type {Map<string, string>} */
       const mailTipMap = new Map();
-      tbody.innerHTML = rows
-        .map((r) => {
+      const trParts = rows.map((r) => {
           const mail = r.customerEmail
             ? `<a href="mailto:${esc(r.customerEmail)}">${esc(r.customerEmail)}</a>`
             : '<span class="dim">—</span>';
@@ -2271,28 +2507,48 @@
             <td class="dpd-cell">${dpdCell}</td>
             <td class="col-gutter">${tags}${note || '<span class="dim">—</span>'}</td>
           </tr>`;
-        })
-        .join('');
-      tbody.querySelectorAll('.mail-row[data-mail-oid]').forEach((el) => {
-        const oid = el.dataset.mailOid;
-        const i = el.dataset.mailI;
-        const text = mailTipMap.get(`${oid}|${i}`);
-        if (text) {
-          el.addEventListener('mouseenter', () => showMailHoverTip(text, el));
-          el.addEventListener('mouseleave', hideMailHoverTip);
-          el.addEventListener('focus', () => showMailHoverTip(text, el));
-          el.addEventListener('blur', hideMailHoverTip);
-        }
-        if (el.classList.contains('mail-row--mailto') && el.dataset.to) {
-          el.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              hideMailHoverTip();
-              openMailModal(el.dataset.to || '', el.dataset.order || '');
-            }
-          });
-        }
       });
+      function bindMailRowTips() {
+        tbody.querySelectorAll('.mail-row[data-mail-oid]').forEach((el) => {
+          const oid = el.dataset.mailOid;
+          const i = el.dataset.mailI;
+          const text = mailTipMap.get(`${oid}|${i}`);
+          if (text) {
+            el.addEventListener('mouseenter', () => showMailHoverTip(text, el));
+            el.addEventListener('mouseleave', hideMailHoverTip);
+            el.addEventListener('focus', () => showMailHoverTip(text, el));
+            el.addEventListener('blur', hideMailHoverTip);
+          }
+          if (el.classList.contains('mail-row--mailto') && el.dataset.to) {
+            el.addEventListener('keydown', (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                hideMailHoverTip();
+                openMailModal(el.dataset.to || '', el.dataset.order || '');
+              }
+            });
+          }
+        });
+      }
+      const DOM_CHUNK = 32;
+      if (trParts.length <= DOM_CHUNK) {
+        tbody.innerHTML = trParts.join('');
+        bindMailRowTips();
+        return;
+      }
+      tbody.innerHTML = '';
+      let domIdx = 0;
+      function paintDomChunk() {
+        const end = Math.min(domIdx + DOM_CHUNK, trParts.length);
+        tbody.insertAdjacentHTML('beforeend', trParts.slice(domIdx, end).join(''));
+        domIdx = end;
+        if (domIdx < trParts.length) {
+          requestAnimationFrame(paintDomChunk);
+        } else {
+          bindMailRowTips();
+        }
+      }
+      requestAnimationFrame(paintDomChunk);
     }
 
     let mailOutboundOk = false;
@@ -2510,9 +2766,11 @@
       /** Past bij Vercel `maxDuration` 300s; browser gaf bij 120s te vroeg op. */
       const overviewTimeoutMs = 280000;
       document.body.classList.add('is-loading');
+      if (uxProgress) uxProgress.hidden = false;
       if (refreshBtn) {
         refreshBtn.disabled = true;
         refreshBtn.setAttribute('aria-busy', 'true');
+        refreshBtn.textContent = 'Laden…';
       }
 
       errorBox.hidden = true;
@@ -2534,8 +2792,11 @@
         const overviewTid = window.setTimeout(() => overviewController.abort(), overviewTimeoutMs);
         let res;
         try {
+          const overviewQs = new URLSearchParams();
+          if (ev && ev.shiftKey) overviewQs.set('fullSync', '1');
+          if (overviewFastToggle && overviewFastToggle.checked) overviewQs.set('fast', '1');
           const overviewUrl =
-            '/api/overview' + (ev && ev.shiftKey ? '?fullSync=1' : '');
+            '/api/overview' + (overviewQs.toString() ? `?${overviewQs.toString()}` : '');
           res = await fetch(overviewUrl, {
             credentials: 'same-origin',
             signal: overviewController.signal,
@@ -2738,7 +2999,7 @@
         const msg =
           e instanceof Error && e.name === 'AbortError'
             ? `Geen reactie van de server binnen ${overviewTimeoutMs / 1000}s (overzicht). ` +
-                `Op Vercel: verlaag tijdelijk het werk — zet SHOPIFY_VERCEL_OVERVIEW_ORDERS_MAX of SHOPIFY_ORDERS_MAX lager (hoger = trager), of open /api/overview?mailLog=0 voor minder mail-work. ` +
+                `Op Vercel: verlaag het werk — vink “Snel laden” aan of ?fast=1, of zet SHOPIFY_VERCEL_OVERVIEW_ORDERS_MAX lager, of ?mailLog=0. ` +
                 `Controleer of de server draait en ververs.`
             : e instanceof Error
               ? e.message
@@ -2788,9 +3049,11 @@
       } finally {
         if (myGen === loadGeneration) {
           document.body.classList.remove('is-loading');
+          if (uxProgress) uxProgress.hidden = true;
           if (refreshBtn) {
             refreshBtn.disabled = false;
             refreshBtn.removeAttribute('aria-busy');
+            refreshBtn.textContent = REFRESH_BTN_LABEL;
           }
         }
       }
@@ -2819,7 +3082,21 @@
     if (customerFilter) {
       customerFilter.addEventListener('input', () => {
         window.clearTimeout(customerFilterDebounce);
-        customerFilterDebounce = window.setTimeout(() => applyCustomerFilter(), 160);
+        customerFilterDebounce = window.setTimeout(() => {
+          void applyCustomerFilter();
+        }, 300);
+      });
+      customerFilter.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Escape') {
+          ev.preventDefault();
+          customerFilter.value = '';
+          void applyCustomerFilter();
+          try {
+            customerFilter.focus();
+          } catch {
+            /* ignore */
+          }
+        }
       });
     }
 
@@ -2920,7 +3197,7 @@
             const cm = data.customerMatched;
             let line = '';
             if (cm === true && mo) line = `Concept voor order ${mo} (${data.model || 'OpenAI'}). `;
-            else if (cm === false) line = `Geen ordermatch — ${data.model || 'OpenAI'} zonder Shopify-details. `;
+            else if (cm === false) line = `Geen ordermatch — ${data.model || 'OpenAI'} zonder order in de prompt. `;
             else if (mo) line = `Concept voor order ${mo} (${data.model || 'OpenAI'}). `;
             mAiHint.textContent = line + 'Controleer de tekst voordat je op Versturen drukt.';
           }
@@ -3055,6 +3332,23 @@
         document.documentElement.classList.toggle('product-details-on', el.checked);
         try {
           localStorage.setItem('rengHelpdesk_productDetails', el.checked ? '1' : '0');
+        } catch {
+          /* ignore */
+        }
+      });
+    })();
+    (function initOverviewFastToggle() {
+      if (!overviewFastToggle) return;
+      try {
+        const s = localStorage.getItem('rengOverviewFast');
+        if (s === '0') overviewFastToggle.checked = false;
+        else if (s === '1') overviewFastToggle.checked = true;
+      } catch {
+        /* ignore */
+      }
+      overviewFastToggle.addEventListener('change', () => {
+        try {
+          localStorage.setItem('rengOverviewFast', overviewFastToggle.checked ? '1' : '0');
         } catch {
           /* ignore */
         }

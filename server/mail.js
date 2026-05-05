@@ -6,7 +6,13 @@ import {
   getGmailOAuthCreds,
   setGmailRuntimeAccessCache,
   clearGmailRuntimeAccessCache,
+  resolveGmailOAuthRedirectUriForApi,
 } from './gmailSession.js';
+
+/** Standaard zichtbare afzender als `GOOGLE_GMAIL_FROM` / `SMTP_FROM` / OAuth leeg zijn. Overschrijf met env. */
+export const DEFAULT_OUTBOUND_FROM = (
+  process.env.DEFAULT_OUTBOUND_FROM?.trim() || 'info@toddie.nl'
+).trim();
 
 /** Seriële ketting: geen parallelle refresh naar Google (race op tokenbestand / dubbele refresh). */
 let gmailClientTail = Promise.resolve();
@@ -52,10 +58,13 @@ async function persistRefreshedGmailTokens(oauth2, base, req) {
   }
 }
 
+function resolvedSmtpFrom() {
+  return process.env.SMTP_FROM?.trim() || DEFAULT_OUTBOUND_FROM;
+}
+
 export function isSmtpConfigured() {
   const host = process.env.SMTP_HOST?.trim();
-  const from = process.env.SMTP_FROM?.trim();
-  return Boolean(host && from);
+  return Boolean(host && resolvedSmtpFrom());
 }
 
 /**
@@ -108,15 +117,14 @@ function normalizeEmail(s) {
  */
 export function parseMailFromAllowlist() {
   const raw = process.env.MAIL_FROM_ALLOWLIST?.trim() || '';
-  if (!raw) return [];
-  return [
-    ...new Set(
-      raw
+  const fromEnv = raw
+    ? raw
         .split(/[,;]+/)
         .map((x) => normalizeEmail(x))
         .filter(Boolean)
-    ),
-  ];
+    : [];
+  const d = normalizeEmail(DEFAULT_OUTBOUND_FROM);
+  return [...new Set(d ? [d, ...fromEnv] : fromEnv)];
 }
 
 /**
@@ -129,17 +137,17 @@ export function parseMailFromAllowlist() {
  */
 export function getDefaultOutboundFrom(tokens, req) {
   if (isSmtpSendFirst() && isSmtpConfigured()) {
-    return process.env.SMTP_FROM?.trim() || '';
+    return resolvedSmtpFrom();
   }
   if (isGmailApiConfigured(req)) {
     const t = tokens ?? readGmailTokens(req);
     return (
       process.env.GOOGLE_GMAIL_FROM?.trim() ||
       t?.sender_email?.trim() ||
-      ''
+      DEFAULT_OUTBOUND_FROM
     );
   }
-  return process.env.SMTP_FROM?.trim() || '';
+  return resolvedSmtpFrom();
 }
 
 /**
@@ -150,7 +158,9 @@ export function getDefaultOutboundFrom(tokens, req) {
 export function resolveOutboundFrom(requestedRaw, defaultFrom) {
   const def = defaultFrom.trim();
   if (!def) {
-    throw new Error('Geen standaard afzender (GOOGLE_GMAIL_FROM of SMTP_FROM).');
+    throw new Error(
+      `Geen standaard afzender (zet GOOGLE_GMAIL_FROM of SMTP_FROM in .env, of laat leeg voor ${DEFAULT_OUTBOUND_FROM}).`
+    );
   }
   const req = typeof requestedRaw === 'string' ? requestedRaw.trim() : '';
   if (!req || normalizeEmail(req) === normalizeEmail(def)) {
@@ -254,6 +264,78 @@ function toBase64Url(raw) {
 }
 
 /**
+ * Google OAuth token endpoint: verlopen/ingetrokken refresh token, verkeerde client_secret, enz.
+ * @param {unknown} e
+ */
+export function isGmailInvalidGrantError(e) {
+  const parts = [];
+  if (e instanceof Error) {
+    parts.push(e.message);
+    if ('cause' in e && e.cause instanceof Error) parts.push(e.cause.message);
+  } else parts.push(String(e ?? ''));
+  const blob = parts.join(' ').toLowerCase();
+  if (blob.includes('invalid_grant')) return true;
+  if (e && typeof e === 'object' && 'response' in e) {
+    const raw = /** @type {{ response?: { data?: unknown } }} */ (e).response?.data;
+    const d = raw && typeof raw === 'object' && !Array.isArray(raw) ? /** @type {Record<string, unknown>} */ (raw) : null;
+    if (d && String(d.error || '').toLowerCase() === 'invalid_grant') return true;
+    if (d && String(d.error_description || '').toLowerCase().includes('invalid_grant')) return true;
+  }
+  if (blob.includes('token has been expired') || blob.includes('token has been revoked')) return true;
+  return false;
+}
+
+/**
+ * Refresh zonder redirect_uri (standaard OAuth2 refresh grant) — robuust als google-auth-library
+ * een verkeerde redirect meestuurt.
+ * @param {string} clientId
+ * @param {string} clientSecret
+ * @param {string} refreshToken
+ */
+async function gmailRefreshAccessTokenDirect(clientId, clientSecret, refreshToken) {
+  const timeoutMs = (() => {
+    const n = Number(process.env.GOOGLE_GMAIL_TOKEN_REQUEST_MS || '');
+    if (Number.isFinite(n) && n >= 5000 && n <= 120_000) return n;
+    return 28_000;
+  })();
+  const signal =
+    typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal
+      ? /** @type {AbortSignal} */ (AbortSignal.timeout(timeoutMs))
+      : undefined;
+
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Accept: 'application/json',
+    },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: 'refresh_token',
+    }).toString(),
+    signal,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.access_token) {
+    const err = new Error(
+      String(data.error_description || data.error || `Gmail token HTTP ${res.status}`).slice(0, 400)
+    );
+    Object.assign(err, { response: { data } });
+    throw err;
+  }
+  const expiresIn = Number(data.expires_in);
+  const expiry_date =
+    Number.isFinite(expiresIn) && expiresIn > 0 ? Date.now() + expiresIn * 1000 : undefined;
+  return {
+    access_token: String(data.access_token),
+    expiry_date,
+    refresh_token: data.refresh_token ? String(data.refresh_token) : refreshToken,
+  };
+}
+
+/**
  * @param {import('express').Request | undefined} [req]
  */
 export async function getGmailClient(req) {
@@ -272,10 +354,7 @@ async function buildGmailClient(req) {
     throw new Error('Gmail API niet geconfigureerd (OAuth of .env tokens)');
   }
 
-  const redirectUri =
-    tokens.oauth_redirect_uri?.trim() ||
-    process.env.GOOGLE_REDIRECT_URI?.trim() ||
-    `http://localhost:${Number(process.env.PORT) || 3000}/api/auth/gmail/callback`;
+  const redirectUri = resolveGmailOAuthRedirectUriForApi(req, tokens);
 
   const oauth2 = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
   const base = {
@@ -295,7 +374,32 @@ async function buildGmailClient(req) {
     void persistRefreshedGmailTokens(oauth2, base, req);
   });
 
-  await oauth2.getAccessToken();
+  const marginMs = (() => {
+    const n = Number(process.env.GOOGLE_GMAIL_ACCESS_MARGIN_MS || '');
+    if (Number.isFinite(n) && n >= 10_000 && n <= 600_000) return n;
+    return 90_000;
+  })();
+  const accessProbablyValid =
+    Boolean(tokens.access_token) &&
+    typeof tokens.expiry_date === 'number' &&
+    Number.isFinite(tokens.expiry_date) &&
+    tokens.expiry_date > Date.now() + marginMs;
+
+  if (!accessProbablyValid) {
+    try {
+      await oauth2.getAccessToken();
+    } catch (e) {
+      if (!isGmailInvalidGrantError(e)) throw e;
+      clearGmailRuntimeAccessCache();
+      const fresh = await gmailRefreshAccessTokenDirect(clientId, clientSecret, tokens.refresh_token);
+      oauth2.setCredentials({
+        refresh_token: fresh.refresh_token,
+        access_token: fresh.access_token,
+        expiry_date: fresh.expiry_date,
+      });
+    }
+  }
+
   await persistRefreshedGmailTokens(oauth2, base, req);
 
   const gmail = google.gmail({ version: 'v1', auth: oauth2 });
@@ -324,6 +428,7 @@ export async function withGmailRetry(req, fn) {
       return await fn({ gmail, tokens });
     } catch (e) {
       lastErr = e;
+      if (isGmailInvalidGrantError(e)) throw e;
       if (!isGmailTransientApiError(e) || i === max - 1) throw e;
       clearGmailRuntimeAccessCache();
       await new Promise((r) =>
@@ -341,12 +446,9 @@ export async function sendGmailApiMail(opts) {
   const req = opts.req;
   await withGmailRetry(req, async ({ gmail, tokens }) => {
     const defaultFrom =
-      process.env.GOOGLE_GMAIL_FROM?.trim() || tokens.sender_email?.trim() || '';
-    if (!defaultFrom) {
-      throw new Error(
-        'Afzender ontbreekt. Zet GOOGLE_GMAIL_FROM in .env (jouw Gmail-adres) of koppel opnieuw via /gmail-koppel.html zodat het adres wordt opgeslagen.'
-      );
-    }
+      process.env.GOOGLE_GMAIL_FROM?.trim() ||
+      tokens.sender_email?.trim() ||
+      DEFAULT_OUTBOUND_FROM;
 
     const from = resolveOutboundFrom(opts.from, defaultFrom);
 
@@ -376,9 +478,11 @@ export async function sendGmailApiMail(opts) {
  */
 export async function sendSmtpMail(opts) {
   if (!isSmtpConfigured()) {
-    throw new Error('SMTP_HOST en SMTP_FROM ontbreken in .env');
+    throw new Error(
+      `SMTP_HOST ontbreekt in .env (standaard From is ${DEFAULT_OUTBOUND_FROM} als SMTP_FROM leeg is).`
+    );
   }
-  const defaultFrom = process.env.SMTP_FROM?.trim() || '';
+  const defaultFrom = resolvedSmtpFrom();
   const from = resolveOutboundFrom(opts.from, defaultFrom);
   const transporter = createTransport();
 

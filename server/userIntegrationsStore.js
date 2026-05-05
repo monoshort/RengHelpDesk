@@ -13,6 +13,7 @@ const root = path.resolve(__dirname, '..');
 /** @type {import('postgres').Sql | null} */
 let pg = null;
 let tableEnsured = false;
+let warnedVercelEphemeralIntegrations = false;
 
 function usePostgres() {
   return Boolean(process.env.DATABASE_URL?.trim());
@@ -141,6 +142,13 @@ export async function saveUserIntegrationDoc(sid, kind, doc) {
       [key, kind, json]
     );
     return;
+  }
+
+  if (String(process.env.VERCEL || '').trim() === '1' && !warnedVercelEphemeralIntegrations) {
+    warnedVercelEphemeralIntegrations = true;
+    console.warn(
+      '[userIntegrations] Vercel zonder DATABASE_URL: Shopify/Gmail per dashboard worden in /tmp gezet — niet gedeeld tussen serverless-instanties (na cold start of andere POP kan koppeling “weg” lijken). Zet DATABASE_URL (Postgres) voor stabiele productie.'
+    );
   }
 
   const dir = path.join(integrationsRootDir(), key);

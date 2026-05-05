@@ -259,19 +259,22 @@ export async function upsertOrders(backend, shopDomain, orders) {
     return;
   }
   if (backend.kind === 'postgres' && backend.pg) {
-    for (const o of orders) {
-      const id = Number(o.id);
-      const created = String(o.created_at || '');
-      const updated = String(o.updated_at || '');
-      await backend.pg`
-        INSERT INTO orders_cache (shop_domain, order_id, created_at, updated_at, payload_json)
-        VALUES (${s}, ${id}, ${created}, ${updated}, ${JSON.stringify(o)})
-        ON CONFLICT (shop_domain, order_id) DO UPDATE SET
-          created_at = EXCLUDED.created_at,
-          updated_at = EXCLUDED.updated_at,
-          payload_json = EXCLUDED.payload_json
-      `;
-    }
+    if (!orders.length) return;
+    await backend.pg.begin(async (sql) => {
+      for (const o of orders) {
+        const id = Number(o.id);
+        const created = String(o.created_at || '');
+        const updated = String(o.updated_at || '');
+        await sql`
+          INSERT INTO orders_cache (shop_domain, order_id, created_at, updated_at, payload_json)
+          VALUES (${s}, ${id}, ${created}, ${updated}, ${JSON.stringify(o)})
+          ON CONFLICT (shop_domain, order_id) DO UPDATE SET
+            created_at = EXCLUDED.created_at,
+            updated_at = EXCLUDED.updated_at,
+            payload_json = EXCLUDED.payload_json
+        `;
+      }
+    });
   }
 }
 
@@ -444,37 +447,75 @@ export async function getProductCacheRow(backend, shopDomain, productId) {
  * @param {number} productId
  * @param {{ handle: string | null, imageMap: Record<string, string | null>, production: object | null }} data
  */
-export async function upsertProductCache(backend, shopDomain, productId, data) {
+/**
+ * @param {Array<{
+ *   productId: number;
+ *   handle: string | null;
+ *   imageMap: Record<string, string | null>;
+ *   production: object | null;
+ * }>} entries
+ */
+export async function upsertProductCacheBatch(backend, shopDomain, entries) {
+  if (!entries.length) return;
   const s = shopDomain.trim().toLowerCase();
-  const pid = Math.floor(Number(productId));
   const now = new Date().toISOString();
-  const imgJson = JSON.stringify(data.imageMap || {});
-  const prodJson = data.production ? JSON.stringify(data.production) : null;
   if (backend.kind === 'sqljs' && backend.sqljs) {
-    backend.sqljs.run(
-      `INSERT INTO product_cache (shop_domain, product_id, handle, image_map_json, production_json, fetched_at)
-       VALUES (?, ?, ?, ?, ?, ?)
-       ON CONFLICT(shop_domain, product_id) DO UPDATE SET
-         handle = excluded.handle,
-         image_map_json = excluded.image_map_json,
-         production_json = excluded.production_json,
-         fetched_at = excluded.fetched_at`,
-      [s, pid, data.handle || null, imgJson, prodJson, now]
-    );
+    const db = backend.sqljs;
+    db.run('BEGIN');
+    try {
+      for (const e of entries) {
+        const pid = Math.floor(Number(e.productId));
+        const imgJson = JSON.stringify(e.imageMap || {});
+        const prodJson = e.production ? JSON.stringify(e.production) : null;
+        db.run(
+          `INSERT INTO product_cache (shop_domain, product_id, handle, image_map_json, production_json, fetched_at)
+           VALUES (?, ?, ?, ?, ?, ?)
+           ON CONFLICT(shop_domain, product_id) DO UPDATE SET
+             handle = excluded.handle,
+             image_map_json = excluded.image_map_json,
+             production_json = excluded.production_json,
+             fetched_at = excluded.fetched_at`,
+          [s, pid, e.handle || null, imgJson, prodJson, now]
+        );
+      }
+      db.run('COMMIT');
+    } catch (err) {
+      db.run('ROLLBACK');
+      throw err;
+    }
     maybePersist(backend);
     return;
   }
   if (backend.kind === 'postgres' && backend.pg) {
-    await backend.pg`
-      INSERT INTO product_cache (shop_domain, product_id, handle, image_map_json, production_json, fetched_at)
-      VALUES (${s}, ${pid}, ${data.handle || null}, ${imgJson}, ${prodJson}, ${now})
-      ON CONFLICT (shop_domain, product_id) DO UPDATE SET
-        handle = EXCLUDED.handle,
-        image_map_json = EXCLUDED.image_map_json,
-        production_json = EXCLUDED.production_json,
-        fetched_at = EXCLUDED.fetched_at
-    `;
+    const sql = backend.pg;
+    await Promise.all(
+      entries.map((e) => {
+        const pid = Math.floor(Number(e.productId));
+        const imgJson = JSON.stringify(e.imageMap || {});
+        const prodJson = e.production ? JSON.stringify(e.production) : null;
+        return sql`
+          INSERT INTO product_cache (shop_domain, product_id, handle, image_map_json, production_json, fetched_at)
+          VALUES (${s}, ${pid}, ${e.handle || null}, ${imgJson}, ${prodJson}, ${now})
+          ON CONFLICT (shop_domain, product_id) DO UPDATE SET
+            handle = EXCLUDED.handle,
+            image_map_json = EXCLUDED.image_map_json,
+            production_json = EXCLUDED.production_json,
+            fetched_at = EXCLUDED.fetched_at
+        `;
+      })
+    );
   }
+}
+
+export async function upsertProductCache(backend, shopDomain, productId, data) {
+  await upsertProductCacheBatch(backend, shopDomain, [
+    {
+      productId,
+      handle: data.handle || null,
+      imageMap: data.imageMap || {},
+      production: data.production || null,
+    },
+  ]);
 }
 
 /**
@@ -625,32 +666,57 @@ export async function getProductCacheRowsBatch(backend, shopDomain, productIds) 
  * @param {string} orderUpdatedAt
  * @param {unknown} events
  */
-export async function upsertMailCache(backend, shopDomain, orderId, orderUpdatedAt, events) {
+/**
+ * @param {Array<{ orderId: number; orderUpdatedAt: string; events: unknown }>} entries
+ */
+export async function upsertMailCacheBatch(backend, shopDomain, entries) {
+  if (!entries.length) return;
   const s = shopDomain.trim().toLowerCase();
-  const oid = Math.floor(Number(orderId));
   const now = new Date().toISOString();
-  const evJson = JSON.stringify(events ?? []);
   if (backend.kind === 'sqljs' && backend.sqljs) {
-    backend.sqljs.run(
-      `INSERT INTO order_mail_cache (shop_domain, order_id, order_updated_at, events_json, fetched_at)
-       VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT(shop_domain, order_id) DO UPDATE SET
-         order_updated_at = excluded.order_updated_at,
-         events_json = excluded.events_json,
-         fetched_at = excluded.fetched_at`,
-      [s, oid, orderUpdatedAt, evJson, now]
-    );
+    const db = backend.sqljs;
+    db.run('BEGIN');
+    try {
+      for (const e of entries) {
+        const oid = Math.floor(Number(e.orderId));
+        const evJson = JSON.stringify(e.events ?? []);
+        db.run(
+          `INSERT INTO order_mail_cache (shop_domain, order_id, order_updated_at, events_json, fetched_at)
+           VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(shop_domain, order_id) DO UPDATE SET
+             order_updated_at = excluded.order_updated_at,
+             events_json = excluded.events_json,
+             fetched_at = excluded.fetched_at`,
+          [s, oid, e.orderUpdatedAt, evJson, now]
+        );
+      }
+      db.run('COMMIT');
+    } catch (err) {
+      db.run('ROLLBACK');
+      throw err;
+    }
     maybePersist(backend);
     return;
   }
   if (backend.kind === 'postgres' && backend.pg) {
-    await backend.pg`
-      INSERT INTO order_mail_cache (shop_domain, order_id, order_updated_at, events_json, fetched_at)
-      VALUES (${s}, ${oid}, ${orderUpdatedAt}, ${evJson}, ${now})
-      ON CONFLICT (shop_domain, order_id) DO UPDATE SET
-        order_updated_at = EXCLUDED.order_updated_at,
-        events_json = EXCLUDED.events_json,
-        fetched_at = EXCLUDED.fetched_at
-    `;
+    const sql = backend.pg;
+    await Promise.all(
+      entries.map((e) => {
+        const oid = Math.floor(Number(e.orderId));
+        const evJson = JSON.stringify(e.events ?? []);
+        return sql`
+          INSERT INTO order_mail_cache (shop_domain, order_id, order_updated_at, events_json, fetched_at)
+          VALUES (${s}, ${oid}, ${e.orderUpdatedAt}, ${evJson}, ${now})
+          ON CONFLICT (shop_domain, order_id) DO UPDATE SET
+            order_updated_at = EXCLUDED.order_updated_at,
+            events_json = EXCLUDED.events_json,
+            fetched_at = EXCLUDED.fetched_at
+        `;
+      })
+    );
   }
+}
+
+export async function upsertMailCache(backend, shopDomain, orderId, orderUpdatedAt, events) {
+  await upsertMailCacheBatch(backend, shopDomain, [{ orderId, orderUpdatedAt, events }]);
 }

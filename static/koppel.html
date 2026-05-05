@@ -120,7 +120,7 @@
     <button type="button" class="secondary" id="btnClientCreds">Zet Shopify-token automatisch (client credentials)</button>
     <div class="status" id="ccStatus" role="status" aria-live="polite"></div>
     <p style="margin-top:1rem;font-size:0.8rem;color:var(--muted)">Werkt OAuth niet met &quot;HMAC-validatie mislukt&quot;? Zet tijdelijk in <span class="mono">.env</span>: <span class="mono">OAUTH_SKIP_HMAC_VERIFY=true</span> (alleen lokaal). Test verbinding: <a href="/api/shopify/ping">/api/shopify/ping</a></p>
-    <p style="margin-top:1.25rem"><a href="/">← Terug naar Toddie helpdesk</a></p>
+    <p style="margin-top:1.25rem"><a href="/mail.html">← Terug naar mail</a></p>
   </div>
   <script>
     const port = location.port || (location.protocol === 'https:' ? '443' : '80');
@@ -171,7 +171,7 @@
           '<strong>Gelukt.</strong> ' +
             esc(data.message || '') +
             (data.tokenMasked ? '<br /><span class="mono">Token: ' + esc(data.tokenMasked) + '</span>' : '') +
-            ' <a href="/">→ Naar orderoverzicht</a>',
+            ' <a href="/orders.html">→ Naar Shopify-orderoverzicht</a>',
           true
         );
       } catch (e) {

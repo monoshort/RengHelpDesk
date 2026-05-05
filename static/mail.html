@@ -20,10 +20,6 @@
       --read-bg: #fff;
       --accent-mail: #558235;
       --accent-mail-soft: rgba(85, 130, 53, 0.1);
-      --ready-border: #558235;
-      --ready-bg: rgba(85, 130, 53, 0.08);
-      --gen-border: #a67c00;
-      --gen-bg: rgba(166, 124, 0, 0.08);
       --success: #2d6a4a;
       --success-bg: #e8f5ee;
       --success-border: #b8dcc8;
@@ -41,12 +37,124 @@
     .topbar {
       flex-shrink: 0;
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: space-between;
-      padding: 0.5rem 1rem;
-      background: #fff;
+      padding: 0.55rem 1rem;
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(10px);
       border-bottom: 1px solid var(--border);
-      gap: 1rem;
+      gap: 0.75rem 1rem;
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      box-shadow: 0 1px 0 rgba(85, 130, 53, 0.06);
+    }
+    .topbar-brand {
+      flex: 1;
+      min-width: 0;
+    }
+    .topbar-brand h1 {
+      margin: 0 0 0.2rem;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--heading);
+      line-height: 1.2;
+    }
+    .topbar-brand .hint {
+      margin: 0;
+      font-size: 0.78rem;
+      line-height: 1.35;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .topbar-nav {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 0.35rem;
+      flex-shrink: 0;
+      padding-top: 0.1rem;
+    }
+    .topbar-nav a {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--accent-mail);
+      text-decoration: none;
+      white-space: nowrap;
+      padding: 0.35rem 0.55rem;
+      border-radius: 8px;
+      border: 1px solid transparent;
+    }
+    .topbar-nav a:hover {
+      background: var(--accent-mail-soft);
+      border-color: rgba(85, 130, 53, 0.22);
+    }
+    .ux-progress {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      z-index: 100;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .ux-progress::before {
+      content: "";
+      position: absolute;
+      left: -40%;
+      width: 40%;
+      height: 100%;
+      background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(85, 130, 53, 0.15),
+        var(--accent-mail),
+        rgba(107, 154, 68, 0.95),
+        transparent
+      );
+      animation: ux-progress-slide 1.1s ease-in-out infinite;
+      border-radius: 2px;
+    }
+    @keyframes ux-progress-slide {
+      0% {
+        transform: translateX(0);
+      }
+      100% {
+        transform: translateX(350%);
+      }
+    }
+    .msg-row--skeleton {
+      cursor: default;
+      pointer-events: none;
+      min-height: 3.1rem;
+    }
+    .msg-row--skeleton .sk-line {
+      height: 0.62rem;
+      border-radius: 4px;
+      background: linear-gradient(90deg, #e8e9e4 0%, #f4f5f1 45%, #e8e9e4 100%);
+      background-size: 220% 100%;
+      animation: ux-skel-shimmer 1.15s ease-in-out infinite;
+    }
+    @keyframes ux-skel-shimmer {
+      0% {
+        background-position: 100% 0;
+      }
+      100% {
+        background-position: -100% 0;
+      }
+    }
+    .msg-row--skeleton .sk-line--from {
+      width: 58%;
+      margin-bottom: 0.38rem;
+    }
+    .msg-row--skeleton .sk-line--subj {
+      width: 90%;
+      margin-bottom: 0.35rem;
+    }
+    .msg-row--skeleton .sk-line--snip {
+      width: 74%;
     }
     .topbar h1 {
       margin: 0;
@@ -106,6 +214,12 @@
     }
     .folder .cnt { color: var(--muted); font-size: 0.75rem; }
     .sub { padding-left: 1.25rem; font-size: 0.8rem; }
+    .sidebar-note {
+      margin: 0.5rem 0.85rem 0;
+      font-size: 0.72rem;
+      line-height: 1.35;
+      color: var(--muted);
+    }
     .list-col {
       width: 380px;
       flex-shrink: 0;
@@ -142,6 +256,7 @@
       border-bottom: 1px solid #eee;
       cursor: pointer;
       align-items: flex-start;
+      transition: background-color 0.12s ease;
     }
     .msg-row:hover { background: rgba(85, 130, 53, 0.05); }
     .msg-row.selected {
@@ -168,42 +283,6 @@
       margin-top: 0.15rem;
     }
     .msg-meta { font-size: 0.72rem; color: var(--muted); margin-top: 0.2rem; }
-    .ai-actions {
-      display: flex;
-      flex-direction: column;
-      gap: 0.35rem;
-      flex-shrink: 0;
-      padding-top: 0.1rem;
-    }
-    .ai-icon-btn {
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
-      border: 2px solid var(--border);
-      background: #fff;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: transform 0.12s ease, box-shadow 0.12s ease;
-      padding: 0;
-    }
-    .ai-icon-btn:hover:not(:disabled) {
-      transform: scale(1.04);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    }
-    .ai-icon-btn:disabled {
-      opacity: 0.45;
-      cursor: not-allowed;
-    }
-    .ai-icon-btn.ready {
-      border-color: var(--ready-border);
-      background: var(--ready-bg);
-    }
-    .ai-icon-btn.gen {
-      border-color: var(--gen-border);
-      background: var(--gen-bg);
-    }
     .sparkle {
       font-size: 1.1rem;
       line-height: 1;
@@ -233,39 +312,6 @@
       overflow: hidden;
     }
     .read-pane.open { display: flex; }
-    .read-toolbar {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.5rem;
-      padding: 0.65rem 1rem;
-      border-bottom: 1px solid var(--border);
-    }
-    .read-actions button {
-      font: inherit;
-      font-size: 0.8rem;
-      padding: 0.35rem 0.65rem;
-      margin-right: 0.35rem;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      background: #fff;
-      cursor: pointer;
-    }
-    .read-actions button:hover { background: #f5f5f5; }
-    .read-subject {
-      padding: 0.85rem 1rem 0.35rem;
-      font-size: 1.15rem;
-      font-weight: 700;
-      line-height: 1.25;
-    }
-    .read-participants {
-      padding: 0 1rem 0.75rem;
-      font-size: 0.85rem;
-      color: var(--muted);
-      border-bottom: 1px solid var(--border);
-    }
-    .read-participants strong { color: var(--text); }
     .mail-head-card {
       position: sticky;
       top: 0;
@@ -442,44 +488,6 @@
       letter-spacing: 0.07em;
       color: var(--muted);
     }
-    .ai-strip {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.75rem;
-      padding: 1rem;
-      background: linear-gradient(180deg, #f6f7f3 0%, #fff 100%);
-      border-bottom: 1px solid var(--border);
-    }
-    .ai-big-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.65rem 1.1rem;
-      border-radius: 12px;
-      font: inherit;
-      font-size: 0.88rem;
-      font-weight: 600;
-      cursor: pointer;
-      border: 2px solid var(--border);
-      background: #fff;
-      transition: box-shadow 0.15s ease, transform 0.12s ease;
-    }
-    .ai-big-btn:hover:not(:disabled) {
-      box-shadow: 0 4px 14px rgba(0,0,0,0.08);
-      transform: translateY(-1px);
-    }
-    .ai-big-btn:disabled {
-      opacity: 0.55;
-      cursor: not-allowed;
-    }
-    .ai-big-btn.ready {
-      border-color: var(--ready-border);
-      background: var(--ready-bg);
-    }
-    .ai-big-btn.gen {
-      border-color: var(--gen-border);
-      background: var(--gen-bg);
-    }
     .read-body-scroll {
       flex: 1 1 auto;
       min-height: 12rem;
@@ -512,43 +520,14 @@
       color: var(--heading);
     }
     .compose-subtitle {
-      margin: 0 0 0.65rem;
-      font-size: 0.82rem;
-      line-height: 1.5;
+      margin: 0 0 0.5rem;
+      font-size: 0.8rem;
+      line-height: 1.4;
       color: var(--muted);
     }
-    .flow-steps {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem 0.85rem;
-      margin: 0 0 0.75rem;
-      padding: 0.55rem 0.65rem;
-      background: rgba(85, 130, 53, 0.06);
-      border: 1px solid #dfe6d6;
-      border-radius: 10px;
-    }
-    .flow-step {
-      display: flex;
-      align-items: flex-start;
-      gap: 0.45rem;
-      font-size: 0.78rem;
-      line-height: 1.45;
-      color: var(--text);
-      min-width: 0;
-      flex: 1 1 160px;
-    }
-    .flow-step-num {
-      flex-shrink: 0;
-      width: 1.4rem;
-      height: 1.4rem;
-      border-radius: 50%;
-      background: var(--accent-mail);
-      color: #fff;
-      font-size: 0.72rem;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    .compose-sub-accent {
+      font-weight: 600;
+      color: var(--accent-mail);
     }
     .compose-actions-primary {
       display: flex;
@@ -577,22 +556,24 @@
       color: var(--accent-hover-mail, #43672a);
     }
     .mail-ai-context {
-      margin: 0 0 0.65rem;
-      padding: 0.55rem 0.65rem;
+      margin: 0 0 0.5rem;
+      padding: 0.45rem 0.55rem;
       background: #fff;
       border: 1px solid var(--border);
-      border-radius: 10px;
-      font-size: 0.8rem;
-      line-height: 1.45;
+      border-radius: 8px;
+      font-size: 0.78rem;
+      line-height: 1.4;
     }
-    .mail-ai-context-row {
+    .mail-ai-compact {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.35rem 0.65rem;
       align-items: baseline;
+      gap: 0.2rem 0.45rem;
     }
-    .mail-ai-context-row + .mail-ai-context-row {
-      margin-top: 0.4rem;
+    .mail-ai-compact .mail-ai-sep {
+      color: var(--border);
+      font-weight: 300;
+      user-select: none;
     }
     .mail-ai-label {
       flex: 0 0 auto;
@@ -608,8 +589,8 @@
     .mail-ai-status.match-no {
       color: #a65d00;
     }
-    .mail-ai-kw-row .mail-ai-keywords {
-      flex: 1 1 200px;
+    .mail-ai-compact .mail-ai-keywords {
+      flex: 1 1 140px;
       min-width: 0;
       word-break: break-word;
       color: var(--text);
@@ -809,6 +790,18 @@
       font-size: 0.85rem;
       color: #722;
     }
+    @media (prefers-reduced-motion: reduce) {
+      .ux-progress::before {
+        animation: none;
+        left: 0;
+        width: 100%;
+        opacity: 0.85;
+      }
+      .msg-row--skeleton .sk-line {
+        animation: none;
+        background: #e8e9e4;
+      }
+    }
     @media (max-width: 960px) {
       .shell { flex-direction: column; }
       .sidebar { width: 100%; max-height: 160px; }
@@ -823,28 +816,22 @@
   </style>
 </head>
 <body>
+  <div class="ux-progress" id="uxProgress" hidden></div>
   <header class="topbar">
-    <h1>Toddie helpdesk · Mail</h1>
-    <p class="hint" id="mailHint">Inkomende mail van Gmail — kies een bericht, vul met één klik een standaardantwoord, controleer en verstuur.</p>
-    <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap">
-      <a href="/">← Terug naar orders</a>
-      <a href="/gmail-koppel.html" class="hint" style="font-weight:600" id="mailNavGmailKoppel">Gmail koppelen</a>
+    <div class="topbar-brand">
+      <h1>Toddie helpdesk · Mail</h1>
+      <p class="hint" id="mailHint">Gmail-inbox — kies een bericht, beantwoord en verstuur.</p>
     </div>
+    <nav class="topbar-nav" aria-label="Snelkoppelingen">
+      <a href="/orders.html">Orders</a>
+      <a href="/gmail-koppel.html" id="mailNavGmailKoppel">Gmail</a>
+    </nav>
   </header>
   <div class="shell">
-    <aside class="sidebar" aria-label="Mappen">
-      <h2>Favorieten</h2>
-      <div class="folder"><span>Postvak IN</span><span class="cnt">1727</span></div>
-      <div class="folder"><span>Verzonden items</span><span class="cnt"></span></div>
-      <div class="folder"><span>Concepten</span><span class="cnt"></span></div>
-      <h2>Accounts</h2>
-      <div class="folder active"><span>Toddie.nl</span></div>
-      <div class="folder sub"><span>bol.com bestellingen</span><span class="cnt">588</span></div>
-      <div class="folder sub"><span>Ideeën</span></div>
-      <div class="folder"><span>Toddie.fr</span></div>
-      <div class="folder sub"><span>Postvak IN</span></div>
-      <h2>Overig</h2>
-      <div class="folder"><span>Ongewenste e-mail</span></div>
+    <aside class="sidebar" aria-label="Postvak">
+      <h2>Postvak</h2>
+      <div class="folder active"><span>Postvak IN</span></div>
+      <p class="sidebar-note">Andere mappen open je in Gmail.</p>
     </aside>
     <section class="list-col" aria-label="Berichtenlijst">
       <div class="list-head" id="listHead">Postvak IN</div>
@@ -873,32 +860,15 @@
             title="Sleep omhoog of omlaag · dubbelklik voor fifty-fifty"
           ></button>
           <div class="compose-card" id="composeCard">
-          <h2 class="compose-title">Jouw antwoord</h2>
-          <p class="compose-subtitle">
-            Eén knop <strong>Genereer met AI</strong>: we tonen welke zoektermen we gebruiken en of de klant/order in Shopify gevonden is. Optioneel: vaste tekst zonder AI via de link daaronder.
-          </p>
-          <div class="flow-steps" aria-label="Werkwijze">
-            <div class="flow-step">
-              <span class="flow-step-num" aria-hidden="true">1</span>
-              <span>Lees de mail en controleer de status hieronder (gevonden / niet gevonden) en de zoektermen.</span>
-            </div>
-            <div class="flow-step">
-              <span class="flow-step-num" aria-hidden="true">2</span>
-              <span>Vul eventueel <strong>kernzinnen</strong> in en druk op <strong>Genereer met AI</strong>.</span>
-            </div>
-            <div class="flow-step">
-              <span class="flow-step-num" aria-hidden="true">3</span>
-              <span>Controleer het concept en druk op <strong>Verstuur</strong>.</span>
-            </div>
-          </div>
+          <h2 class="compose-title">Antwoord</h2>
+          <p class="compose-subtitle"><strong>Genereer met AI</strong> of <span class="compose-sub-accent">standaardtekst</span> — eerst controleren, dan versturen.</p>
           <div class="mail-ai-context" id="mailAiContext" hidden>
-            <div class="mail-ai-context-row">
+            <div class="mail-ai-compact">
               <span class="mail-ai-label">Shopify</span>
               <strong class="mail-ai-status" id="mailMatchStatus" aria-live="polite">—</strong>
-            </div>
-            <div class="mail-ai-context-row mail-ai-kw-row">
-              <span class="mail-ai-label">Zoektermen</span>
-              <div class="mail-ai-keywords mono" id="mailKeywords">—</div>
+              <span class="mail-ai-sep" aria-hidden="true">·</span>
+              <span class="mail-ai-label">Zoeken</span>
+              <span class="mail-ai-keywords mono" id="mailKeywords">—</span>
             </div>
           </div>
           <div class="compose-actions-primary compose-actions-single">
@@ -906,28 +876,19 @@
               <span class="sparkle" aria-hidden="true">✦</span>
               Genereer met AI
             </button>
-            <p class="compose-action-caption">
-              Zonder ordermatch schrijft de AI alsnog een net antwoord en vraagt om ordergegevens — controleer altijd zelf.
-            </p>
-            <button type="button" class="btn-std-link" id="btnFillStandard" title="Vult vaste tekst met order/DPD als die er zijn, anders een basisantwoord">
-              Vul standaardtekst zonder AI
+            <button type="button" class="btn-std-link" id="btnFillStandard" title="Vaste tekst met order/DPD indien beschikbaar">
+              Standaardtekst (zonder AI)
             </button>
           </div>
           <div class="compose-row compose-kern">
-            <label for="aiKernzinnen">Kernwoorden / instructies voor AI (optioneel)</label>
+            <label for="aiKernzinnen">Extra instructies voor AI (optioneel)</label>
             <textarea
               id="aiKernzinnen"
               name="aiKernzinnen"
-              placeholder="Bijv.: verwijs naar de levertijd, excuses voor de vertraging, toon …"
+              placeholder="Bijv. toon, excuses, verwijzing naar levertijd …"
               spellcheck="true"
             ></textarea>
-            <p class="compose-ai-note">
-              AI gebruikt de zoektermen hierboven plus deze instructies. Bij een gevonden order komen Shopify- en DPD-feiten in de prompt.
-            </p>
           </div>
-          <p class="compose-warn" role="note">
-            Let op: controleer altijd het antwoord voordat je het verstuurt.
-          </p>
           <div class="mail-compose-err" id="mailComposeErr" role="alert" hidden></div>
           <div class="compose-row">
             <label for="mailSubject">Onderwerp van jouw antwoord</label>
@@ -1151,16 +1112,16 @@
       mailAiContext.hidden = false;
       mailMatchStatus.className = 'mail-ai-status';
       if (state === 'loading') {
-        mailMatchStatus.textContent = 'Zoeken naar klant/order…';
+        mailMatchStatus.textContent = 'Zoeken…';
         mailKeywords.textContent = '—';
         return;
       }
       mailKeywords.textContent = formatSearchKeywordsLine(searchKeywords);
       if (state === 'yes') {
-        mailMatchStatus.textContent = 'Klant/order gevonden — order- en verzendcontext voor AI';
+        mailMatchStatus.textContent = 'Order gevonden';
         mailMatchStatus.classList.add('match-yes');
       } else {
-        mailMatchStatus.textContent = 'Geen ordermatch — AI antwoordt zonder Shopify-details';
+        mailMatchStatus.textContent = 'Geen order in prompt';
         mailMatchStatus.classList.add('match-no');
       }
     }
@@ -1194,6 +1155,10 @@
         if (email) u.searchParams.set('email', email);
         if (name) u.searchParams.set('name', name);
         if (m.subject) u.searchParams.set('subject', m.subject);
+        const snip = String(m.snippet || '').trim();
+        if (snip) u.searchParams.set('snippet', snip.slice(0, 8000));
+        const bodyPlain = htmlToPlain(typeof m.body === 'string' ? m.body : '');
+        if (bodyPlain) u.searchParams.set('body', bodyPlain.slice(0, 6000));
         const r = await fetch(u.toString(), { credentials: 'same-origin' });
         const data = await r.json().catch(() => ({}));
         if (dashboardLoginRequired(r, data)) {
@@ -1215,8 +1180,8 @@
             '<div class="order-strip-head">' +
             '<span class="order-strip-badge neutral">Geen ordermatch</span>' +
             '</div>' +
-            '<div>We vinden (nog) geen recente Shopify-order op dit adres, deze afzendernaam of een ordernummer in het onderwerp. ' +
-            '<strong>Genereer met AI</strong> kan wél een antwoord maken en vraagt om ordergegevens; of gebruik <strong>standaardtekst zonder AI</strong>.</div>';
+            '<div>We vinden geen Shopify-order op dit adres, afzendernaam of ordernummer (onderwerp, snippet of mailtekst). ' +
+            '<strong>Genereer met AI</strong> beantwoordt de mail op inhoud; bij verzend-/bestelvragen kan het om een ordernummer vragen. Of gebruik <strong>standaardtekst zonder AI</strong>.</div>';
           updateMailAiContextRow('no', sk);
           return;
         }
@@ -1301,7 +1266,9 @@
     }
 
     function redirectDashboardLogin() {
-      location.href = '/login.html?next=' + encodeURIComponent(location.pathname + location.search);
+      const path = location.pathname + location.search;
+      const next = path.startsWith('/login.html') ? '/mail.html' : path;
+      location.href = '/login.html?next=' + encodeURIComponent(next || '/mail.html');
     }
 
     async function loadMailFromOptions() {
@@ -1317,7 +1284,7 @@
           mailFrom.disabled = true;
           if (mailFromHint) {
             mailFromHint.textContent =
-              'Afzender komt uit GOOGLE_GMAIL_FROM of SMTP_FROM. Zet MAIL_FROM_ALLOWLIST voor extra adressen (bijv. info@toddie.nl).';
+              'Standaard afzender is info@toddie.nl tenzij GOOGLE_GMAIL_FROM of SMTP_FROM in .env staat. Extra adressen: MAIL_FROM_ALLOWLIST.';
           }
           return;
         }
@@ -1337,7 +1304,7 @@
             smtpNote +
             (data.options.length > 1
               ? 'Extra adressen via MAIL_FROM_ALLOWLIST. Bij alleen Gmail: “Verzenden als” voor dat adres.'
-              : 'Afzender uit .env. Meer adressen: MAIL_FROM_ALLOWLIST.');
+              : 'Standaard info@toddie.nl tenzij .env anders zet; meer adressen: MAIL_FROM_ALLOWLIST.');
         }
       } catch {
         mailFrom.innerHTML = '<option value="">—</option>';
@@ -1359,46 +1326,119 @@
     }
 
     /**
-     * Haalt (bij forwarded/contactformulier mails) de echte klant-e-mail + naam uit de inhoud.
+     * Shop-/testadressen (info@eigen-domein): niet als klant als er een beter adres in de tekst staat.
+     * @param {string} email
+     */
+    function shouldDiscardCustomerEmail(email) {
+      const lower = String(email || '')
+        .trim()
+        .toLowerCase();
+      const at = lower.lastIndexOf('@');
+      if (at < 1) return true;
+      const local = lower.slice(0, at);
+      const domain = lower.slice(at + 1);
+      if (/^(mailer-daemon|postmaster|noreply|no-reply)@/i.test(lower)) return true;
+      const shopDomains = ['toddie.nl'];
+      const onShop = shopDomains.some((d) => domain === d || domain.endsWith('.' + d));
+      if (onShop) {
+        if (
+          /^(info|contact|support|sales|service|team|orders|webshop|hello|admin|noreply|no-reply|verzend|shipping|factuur|billing)$/i.test(
+            local
+          )
+        ) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    /**
+     * @param {string} text
+     * @param {string[]} candidates
+     */
+    function pickEmailByMailContext(text, candidates) {
+      const lines = String(text || '').split(/\n/);
+      /** @type {{ e: string; score: number }[]} */
+      const scored = [];
+      for (const e of candidates) {
+        let score = 0;
+        const needle = e.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const re = new RegExp(needle, 'i');
+        for (const line of lines) {
+          if (!re.test(line)) continue;
+          const L = line.toLowerCase();
+          if (/(^|\b)(van|from|e-?mail|reply-to|afzender|email|uw\s+e-?mail)\b/i.test(L)) score += 55;
+          if (/mailto:/i.test(L)) score += 22;
+          if (/(bestel|order|vraag|contact|bericht)/i.test(L)) score += 8;
+        }
+        scored.push({ e, score });
+      }
+      scored.sort((a, b) => b.score - a.score);
+      return scored[0]?.score ? scored[0].e : '';
+    }
+
+    /**
+     * Haalt (bij forwarded/contactformulier / test naar info@…) de echte klant-e-mail + naam uit de inhoud.
      * @param {object} m
      * @returns {{ email: string, name: string }}
      */
     function extractCustomerContactFromMessage(m) {
       const fallbackEmail = String(m.email || '').trim();
       const fallbackName = String(m.from || '').trim();
+      const replyTo = String(m.replyTo || '').trim();
       const bodyText = htmlToPlain(typeof m.body === 'string' ? m.body : '');
       const snippet = String(m.snippet || '').trim();
       const text = [bodyText, snippet].filter(Boolean).join('\n');
       if (!text) return { email: fallbackEmail, name: fallbackName };
 
-      const roleInbox = /^(info|support|sales|contact|service|noreply|no-reply)@/i;
       let email = '';
-      const angled = text.match(/<([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})>/i);
-      if (angled?.[1]) email = angled[1].trim();
-      if (!email) {
-        const plain = text.match(/\b([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})\b/i);
-        if (plain?.[1]) email = plain[1].trim();
+      if (replyTo.includes('@') && !shouldDiscardCustomerEmail(replyTo)) {
+        email = replyTo.toLowerCase();
       }
-      if (!email || roleInbox.test(email)) {
-        const direct = text.match(/(?:^|\n)\s*E-?mail:\s*([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})/i);
-        if (direct?.[1]) email = direct[1].trim();
+
+      const EMAIL_RE = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
+      const found = [];
+      const seen = new Set();
+      let mm;
+      while ((mm = EMAIL_RE.exec(text)) !== null) {
+        const e = mm[0].toLowerCase();
+        if (seen.has(e)) continue;
+        seen.add(e);
+        found.push(e);
       }
-      if (!email || roleInbox.test(email)) email = fallbackEmail;
+      const good = found.filter((e) => !shouldDiscardCustomerEmail(e));
+
+      if (!email && good.length === 1) {
+        email = good[0];
+      } else if (!email && good.length > 1) {
+        email = pickEmailByMailContext(text, good) || good[0];
+      } else if (!email && good.length) {
+        email = good[0];
+      }
+
+      if (!email && fallbackEmail.includes('@')) {
+        if (!shouldDiscardCustomerEmail(fallbackEmail)) email = fallbackEmail.toLowerCase();
+      }
+      if (!email && fallbackEmail.includes('@')) {
+        email = fallbackEmail.toLowerCase();
+      }
 
       let name = '';
-      const fromLine = text.match(/(?:^|\n)\s*(?:Van|From):\s*([^<\n]+)\s*</i);
-      if (fromLine?.[1]) name = fromLine[1].trim();
-      if (!name) {
-        const nameLine = text.match(/(?:^|\n)\s*Naam:\s*([^\n]+)/i);
-        if (nameLine?.[1]) name = nameLine[1].trim();
+      const directName = text.match(/(?:^|\n)\s*Naam:\s*([^\n]+)/i);
+      const fromName = text.match(/(?:^|\n)\s*(?:Van|From):\s*["']?([^"'\n<]+)["']?\s*(?:<|$)/i);
+      const fromName2 = text.match(/(?:^|\n)\s*(?:Van|From):\s*([^<\n]+)\s*</i);
+      const sign = text.match(
+        /(?:groet(?:en)?|met vriendelijke groet|mvg|br)[,\s]*\n+([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ .'-]{1,48})/i
+      );
+      const pickedName =
+        (directName?.[1] || fromName?.[1] || fromName2?.[1] || sign?.[1] || '').trim();
+      if (pickedName && (!fallbackName || /toddie|shop|support|team|klantenservice|info@/i.test(fallbackName))) {
+        name = pickedName.replace(/\s+/g, ' ');
+      } else {
+        name = fallbackName;
       }
-      if (!name) {
-        const sign = text.match(/(?:groet(?:en)?|met vriendelijke groet|mvg|br)[,\s]*\n+([A-Za-z][A-Za-z .'-]{1,40})/i);
-        if (sign?.[1]) name = sign[1].trim();
-      }
-      if (!name) name = fallbackName;
 
-      return { email, name };
+      return { email: email || '', name: name || '' };
     }
 
     /** @param {string} [subject] */
@@ -1509,9 +1549,10 @@
     function showInboxError(title, detailHtml) {
       if (listHead) listHead.textContent = 'Postvak IN';
       if (mailHint) {
-        mailHint.innerHTML = `<strong style="color:#a33">${esc(title)}</strong> ${detailHtml}`;
+        mailHint.style.color = '';
+        mailHint.innerHTML = `<strong style="color:#a33">${esc(title)}</strong> <span style="font-weight:500;color:var(--muted)">— zie uitleg in de kolom links (lijst).</span>`;
       }
-      listScroll.innerHTML = `<div style="padding:1rem 0.85rem;color:var(--muted);line-height:1.5">${detailHtml}</div>`;
+      listScroll.innerHTML = `<div style="padding:1rem 0.85rem;color:var(--text);line-height:1.5"><p style="margin:0 0 0.5rem;font-weight:700">${esc(title)}</p>${detailHtml}</div>`;
       readPane.hidden = true;
       readEmpty.style.display = 'block';
       readEmpty.textContent = 'Geen berichten geladen.';
@@ -1598,6 +1639,7 @@ Het team`;
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             customerEmail: email,
+            replyTo: m.replyTo || undefined,
             senderDisplayName: (contact.name || '').trim() || undefined,
             shopifyOrderName: guessShopifyOrderName(m.subject) || undefined,
             subject: m.subject || '',
@@ -1664,7 +1706,8 @@ Het team`;
       clearComposeFeedback();
       if (!emailOk) {
         mailComposeErr.hidden = false;
-        mailComposeErr.textContent = 'Geen geldig afzender-e-mail. Vul Ontvanger handmatig in.';
+        mailComposeErr.textContent =
+          'Geen bruikbaar klant-e-mailadres gevonden in dit bericht. Vul Ontvanger handmatig in (bij test: plak de regel met het echte klantadres uit de mail).';
         return;
       }
       if (!incoming) {
@@ -1677,12 +1720,15 @@ Het team`;
       btnGenOpenAi.disabled = true;
       btnGenOpenAi.textContent = 'Bezig…';
       try {
+        const toForApi =
+          (mailTo && String(mailTo.value || '').trim()) || email;
         const res = await fetch('/api/ai/reply-draft', {
           method: 'POST',
           credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            customerEmail: email,
+            customerEmail: toForApi,
+            replyTo: m.replyTo || undefined,
             senderDisplayName: (contact.name || '').trim() || undefined,
             shopifyOrderName: orderHint,
             incomingText: incoming,
@@ -1705,7 +1751,7 @@ Het team`;
           (data.customerMatched == null && Boolean(data.matchedOrderName));
         const parts = [];
         if (matched && data.matchedOrderName) parts.push(`Order ${data.matchedOrderName} in de prompt.`);
-        if (!matched) parts.push('Geen order in Shopify — AI vraagt om ordergegevens. ');
+        if (!matched) parts.push('Geen order in Shopify — AI zonder ordercontext (past antwoord aan de vraag aan). ');
         if (data.model) parts.push(`Model: ${data.model}.`);
         parts.push('Controleer en druk op Verstuur.');
         setComposeHint(parts.join(' '), matched ? 'success' : 'warn');
@@ -1778,7 +1824,17 @@ Het team`;
             redirectDashboardLogin();
             return;
           }
-          if (!res.ok) throw new Error(data.error || res.statusText);
+          if (!res.ok) {
+            if (res.status === 403 && data.gmailInvalidGrant && data.gmailInvalidGrantUsesSharedEnv) {
+              throw new Error(
+                String(
+                  data.error ||
+                    'Gmail-token ongeldig: beheerder moet GOOGLE_GMAIL_REFRESH_TOKEN in Vercel vernieuwen (npm run vercel:env:google).'
+                )
+              );
+            }
+            throw new Error(data.error || res.statusText);
+          }
           setComposeHint(`Verzonden via ${data.via || 'mail'}.`, 'success');
         } catch (e) {
           mailComposeErr.hidden = false;
@@ -1791,14 +1847,30 @@ Het team`;
     }
     (async function init() {
       const koppel = document.getElementById('mailNavGmailKoppel');
+      const mailHintEl = document.getElementById('mailHint');
+      /** @type {Record<string, unknown>} */
+      let cfg = {};
       try {
         const cfgR = await fetch('/api/config', { credentials: 'same-origin' });
-        const cfg = await cfgR.json().catch(() => ({}));
+        cfg = await cfgR.json().catch(() => ({}));
         if (koppel && cfg.gmailReady) koppel.hidden = true;
+        if (mailHintEl && cfg.gmailSharedMailboxMode && cfg.gmailReady) {
+          mailHintEl.textContent = 'Gedeelde mailbox — één Gmail-token op de server.';
+        }
       } catch {
         /* ignore */
       }
+      const uxProgressEl = document.getElementById('uxProgress');
       try {
+        if (uxProgressEl) uxProgressEl.hidden = false;
+        if (listHead) listHead.textContent = 'Postvak IN · laden…';
+        if (listScroll) {
+          listScroll.innerHTML = Array.from(
+            { length: 10 },
+            () =>
+              '<div class="msg-row msg-row--skeleton" aria-hidden="true"><div class="msg-main"><div class="sk-line sk-line--from"></div><div class="sk-line sk-line--subj"></div><div class="sk-line sk-line--snip"></div></div></div>'
+          ).join('');
+        }
         const r = await fetch('/api/mail/inbox?maxResults=50', { credentials: 'same-origin' });
         const data = await r.json().catch(() => ({}));
         if (r.status === 401) {
@@ -1819,10 +1891,22 @@ Het team`;
           return;
         }
         if (r.status === 403 && data.gmailInvalidGrant) {
-          showInboxError(
-            'Gmail-token ongeldig.',
-            '<p style="margin:0 0 0.5rem">Google geeft <strong>invalid_grant</strong>: de refresh-token is verlopen, ingetrokken, of hoort niet bij deze OAuth-client (bijv. ander <span class="mono">GOOGLE_CLIENT_SECRET</span> op Vercel).</p><ol style="margin:0;padding-left:1.1rem;line-height:1.5"><li>Gebruik je <span class="mono">GOOGLE_GMAIL_REFRESH_TOKEN</span> in Vercel? Werk die variabele bij met een nieuwe token (OAuth eenmalig lokaal of opnieuw koppelen). Zonder <span class="mono">GOOGLE_GMAIL_PREFER_USER_LINK=true</span> wint het env-token boven een oude DB-koppeling.</li><li>Per-gebruiker gekoppeld via de database: ga naar <a href="/gmail-koppel.html">gmail-koppel.html</a> en koppel opnieuw (met <span class="mono">DATABASE_URL</span> blijft de token bewaard).</li><li>Rotte DB-token maar geldige env: zet <span class="mono">GOOGLE_GMAIL_FORCE_ENV=true</span> of wis de koppeling met <span class="mono">POST /api/auth/gmail/disconnect</span> (ingelogd).</li><li>Controleer dat <span class="mono">GOOGLE_REDIRECT_URI</span> exact gelijk is aan de redirect-URL in Google Cloud.</li></ol>'
-          );
+          if (data.gmailInvalidGrantUsesSharedEnv) {
+            showInboxError(
+              'Gmail-token ongeldig (gedeelde mailbox).',
+              (location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+                ? ''
+                : '<p style="margin:0 0 0.75rem;padding:0.5rem 0.65rem;background:#fff8e6;border:1px solid #e8d4a0;border-radius:8px;font-size:0.9rem">Je zit op <strong>productie</strong> (<span class="mono">' +
+                  esc(location.host) +
+                  '</span>). De tekst hieronder over <strong>.env</strong> / <span class="mono">GOOGLE_GMAIL_USE_STORED_LINK_ONLY</span> geldt voor <strong>localhost</strong>. Op Vercel moet je <span class="mono">GOOGLE_GMAIL_REFRESH_TOKEN</span> (en zo nodig <span class="mono">GOOGLE_CLIENT_SECRET</span>) in het Vercel-dashboard bijwerken, of lokaal opnieuw koppelen en daarna <span class="mono">npm run vercel:env:google</span>.</p>') +
+                '<p style="margin:0 0 0.5rem">De server gebruikt <span class="mono">GOOGLE_GMAIL_REFRESH_TOKEN</span> uit de <strong>serveromgeving</strong> (Vercel of .env) voor alle medewerkers. Google weigert die (<strong>invalid_grant</strong>): token verlopen/ingetrokken, of <span class="mono">GOOGLE_CLIENT_SECRET</span> hoort niet bij dezelfde OAuth-client.</p><p style="margin:0 0 0.5rem"><strong>Alleen op je eigen pc (localhost):</strong> zet <span class="mono">GOOGLE_GMAIL_USE_STORED_LINK_ONLY=true</span> in <span class="mono">.env</span> of verwijder de dode <span class="mono">GOOGLE_GMAIL_REFRESH_TOKEN</span>, herstart <span class="mono">npm run dev</span>, ga naar <a href="/gmail-koppel.html">gmail-koppel</a>, daarna <span class="mono">npm run mail:sync-env</span> en <span class="mono">npm run mail:publish</span>.</p><p style="margin:0"><strong>Productie:</strong> nieuwe token naar Vercel (zie hierboven) + Google Cloud redirect exact <span class="mono">https://…vercel.app/api/auth/gmail/callback</span>.</p>'
+            );
+          } else {
+            showInboxError(
+              'Gmail-token ongeldig.',
+              '<p style="margin:0 0 0.5rem">Google geeft <strong>invalid_grant</strong>: de refresh-token is verlopen, ingetrokken, of hoort niet bij deze OAuth-client (bijv. ander <span class="mono">GOOGLE_CLIENT_SECRET</span> op Vercel).</p><ol style="margin:0;padding-left:1.1rem;line-height:1.5"><li>Gebruik je <span class="mono">GOOGLE_GMAIL_REFRESH_TOKEN</span> in Vercel? Werk die variabele bij met een nieuwe token (OAuth eenmalig lokaal of opnieuw koppelen). Zonder <span class="mono">GOOGLE_GMAIL_PREFER_USER_LINK=true</span> wint het env-token boven een oude DB-koppeling.</li><li>Per-gebruiker gekoppeld via de database: ga naar <a href="/gmail-koppel.html">gmail-koppel.html</a> en koppel opnieuw (met <span class="mono">DATABASE_URL</span> blijft de token bewaard).</li><li>Rotte DB-token maar geldige env: zet <span class="mono">GOOGLE_GMAIL_FORCE_ENV=true</span> of wis de koppeling met <span class="mono">POST /api/auth/gmail/disconnect</span> (ingelogd).</li><li>Controleer dat <span class="mono">GOOGLE_REDIRECT_URI</span> exact gelijk is aan de redirect-URL in Google Cloud.</li></ol>'
+            );
+          }
           return;
         }
         if (r.status === 403 && data.needsGmailReadonly) {
@@ -1847,7 +1931,9 @@ Het team`;
         messages = data.messages.map(({ internalDate: _x, ...rest }) => rest);
         if (listHead) listHead.textContent = `Postvak IN · ${messages.length} bericht${messages.length === 1 ? '' : 'en'}`;
         if (mailHint) {
-          mailHint.textContent = 'Gmail Postvak IN — gekoppeld account.';
+          mailHint.textContent = cfg.gmailSharedMailboxMode
+            ? 'Postvak IN · gedeelde mailbox'
+            : 'Postvak IN · gekoppeld';
         }
         renderList();
         if (messages.length > 0) {
@@ -1862,6 +1948,8 @@ Het team`;
         const msg = e instanceof Error ? e.message : String(e);
         showInboxError('Netwerkfout.', `<p style="margin:0">${esc(msg)}</p>`);
         console.error(e);
+      } finally {
+        if (uxProgressEl) uxProgressEl.hidden = true;
       }
     })();
   </script>

@@ -11,10 +11,18 @@
     "merge-token": "node scripts/merge-token.mjs",
     "vercel:env:shopify": "node scripts/sync-vercel-shopify-env.mjs",
     "vercel:env:google": "node scripts/sync-vercel-google-env.mjs",
+    "mail:smoke": "node scripts/gmail-smoke-test.mjs",
+    "mail:smoke:http": "node scripts/mail-smoke-http.mjs",
+    "mail:smoke:all": "node scripts/mail-smoke-all.mjs",
+    "mail:doctor": "node scripts/mail-doctor.mjs",
+    "mail:sync-env": "node scripts/mail-sync-env-from-token.mjs",
+    "mail:publish": "npm run vercel:env:google && npm run deploy:vercel",
+    "mail:publish-all": "npm run mail:sync-env && npm run vercel:env:google && npm run deploy:vercel",
     "vercel:env:all": "node scripts/sync-vercel-shopify-env.mjs && node scripts/sync-vercel-google-env.mjs",
     "deploy:vercel": "node scripts/vercel-deploy.mjs"
   },
   "dependencies": {
+    "compression": "^1.7.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
     "googleapis": "^144.0.0",

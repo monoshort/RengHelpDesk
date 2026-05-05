@@ -120,13 +120,13 @@
     <input id="password" type="password" autocomplete="current-password" autofocus />
     <p class="err" id="err" hidden></p>
     <button type="button" id="submit">Inloggen</button>
-    <p class="foot"><a href="/">← Terug</a></p>
+    <p class="foot"><a href="/mail.html">← Terug naar mail</a></p>
   </div>
   <script>
     const params = new URLSearchParams(location.search);
     const rawNext = params.get('next');
     const safeNext =
-      rawNext && rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/';
+      rawNext && rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/mail.html';
 
     const errEl = document.getElementById('err');
     const pwEl = document.getElementById('password');

@@ -1,16 +1,19 @@
 import './loadEnv.js';
 import http from 'http';
 import express from 'express';
+import compression from 'compression';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import {
   fetchShop,
   fetchRecentOrders,
   fetchAllRecentOrders,
+  shopifyOrdersCreatedWithinDaysEffective,
   ordersToRichOrderRows,
   fetchProductThumbnailData,
   fetchOrderTimelineEvents,
   normShopHost,
+  searchOrdersForDashboard,
 } from './shopify.js';
 import {
   isOpenAiConfigured,
@@ -18,7 +21,7 @@ import {
   enrichOrderRowForAi,
   orderContextPromptBlock,
   noOrderContextPromptBlock,
-  orderNameHintsFromSubject,
+  mergeMailOrderHints,
   generateCustomerReplyDraft,
   generateOverviewDeskInsight,
   buildStandardMailReplyText,
@@ -34,6 +37,7 @@ import {
   getMailSendFromOptions,
   getMailSendChannelLabel,
   isSmtpSendFirst,
+  isGmailInvalidGrantError,
 } from './mail.js';
 import { fetchInboxForUi } from './gmailInbox.js';
 import {
@@ -52,8 +56,13 @@ import {
 } from './requestIntegrations.js';
 import { mountShopifyAuth } from './shopifyAuth.js';
 import { mountGmailAuth } from './gmailAuth.js';
-import { getGmailAuthStatus, gmailConnectionHints } from './gmailSession.js';
+import {
+  getGmailAuthStatus,
+  gmailConnectionHints,
+  isGmailSharedEnvMailboxMode,
+} from './gmailSession.js';
 import { mountDashboardAuthRoutes, dashboardAuthMiddleware } from './dashboardAuth.js';
+import { extractCustomerContactFromText } from './mailContactExtract.js';
 import {
   resolveOrdersForOverview,
   buildCachedThumbData,
@@ -75,6 +84,7 @@ const app = express();
 if (String(process.env.TRUST_PROXY || '').toLowerCase() === 'true' || process.env.NODE_ENV === 'production') {
   app.set('trust proxy', 1);
 }
+app.use(compression({ threshold: 2048 }));
 app.use(express.json({ limit: '512kb' }));
 mountDashboardAuthRoutes(app);
 app.use(dashboardAuthMiddleware);
@@ -83,6 +93,12 @@ app.use((req, res, next) => {
 });
 mountShopifyAuth(app, { port });
 mountGmailAuth(app, { port });
+
+if (String(process.env.VERCEL || '').trim() === '1' && !process.env.DATABASE_URL?.trim()) {
+  console.warn(
+    '[reng] Vercel zonder DATABASE_URL: gebruik Postgres voor gedeelde Shopify-/Gmail-koppelingen, of vaste SHOPIFY_ACCESS_TOKEN + GOOGLE_GMAIL_REFRESH_TOKEN in env. Anders leven OAuth-koppelingen in /tmp en zijn ze niet betrouwbaar over tijd/instances.'
+  );
+}
 
 function dpdCreds() {
   const delisId = process.env.DPD_DELIS_ID?.trim();
@@ -164,34 +180,15 @@ function resolveGreetingName(senderDisplayName, customerEmail) {
  * @param {string} incomingText
  * @param {string} fallbackEmail
  * @param {string} fallbackName
+ * @param {string} [replyTo]
  */
-function extractCustomerContactFromIncoming(incomingText, fallbackEmail, fallbackName) {
-  const text = String(incomingText || '');
-  const roleInbox = /^(info|support|sales|service|contact|admin|noreply|no-reply)@/i;
-  let email = String(fallbackEmail || '').trim();
-  let name = String(fallbackName || '').trim();
-
-  const directEmail = text.match(
-    /(?:^|\n)\s*E-?mail:\s*([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})/im
-  );
-  const fromEmail = text.match(/<([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})>/i);
-  const anyEmail = text.match(/\b([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})\b/i);
-  const pickedEmail = directEmail?.[1] || fromEmail?.[1] || anyEmail?.[1] || '';
-  if ((!email || roleInbox.test(email)) && pickedEmail && !roleInbox.test(pickedEmail)) {
-    email = pickedEmail.trim();
-  }
-
-  const directName = text.match(/(?:^|\n)\s*Naam:\s*([^\n]+)/i);
-  const fromName = text.match(/(?:^|\n)\s*(?:Van|From):\s*([^<\n]+)\s*</i);
-  const signName = text.match(
-    /(?:groet(?:en)?|met vriendelijke groet|mvg|br)[,\s]*\n+([A-Za-z][A-Za-z .'-]{1,40})/i
-  );
-  const pickedName = directName?.[1] || fromName?.[1] || signName?.[1] || '';
-  if (pickedName && (!name || /toddie|shop|support|team|klantenservice/i.test(name))) {
-    name = pickedName.trim();
-  }
-
-  return { email, name };
+function extractCustomerContactFromIncoming(incomingText, fallbackEmail, fallbackName, replyTo) {
+  return extractCustomerContactFromText({
+    text: String(incomingText || ''),
+    fallbackEmail: String(fallbackEmail || ''),
+    fallbackName: String(fallbackName || ''),
+    replyTo: String(replyTo || ''),
+  });
 }
 
 app.get('/api/health', (_req, res) => {
@@ -215,34 +212,39 @@ app.get('/api/overview', async (req, res) => {
     const fullSync =
       String(req.query.fullSync || req.query.full_sync || '').trim() === '1' ||
       String(req.query.fullSync || req.query.full_sync || '').toLowerCase() === 'true';
-    const includeMailLog = String(req.query.mailLog ?? '1') !== '0';
+    const fast = ['1', 'true', 'yes'].includes(String(req.query.fast ?? '').trim().toLowerCase());
+    /** Standaard: mail aan. Bij fast: uit tenzij expliciet ?mailLog=1 */
+    const includeMailLog =
+      req.query.mailLog !== undefined && String(req.query.mailLog).trim() !== ''
+        ? String(req.query.mailLog).trim() !== '0'
+        : !fast;
     const loadProductImages = String(req.query.productImages ?? '1') !== '0';
+    /** Standaard: DPD aan. Bij fast: uit tenzij expliciet ?dpd=1 */
+    const runDpdLookup =
+      req.query.dpd !== undefined && String(req.query.dpd).trim() !== ''
+        ? String(req.query.dpd).trim() !== '0'
+        : !fast;
     /** @type {number | null} */
     let ordersFetchMax = null;
     let ordersMayBeTruncated = false;
 
-    // shop.json: alle pogingen (zoals /api/shopify/ping) — .env-token kan 401 geven terwijl OAuth-sessie geldig is.
-    let shopInfo = null;
-    for (const att of attempts) {
-      try {
-        shopInfo = await fetchShop({
-          shopDomain: att.shopDomain,
-          accessToken: att.accessToken,
-        });
-        break;
-      } catch {
-        /* volgende credential */
-      }
-    }
-
-    const storeBaseUrl =
-      process.env.SHOPIFY_PUBLIC_STORE_URL?.trim() ||
-      (shopInfo?.domain
-        ? `https://${String(shopInfo.domain).replace(/^https?:\/\//, '')}`
-        : null) ||
-      (shopInfo?.primaryDomain
-        ? `https://${String(shopInfo.primaryDomain).replace(/^https?:\/\//, '')}`
-        : null);
+    // shop.json parallel met order-fetch: scheelt ~1 round-trip. Overslaan als publieke URL al in .env staat.
+    const publicStoreUrl = process.env.SHOPIFY_PUBLIC_STORE_URL?.trim();
+    const shopInfoPromise = publicStoreUrl
+      ? Promise.resolve(null)
+      : (async () => {
+          for (const att of attempts) {
+            try {
+              return await fetchShop({
+                shopDomain: att.shopDomain,
+                accessToken: att.accessToken,
+              });
+            } catch {
+              /* volgende credential */
+            }
+          }
+          return null;
+        })();
 
     let orders = [];
     let ordersUnavailable = false;
@@ -270,7 +272,7 @@ app.get('/api/overview', async (req, res) => {
       const n = Number(process.env.SHOPIFY_VERCEL_OVERVIEW_ORDERS_MAX || '');
       if (Number.isFinite(n) && n >= 5 && n <= 50000) return Math.floor(n);
       /* Default iets lager: minder Shopify event-calls + sneller eerste response op Hobby/Pro. */
-      return 96;
+      return 72;
     })();
     /** @type {number | null} */
     let overviewVercelCapApplied = null;
@@ -330,29 +332,44 @@ app.get('/api/overview', async (req, res) => {
       }
     }
 
-    const orderMailLogs =
+    const shopInfo = await shopInfoPromise;
+    const storeBaseUrl =
+      publicStoreUrl ||
+      (shopInfo?.domain
+        ? `https://${String(shopInfo.domain).replace(/^https?:\/\//, '')}`
+        : null) ||
+      (shopInfo?.primaryDomain
+        ? `https://${String(shopInfo.primaryDomain).replace(/^https?:\/\//, '')}`
+        : null);
+
+    const [orderMailLogs, thumbData] = await Promise.all([
       orders.length > 0 && includeMailLog && ordersCfg
-        ? await buildCachedMailLogs(
+        ? buildCachedMailLogs(
             cacheBackend,
             ordersCfg,
             ordersCfg.shopDomain,
             orders,
             true
           )
-        : {};
-    let thumbData = { imageMap: {}, handles: {}, productionByProductId: {} };
-    if (orders.length > 0 && ordersCfg) {
-      thumbData = await buildCachedThumbData(
-        cacheBackend,
-        ordersCfg,
-        ordersCfg.shopDomain,
-        orders,
-        {
-          loadImages: loadProductImages,
-          storeBaseUrl,
-        }
-      );
-    }
+        : Promise.resolve(/** @type {Record<string, unknown[]>} */ ({})),
+      orders.length > 0 && ordersCfg
+        ? buildCachedThumbData(
+            cacheBackend,
+            ordersCfg,
+            ordersCfg.shopDomain,
+            orders,
+            {
+              loadImages: loadProductImages,
+              storeBaseUrl,
+              skipMetafields: fast,
+            }
+          )
+        : Promise.resolve({
+            imageMap: {},
+            handles: {},
+            productionByProductId: {},
+          }),
+    ]);
     const rows = ordersToRichOrderRows(orders, (ordersCfg ?? cfgPrimary).shopDomain, {
       imageMap: thumbData.imageMap,
       handles: thumbData.handles,
@@ -366,7 +383,7 @@ app.get('/api/overview', async (req, res) => {
     const dpd = dpdCreds();
 
     const enriched = rows.map((row) => ({ ...row, dpdTrackings: [] }));
-    if (dpd) {
+    if (dpd && runDpdLookup) {
       /** @type {{ ri: number; t: { number?: string; company?: string | null } }[]} */
       const dpdJobs = [];
       for (let ri = 0; ri < enriched.length; ri++) {
@@ -455,6 +472,8 @@ app.get('/api/overview', async (req, res) => {
       orderCount: orders.length,
       ordersFetchMax,
       ordersMayBeTruncated,
+      /** null = geen datums-filter; anders: alleen orders met created_at in dit venster (Shopify REST). */
+      ordersCreatedWithinDays: shopifyOrdersCreatedWithinDaysEffective(),
       shopifyAppId: Boolean(process.env.SHOPIFY_CLIENT_ID?.trim()),
       dpdConfigured: Boolean(dpd),
       smtpConfigured: isSmtpConfigured(),
@@ -631,9 +650,70 @@ app.get('/api/config', async (req, res) => {
     gmailSenderEmail: g.senderEmail,
     userGmailLinked: Boolean(g.userGmailLinked),
     gmailUsesSharedEnvToken: Boolean(g.gmailUsesSharedEnvToken),
+    gmailSharedMailboxMode: Boolean(g.gmailSharedMailboxMode),
     gmailOAuthCallbackUrl: gmailRedirect,
     gmailRedirectUsesEnv: Boolean(fixedGmailRedirect),
   });
+});
+
+/**
+ * Klant-/ordertrefzoek buiten de geladen overview-lijst (GraphQL + REST).
+ * Query: ?q=  (min. 2 tekens)
+ */
+app.get('/api/orders/search', async (req, res) => {
+  const q = String(req.query.q || '').trim();
+  if (q.length < 2) {
+    return res.json({ ok: true, rows: [], orderMailLogs: {} });
+  }
+  try {
+    await ensureShopifyAccessForRequest(req);
+    const attempts = shopifyCredentialAttemptsForRequest(req);
+    if (attempts.length === 0) {
+      return res.status(401).json({ error: 'Shopify niet geconfigureerd.' });
+    }
+    const publicStoreUrl = process.env.SHOPIFY_PUBLIC_STORE_URL?.trim();
+    let storeBaseUrl = publicStoreUrl || null;
+    if (!storeBaseUrl) {
+      for (const att of attempts) {
+        try {
+          const si = await fetchShop({
+            shopDomain: att.shopDomain,
+            accessToken: att.accessToken,
+          });
+          storeBaseUrl = si?.domain
+            ? `https://${String(si.domain).replace(/^https?:\/\//, '')}`
+            : si?.primaryDomain
+              ? `https://${String(si.primaryDomain).replace(/^https?:\/\//, '')}`
+              : null;
+          if (storeBaseUrl) break;
+        } catch {
+          /* volgende */
+        }
+      }
+    }
+    let lastErr = null;
+    for (const att of attempts) {
+      const cfg = { shopDomain: att.shopDomain, accessToken: att.accessToken };
+      try {
+        const orders = await searchOrdersForDashboard(cfg, q);
+        const rows = ordersToRichOrderRows(orders, cfg.shopDomain, {
+          imageMap: {},
+          handles: {},
+          storeBaseUrl,
+          productionByProductId: {},
+        });
+        const enriched = rows.map((row) => ({ ...row, dpdTrackings: [] }));
+        return res.json({ ok: true, rows: enriched, orderMailLogs: {} });
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+    const message = lastErr instanceof Error ? lastErr.message : String(lastErr ?? '');
+    return res.status(502).json({ error: message.slice(0, 400) });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    return res.status(500).json({ error: message });
+  }
 });
 
 /** Volledige order-timeline (Shopify events) + geparste PDF/factuur/mail-preview velden. */
@@ -697,10 +777,12 @@ app.post('/api/ai/reply-draft', async (req, res) => {
     }
     const body = req.body || {};
     const email = typeof body.customerEmail === 'string' ? body.customerEmail.trim() : '';
+    const replyToHeader =
+      typeof body.replyTo === 'string' ? body.replyTo.trim() : '';
     const incomingText = typeof body.incomingText === 'string' ? body.incomingText.trim() : '';
-    if (!email || !incomingText) {
+    if (!incomingText) {
       return res.status(400).json({
-        error: 'Velden customerEmail en incomingText zijn verplicht.',
+        error: 'Veld incomingText is verplicht.',
       });
     }
     const shopifyOrderName =
@@ -747,17 +829,35 @@ app.post('/api/ai/reply-draft', async (req, res) => {
       shopInfo = null;
     }
 
-    const senderDisplayName =
+    let senderDisplayName =
       typeof body.senderDisplayName === 'string' ? body.senderDisplayName.trim() : '';
-    const subjectForMatch = [incomingSubject || '', shopifyOrderName || ''].filter(Boolean).join(' ');
+    const extracted = extractCustomerContactFromIncoming(
+      incomingText,
+      email,
+      senderDisplayName,
+      replyToHeader
+    );
+    let effectiveEmail =
+      extracted.email && extracted.email.includes('@') ? extracted.email.trim() : email;
+    if (extracted.name) senderDisplayName = extracted.name;
+    if (!effectiveEmail || !effectiveEmail.includes('@')) {
+      return res.status(400).json({
+        error:
+          'Geen geldig klant-e-mailadres gevonden. Vul “Aan” in, of zet Reply-To / het klantadres in de geplakte mail (niet alleen info@…).',
+      });
+    }
+
+    /** Bestelnr staat vaak in de body; onderwerp + gekozen order in UI apart voor prioriteit. */
+    const headerHint = [incomingSubject || '', shopifyOrderName || ''].filter(Boolean).join('\n');
     const order = await findOrderForMailbox(ordersCfg, {
-      customerEmail: email,
+      customerEmail: effectiveEmail,
       senderName: senderDisplayName,
-      subjectHint: subjectForMatch,
+      subjectHint: headerHint,
+      incomingMailBody: incomingText,
     });
-    const orderHints = orderNameHintsFromSubject(incomingSubject || '');
+    const orderHints = mergeMailOrderHints(incomingText, headerHint);
     const searchKeywords = {
-      email: email || '',
+      email: effectiveEmail || '',
       senderName: senderDisplayName || '',
       orderHintsFromSubject: orderHints,
     };
@@ -768,7 +868,7 @@ app.post('/api/ai/reply-draft', async (req, res) => {
     if (!enriched) {
       const contextBlock = noOrderContextPromptBlock({
         shopName: shopInfo?.name ?? null,
-        customerEmail: email,
+        customerEmail: effectiveEmail,
         senderName: senderDisplayName,
         orderHintsFromSubject: orderHints,
       });
@@ -833,12 +933,19 @@ app.post('/api/mail/standard-reply', async (req, res) => {
     const subject = typeof body.subject === 'string' ? body.subject : '';
     const snippet = typeof body.snippet === 'string' ? body.snippet : '';
     const incomingText = typeof body.incomingText === 'string' ? body.incomingText.trim() : '';
+    const replyToHeader =
+      typeof body.replyTo === 'string' ? body.replyTo.trim() : '';
     let senderDisplayName =
       typeof body.senderDisplayName === 'string' ? body.senderDisplayName.trim() : '';
     let effectiveEmail = email;
     if (incomingText) {
-      const extracted = extractCustomerContactFromIncoming(incomingText, email, senderDisplayName);
-      if (extracted.email && extracted.email.includes('@')) effectiveEmail = extracted.email;
+      const extracted = extractCustomerContactFromIncoming(
+        incomingText,
+        email,
+        senderDisplayName,
+        replyToHeader
+      );
+      if (extracted.email && extracted.email.includes('@')) effectiveEmail = extracted.email.trim();
       if (extracted.name) senderDisplayName = extracted.name;
     }
 
@@ -879,11 +986,12 @@ app.post('/api/mail/standard-reply', async (req, res) => {
       return raw ? `Re: ${raw}` : 'Re: uw bericht';
     })();
 
-    const subjectForMatch = [subject, snippet, shopifyOrderName || ''].filter(Boolean).join(' ');
+    const headerHint = [subject, snippet, shopifyOrderName || ''].filter(Boolean).join('\n');
     const order = await findOrderForMailbox(ordersCfg, {
       customerEmail: effectiveEmail,
       senderName: senderDisplayName,
-      subjectHint: subjectForMatch,
+      subjectHint: headerHint,
+      incomingMailBody: incomingText,
     });
 
     if (!order) {
@@ -969,6 +1077,8 @@ app.get('/api/mail/order-context', async (req, res) => {
     const email = typeof req.query.email === 'string' ? req.query.email.trim() : '';
     const name = typeof req.query.name === 'string' ? req.query.name.trim() : '';
     const subject = typeof req.query.subject === 'string' ? req.query.subject.trim() : '';
+    const snippet = typeof req.query.snippet === 'string' ? req.query.snippet.trim() : '';
+    const body = typeof req.query.body === 'string' ? req.query.body.trim() : '';
 
     let ordersCfg = null;
     for (const att of shopifyCredentialAttemptsForRequest(req)) {
@@ -985,7 +1095,8 @@ app.get('/api/mail/order-context', async (req, res) => {
       return res.status(503).json({ ok: false, error: 'Shopify niet geconfigureerd.' });
     }
 
-    const orderHints = orderNameHintsFromSubject(subject);
+    const headerHint = [subject, snippet].filter(Boolean).join('\n');
+    const orderHints = mergeMailOrderHints(body, headerHint);
     const searchKeywords = {
       email: email || '',
       senderName: name || '',
@@ -995,7 +1106,8 @@ app.get('/api/mail/order-context', async (req, res) => {
     const order = await findOrderForMailbox(ordersCfg, {
       customerEmail: email,
       senderName: name,
-      subjectHint: subject,
+      subjectHint: headerHint,
+      incomingMailBody: body,
     });
     if (!order) {
       return res.json({ ok: true, match: null, searchKeywords });
@@ -1079,28 +1191,6 @@ app.post('/api/ai/desk-insight', async (req, res) => {
   }
 });
 
-/**
- * Google OAuth token endpoint: verlopen/ingetrokken refresh token, verkeerde client_secret, enz.
- * @param {unknown} e
- */
-function isGmailInvalidGrantError(e) {
-  const parts = [];
-  if (e instanceof Error) {
-    parts.push(e.message);
-    if ('cause' in e && e.cause instanceof Error) parts.push(e.cause.message);
-  } else parts.push(String(e ?? ''));
-  const blob = parts.join(' ').toLowerCase();
-  if (blob.includes('invalid_grant')) return true;
-  if (e && typeof e === 'object' && 'response' in e) {
-    const raw = /** @type {{ response?: { data?: unknown } }} */ (e).response?.data;
-    const d = raw && typeof raw === 'object' && !Array.isArray(raw) ? /** @type {Record<string, unknown>} */ (raw) : null;
-    if (d && String(d.error || '').toLowerCase() === 'invalid_grant') return true;
-    if (d && String(d.error_description || '').toLowerCase().includes('invalid_grant')) return true;
-  }
-  if (blob.includes('token has been expired') || blob.includes('token has been revoked')) return true;
-  return false;
-}
-
 /** Inbox van gekoppeld Gmail-account (vereist OAuth-scope gmail.readonly). */
 app.get('/api/mail/inbox', async (req, res) => {
   try {
@@ -1121,11 +1211,14 @@ app.get('/api/mail/inbox', async (req, res) => {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     if (isGmailInvalidGrantError(e)) {
+      const shared = isGmailSharedEnvMailboxMode();
       return res.status(403).json({
         ok: false,
-        error:
-          'Gmail-token geweigerd door Google (invalid_grant). Koppel Gmail opnieuw via gmail-koppel.html, of vernieuw GOOGLE_GMAIL_REFRESH_TOKEN in Vercel/.env als je die handmatig gebruikt.',
+        error: shared
+          ? 'Gmail-token geweigerd (invalid_grant). Bij een gedeelde mailbox: vernieuw GOOGLE_GMAIL_REFRESH_TOKEN en GOOGLE_CLIENT_SECRET in Vercel (zelfde OAuth-client als in Google Cloud), daarna opnieuw deployen.'
+          : 'Gmail-token geweigerd door Google (invalid_grant). Koppel Gmail opnieuw via gmail-koppel.html, of vernieuw GOOGLE_GMAIL_REFRESH_TOKEN in Vercel/.env als je die handmatig gebruikt.',
         gmailInvalidGrant: true,
+        gmailInvalidGrantUsesSharedEnv: shared,
       });
     }
     let httpStatus;
@@ -1173,7 +1266,7 @@ app.post('/api/mail/send', async (req, res) => {
     if (!isMailOutboundConfigured(req)) {
       return res.status(400).json({
         error:
-          'Geen mail-uitgang: koppel Gmail via /gmail-koppel.html (of zet GOOGLE_* in .env), of vul SMTP_HOST + SMTP_FROM in .env.',
+          'Geen mail-uitgang: koppel Gmail via /gmail-koppel.html (of zet GOOGLE_* in .env), of vul SMTP_HOST in .env (SMTP_FROM mag leeg; standaard info@toddie.nl).',
       });
     }
     const { to, subject, text, html, replyTo, from, threadId } = req.body || {};
@@ -1198,9 +1291,25 @@ app.post('/api/mail/send', async (req, res) => {
     });
     res.json({ ok: true, via: getMailSendChannelLabel(req) });
   } catch (e) {
+    if (isGmailInvalidGrantError(e)) {
+      const shared = isGmailSharedEnvMailboxMode();
+      return res.status(403).json({
+        ok: false,
+        error: shared
+          ? 'Gmail-token ongeldig (invalid_grant). Beheerder: werk GOOGLE_GMAIL_REFRESH_TOKEN + GOOGLE_CLIENT_SECRET in Vercel bij (npm run vercel:env:google na lokale koppeling).'
+          : 'Gmail-token ongeldig (invalid_grant). Koppel opnieuw via gmail-koppel.html of vernieuw de refresh-token in .env/Vercel.',
+        gmailInvalidGrant: true,
+        gmailInvalidGrantUsesSharedEnv: shared,
+      });
+    }
     const message = e instanceof Error ? e.message : String(e);
     res.status(500).json({ error: message });
   }
+});
+
+/** Startscherm = mail; Shopify-orderoverzicht staat op `/orders.html`. */
+app.get('/', (_req, res) => {
+  res.redirect(302, '/mail.html');
 });
 
 /** Na alle API-routes: statische bestanden (anders kan `/api/...` soms verkeerd door static gaan). */
@@ -1223,7 +1332,7 @@ if (!skipListen) {
     const server = http.createServer(app);
     server.listen(p, () => {
       // eslint-disable-next-line no-console
-      console.log(`Dashboard: http://localhost:${p}`);
+      console.log(`Helpdesk: http://localhost:${p}/ → mail · orders: /orders.html`);
       if (!portExplicit && p !== port) {
         // eslint-disable-next-line no-console
         console.warn(

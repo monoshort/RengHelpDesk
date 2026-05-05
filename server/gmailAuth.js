@@ -5,6 +5,8 @@ import {
   writeGmailTokens,
   getGmailOAuthCreds,
   setGmailRuntimeAccessCache,
+  sanitizeGmailRefreshToken,
+  envFlagTrue,
 } from './gmailSession.js';
 import {
   loadUserIntegrationDoc,
@@ -14,7 +16,8 @@ import {
 } from './userIntegrationsStore.js';
 
 const COOKIE = 'reng_gmail_oauth';
-const MAX_AGE_SEC = 15 * 60;
+/** Lang genoeg voor traag Google-consent / mobiel (was 15 min → te kort). */
+const MAX_AGE_SEC = 45 * 60;
 
 const SCOPES = [
   'https://www.googleapis.com/auth/gmail.send',
@@ -22,6 +25,29 @@ const SCOPES = [
   'https://www.googleapis.com/auth/userinfo.email',
   'openid',
 ].join(' ');
+
+/** @param {string} s */
+function htmlEsc(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/**
+ * @param {string} title
+ * @param {string} bodyHtml
+ */
+function gmailOAuthHtmlPage(title, bodyHtml) {
+  const t = htmlEsc(title);
+  return `<!DOCTYPE html><html lang="nl"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>${t}</title>
+<style>body{font-family:system-ui,sans-serif;max-width:40rem;margin:2rem auto;padding:0 1rem;line-height:1.5;color:#222}a{color:#1a73e8}</style></head><body>
+<h1 style="font-size:1.15rem">${t}</h1>
+${bodyHtml}
+<p style="margin-top:1.5rem"><a href="/gmail-koppel.html">← Opnieuw Gmail koppelen</a> · <a href="/mail.html">Mail</a> · <a href="/orders.html">Shopify-orders</a></p>
+</body></html>`;
+}
 
 /**
  * Zelfde URI als bij authorize én bij token-uitwisseling. Zonder GOOGLE_REDIRECT_URI: afgeleid van Host
@@ -193,13 +219,64 @@ export function mountGmailAuth(app, opts) {
 
     if (errQ) {
       clearPending(res, req);
-      return res.status(400).send(`Google OAuth afgebroken: ${errQ}`);
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res
+        .status(400)
+        .send(
+          gmailOAuthHtmlPage(
+            'Google OAuth afgebroken',
+            `<p>Google meldt: <strong>${htmlEsc(errQ)}</strong></p>
+<p>Meest voorkomend: <strong>access_denied</strong> (niet op Accepteren geklikt), of de app staat in <em>Testing</em> en jouw Gmail staat niet bij <strong>Test users</strong> in Google Cloud.</p>`
+          )
+        );
     }
 
     if (!code || !state || !pendingOk) {
       clearPending(res, req);
+      console.warn('[gmailAuth] callback pending/state mismatch', {
+        hasCode: Boolean(code),
+        hasState: Boolean(state),
+        hasPendingCookie: Boolean(pending),
+        stateMatch: Boolean(
+          pending && typeof pending.state === 'string' && pending.state === state
+        ),
+        hasDashSid: Boolean(dashSid),
+        pendingSidMatch: Boolean(
+          dashSid &&
+            pendingSid &&
+            pendingSid === dashSid
+        ),
+        withinMaxAge: Boolean(
+          pending &&
+            typeof pending.at === 'number' &&
+            Date.now() - pending.at < MAX_AGE_SEC * 1000
+        ),
+      });
+      const hasPending = Boolean(pending);
+      const sidMatch = Boolean(
+        dashSid && pendingSid && pendingSid === dashSid
+      );
+      const stateMatch = Boolean(
+        pending && typeof pending.state === 'string' && pending.state === state
+      );
+      const fresh = Boolean(
+        pending &&
+          typeof pending.at === 'number' &&
+          Date.now() - pending.at < MAX_AGE_SEC * 1000
+      );
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
       return res.status(400).send(
-        'Ongeldige OAuth-response. Probeer opnieuw via /gmail-koppel.html. Controleer GOOGLE_REDIRECT_URI in .env en Authorized redirect URIs in Google Cloud.'
+        gmailOAuthHtmlPage(
+          'Gmail-koppeling kon niet worden afgemaakt',
+          `<p>De beveiligingscontrole na Google (cookie + sessie) sloot niet aan. Dit gebeurt vaak als:</p>
+<ul>
+<li>Je bent <strong>langer dan ${Math.floor(MAX_AGE_SEC / 60)} minuten</strong> bij Google bezig was — koppel opnieuw vanaf <a href="/gmail-koppel.html">gmail-koppel.html</a>.</li>
+<li>Je bent teruggekomen in een <strong>andere browser of incognito</strong> dan waarmee je op “Inloggen bij Google” klikte.</li>
+<li>Je startte koppelen op <strong>een andere host</strong> (bijv. preview-URL) dan waar Google je naartoe stuurt — gebruik altijd dezelfde productie-URL; zet <code>GOOGLE_REDIRECT_URI</code> in Vercel gelijk aan die URL + <code>/api/auth/gmail/callback</code>.</li>
+<li>Je dashboard-sessie was verlopen — log opnieuw in op <a href="/login.html?next=${encodeURIComponent('/gmail-koppel.html')}">login</a> en koppel nog eens.</li>
+</ul>
+<p style="font-size:0.9rem;color:#555">Diagnose (geen geheimen): pending-cookie=${hasPending ? 'ja' : 'nee'}, state=${stateMatch ? 'ok' : 'mismatch'}, sessie=${dashSid ? 'ja' : 'nee'}, zelfde sid=${sidMatch ? 'ja' : 'nee'}, binnen tijdvenster=${fresh ? 'ja' : 'nee'}.</p>`
+        )
       );
     }
 
@@ -227,18 +304,35 @@ export function mountGmailAuth(app, opts) {
       const data = await tokenRes.json().catch(() => ({}));
       if (!tokenRes.ok) {
         const msg = data.error_description || data.error || 'token error';
-        return res.status(400).send(`Token-uitwisseling mislukt: ${msg}`);
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        const esc = htmlEsc(msg);
+        const ru = htmlEsc(redirectUri);
+        return res.status(400).send(
+          gmailOAuthHtmlPage(
+            'Token-uitwisseling mislukt',
+            `<p><strong>${esc}</strong></p>
+<p>Gebruikte redirect-URI (moet <strong>exact</strong> in Google Cloud → OAuth-client → Authorized redirect URIs staan):</p>
+<p style="word-break:break-all;font-family:monospace;font-size:0.85rem;background:#f5f5f5;padding:0.5rem">${ru}</p>
+<p>Controleer ook dat <code>GOOGLE_CLIENT_ID</code> en <code>GOOGLE_CLIENT_SECRET</code> bij <strong>dezelfde</strong> OAuth-client horen.</p>`
+          )
+        );
       }
 
       const prevDoc = await loadUserIntegrationDoc(pendingSid, 'gmail');
       const prev = prevDoc || readGmailTokens(undefined);
       const refresh_token = data.refresh_token || prev?.refresh_token;
       if (!refresh_token) {
-        return res
-          .status(400)
-          .send(
-            'Geen refresh_token. Tip: in Google Account → Beveiliging derde partijen de app verwijderen en opnieuw koppelen, of controleer dat prompt=consent wordt gebruikt.'
-          );
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.status(400).send(
+          gmailOAuthHtmlPage(
+            'Geen refresh-token van Google',
+            `<p>Google gaf wel een code terug, maar <strong>geen refresh_token</strong>. Zo los je dat meestal op:</p>
+<ol>
+<li>In je Google-account: <strong>Beveiliging</strong> → <strong>Toegang van derden</strong> → deze app <strong>verwijderen</strong>, daarna hier opnieuw koppelen.</li>
+<li>In Google Cloud: OAuth consent opnieuw publiceren / scopes wijzigen kan een nieuwe consent forceren.</li>
+</ol>`
+          )
+        );
       }
 
       let senderEmail = process.env.GOOGLE_GMAIL_FROM?.trim() || prev?.sender_email || '';
@@ -265,7 +359,9 @@ export function mountGmailAuth(app, opts) {
       try {
         await saveUserIntegrationDoc(pendingSid, 'gmail', merged);
       } catch (saveErr) {
-        const lockedByEnv = Boolean(process.env.GOOGLE_GMAIL_REFRESH_TOKEN?.trim());
+        const lockedByEnv =
+          Boolean(sanitizeGmailRefreshToken(process.env.GOOGLE_GMAIL_REFRESH_TOKEN)) &&
+          !envFlagTrue('GOOGLE_GMAIL_USE_STORED_LINK_ONLY');
         if (!lockedByEnv) {
           await writeGmailTokens(merged, req);
         } else {
@@ -273,15 +369,21 @@ export function mountGmailAuth(app, opts) {
             '[gmailAuth] Kon Gmail-tokens niet opslaan (sessie/DB); env-lock actief:',
             saveErr instanceof Error ? saveErr.message : saveErr
           );
-          return res
-            .status(500)
-            .send(
-              'Token ontvangen van Google maar opslaan mislukt. Zet DATABASE_URL op Vercel voor vaste opslag, of verwijder tijdelijk GOOGLE_GMAIL_REFRESH_TOKEN uit de omgeving en koppel opnieuw.'
-            );
+          res.setHeader('Content-Type', 'text/html; charset=utf-8');
+          return res.status(500).send(
+            gmailOAuthHtmlPage(
+              'Gmail-token niet opgeslagen',
+              `<p>Google heeft toegang verleend, maar de server kon de token <strong>niet wegschrijven</strong> (vaak Postgres), terwijl <code>GOOGLE_GMAIL_REFRESH_TOKEN</code> in Vercel staat.</p>
+<p><strong>Oplossing:</strong> zet <code>DATABASE_URL</code> op Vercel (aanbevolen), <strong>of</strong> verwijder tijdelijk <code>GOOGLE_GMAIL_REFRESH_TOKEN</code> in Vercel en koppel opnieuw (dan wordt de nieuwe token in de database gezet). Daarna kun je de env-token opnieuw zetten met <code>npm run vercel:env:google</code> als je die wilt blijven gebruiken.</p>`
+            )
+          );
         }
       }
 
-      if (process.env.GOOGLE_GMAIL_REFRESH_TOKEN?.trim()) {
+      if (
+        sanitizeGmailRefreshToken(process.env.GOOGLE_GMAIL_REFRESH_TOKEN) &&
+        !envFlagTrue('GOOGLE_GMAIL_USE_STORED_LINK_ONLY')
+      ) {
         const expMs = data.expires_in
           ? Date.now() + Number(data.expires_in) * 1000
           : typeof merged.expiry_date === 'number'
@@ -294,15 +396,21 @@ export function mountGmailAuth(app, opts) {
         );
       }
 
-      const envRtAfter = process.env.GOOGLE_GMAIL_REFRESH_TOKEN?.trim();
+      const envRtAfter = sanitizeGmailRefreshToken(process.env.GOOGLE_GMAIL_REFRESH_TOKEN);
       const staleEnv =
         Boolean(envRtAfter) &&
         String(refresh_token).trim() !== envRtAfter;
       const q = staleEnv ? '?gmail=1&gmail_env_refresh_stale=1' : '?gmail=1';
-      res.redirect(302, `/${q}`);
+      res.redirect(302, `/mail.html${q}`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      res.status(500).send(`Gmail-koppeling mislukt: ${msg.slice(0, 400)}`);
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.status(500).send(
+        gmailOAuthHtmlPage(
+          'Gmail-koppeling mislukt',
+          `<p>${htmlEsc(String(msg).slice(0, 500))}</p>`
+        )
+      );
     }
   });
 }

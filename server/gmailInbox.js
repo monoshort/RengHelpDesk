@@ -157,8 +157,10 @@ export async function fetchInboxForUi(opts = {}) {
         const internalMs = Number(msg.internalDate || Date.now());
         const headers = msg.payload?.headers || [];
         const fromH = getHeader(headers, 'From');
+        const replyToH = getHeader(headers, 'Reply-To');
         const subj = getHeader(headers, 'Subject') || '(geen onderwerp)';
         const { name, email } = parseFromHeader(fromH);
+        const replyToParsed = replyToH ? parseFromHeader(replyToH).email : '';
         const snippet = msg.snippet || '';
         const body = extractHtmlOrPlain(msg.payload) || `<p>${escHtml(snippet)}</p>`;
 
@@ -168,6 +170,7 @@ export async function fetchInboxForUi(opts = {}) {
           group: groupForDate(internalMs),
           from: name,
           email: email || '—',
+          ...(replyToParsed && replyToParsed.includes('@') ? { replyTo: replyToParsed } : {}),
           subject: subj,
           snippet,
           time: formatListTime(internalMs),

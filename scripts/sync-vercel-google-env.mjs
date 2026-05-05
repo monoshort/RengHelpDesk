@@ -17,27 +17,51 @@ import { spawnSync } from 'child_process';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 dotenv.config({ path: path.join(root, '.env') });
 
+/** Zelfde logica als server `sanitizeGmailRefreshToken` — voorkomt invalid_grant door copy-paste met quotes. */
+function sanitizeGmailRefreshToken(raw) {
+  let s = String(raw ?? '').trim();
+  if (s.length >= 2) {
+    if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+      s = s.slice(1, -1).trim();
+    }
+  }
+  return s;
+}
+
 const DEFAULT_REDIRECT =
   process.env.GOOGLE_REDIRECT_URI_VERCEL?.trim() ||
   'https://reng-help-desk.vercel.app/api/auth/gmail/callback';
 
 const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
 const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
-const redirectUri = process.env.GOOGLE_REDIRECT_URI?.trim() || DEFAULT_REDIRECT;
 const gmailFrom = process.env.GOOGLE_GMAIL_FROM?.trim();
 /** .env heeft voorrang; anders lokaal tokenbestand na OAuth via /gmail-koppel.html */
-let refreshToken = process.env.GOOGLE_GMAIL_REFRESH_TOKEN?.trim();
-if (!refreshToken) {
-  const tokenPath = path.join(root, '.google_gmail_token.json');
-  try {
-    if (fs.existsSync(tokenPath)) {
-      const j = JSON.parse(fs.readFileSync(tokenPath, 'utf8'));
-      if (j?.refresh_token) refreshToken = String(j.refresh_token).trim();
+let refreshToken = sanitizeGmailRefreshToken(process.env.GOOGLE_GMAIL_REFRESH_TOKEN);
+let redirectFromTokenFile = '';
+const tokenPath = path.join(root, '.google_gmail_token.json');
+try {
+  if (fs.existsSync(tokenPath)) {
+    const j = JSON.parse(fs.readFileSync(tokenPath, 'utf8'));
+    if (!refreshToken && j?.refresh_token) {
+      refreshToken = sanitizeGmailRefreshToken(j.refresh_token);
     }
-  } catch (e) {
-    console.error('.google_gmail_token.json lezen mislukt:', e instanceof Error ? e.message : e);
+    if (j?.oauth_redirect_uri) redirectFromTokenFile = String(j.oauth_redirect_uri).trim();
   }
+} catch (e) {
+  console.error('.google_gmail_token.json lezen mislukt:', e instanceof Error ? e.message : e);
 }
+/** Nooit localhost-redirect naar Vercel: refresh werkt op productie met productie-URI in Google Cloud. */
+const redirectUri = (() => {
+  const env = process.env.GOOGLE_REDIRECT_URI?.trim();
+  if (env) return env;
+  if (
+    redirectFromTokenFile &&
+    !/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?\//i.test(redirectFromTokenFile)
+  ) {
+    return redirectFromTokenFile;
+  }
+  return DEFAULT_REDIRECT;
+})();
 const openAiKey = process.env.OPENAI_API_KEY?.trim();
 
 if (!clientId || !clientSecret) {

@@ -61,6 +61,7 @@
 <body>
   <div class="box">
     <h1>Gmail koppelen (Google OAuth)</h1>
+    <p style="background:#e8f0e0;border:1px solid #c5d9b8;border-radius:8px;padding:0.65rem 0.85rem;font-size:0.88rem;color:var(--text)"><strong>Meerdere medewerkers, één mailbox?</strong> Zet <span class="mono">GOOGLE_GMAIL_PREFER_USER_LINK</span> op <span class="mono">false</span> of laat weg. Koppel hier <strong>één keer</strong> met het gedeelde Gmail-account (lokaal of als beheerder op productie), daarna <span class="mono">npm run vercel:env:google</span> om o.a. <span class="mono">GOOGLE_GMAIL_REFRESH_TOKEN</span> naar Vercel te zetten. Collega's loggen alleen in op het dashboard — geen eigen Gmail-koppel.</p>
     <p>Verstuur klantmail vanuit het dashboard via de <strong>Gmail API</strong> in plaats van SMTP. Zet in <span class="mono">.env</span>: <span class="mono">GOOGLE_CLIENT_ID</span> en <span class="mono">GOOGLE_CLIENT_SECRET</span> (Google Cloud Console → APIs &amp; Services → Credentials → OAuth 2.0 Client).</p>
     <p style="font-size:0.88rem"><strong>Error 400: redirect_uri_mismatch</strong> = de callback-URL hieronder staat <em>niet exact</em> in Google Cloud bij <strong>dezelfde</strong> OAuth-client als je client-id. Dat heeft niets te maken met welk Gmail-adres je kiest; Google toont soms alleen je standaardaccount op de foutpagina.</p>
     <p style="font-size:0.88rem"><strong>Error 401: disabled_client</strong> (“The OAuth client was disabled”): in <strong>Google Cloud Console</strong> → <strong>APIs &amp; Services</strong> → <strong>Credentials</strong> → open de <strong>OAuth 2.0 Client ID</strong> die exact bij je <span class="mono">GOOGLE_CLIENT_ID</span> hoort (zelfde client als in Vercel / <span class="mono">.env</span>). Zet die client weer <strong>aan</strong> (niet verwijderd/archief). Controleer ook dat je niet per ongeluk een <em>oud</em> of ander project gebruikt.</p>
@@ -80,7 +81,8 @@
     <p style="font-size:0.85rem;color:var(--muted)">Token: lokaal in <span class="mono">.google_gmail_token.json</span>. Met <span class="mono">DATABASE_URL</span> op Vercel wordt na koppelen in Postgres opgeslagen (aanbevolen). Optioneel kun je <span class="mono">GOOGLE_GMAIL_REFRESH_TOKEN</span> in Vercel zetten; werk die bij of haal weg na opnieuw koppelen. Bij conflicten: <span class="mono">GOOGLE_GMAIL_FORCE_ENV=true</span> laat het env-token leidend zijn.</p>
     <p style="font-size:0.85rem;color:var(--muted)">Als Google tijdelijk <strong>“onveilige activiteit”</strong> of te veel inlogpogingen meldt: wacht een uur, bevestig je identiteit via <a href="https://g.co/verifyaccount" target="_blank" rel="noopener">g.co/verifyaccount</a>, en koppel daarna <strong>zo min mogelijk opnieuw</strong> (één gedeelde <span class="mono">GOOGLE_GMAIL_REFRESH_TOKEN</span> op Vercel scheelt veel OAuth vanaf verschillende IP’s).</p>
     <button type="button" id="go">Inloggen bij Google en toestemming geven</button>
-    <p style="margin-top:1.25rem"><a href="/">← Terug naar Toddie helpdesk</a></p>
+    <p style="margin-top:1rem;font-size:0.88rem"><a href="/mail-hulp.html">Stappenlijst mail + Vercel</a> (na koppelen: <span class="mono">npm run mail:sync-env</span>)</p>
+    <p style="margin-top:1.25rem"><a href="/mail.html">← Terug naar mail</a></p>
   </div>
   <script>
     const el = document.getElementById('redirectUrl');
