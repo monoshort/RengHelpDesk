@@ -136,7 +136,10 @@ app.use((req, res, next) => {
 app.use((req, res, next) => {
   void ensurePlatformConfigLoaded()
     .then(() => next())
-    .catch(next);
+    .catch((e) => {
+      console.error('[platformConfig] startup load:', e instanceof Error ? e.message : e);
+      next();
+    });
 });
 mountShopifyAuth(app, { port });
 mountGmailAuth(app, { port });

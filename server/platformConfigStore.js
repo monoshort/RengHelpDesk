@@ -171,27 +171,40 @@ async function ensureTable(sql) {
 async function loadFromPersistence() {
   const sql = await getPg();
   if (sql) {
-    await ensureTable(sql);
-    const rows = await sql`
-      select payload, updated_at from reng_platform_config where id = ${CONFIG_ROW_ID} limit 1
-    `;
-    if (rows?.length) {
-      const payload = rows[0].payload;
-      const values =
-        payload && typeof payload === 'object' && !Array.isArray(payload)
-          ? /** @type {Record<string, string>} */ (
-              Object.fromEntries(
-                Object.entries(payload).map(([k, v]) => [k, v == null ? '' : String(v)])
+    try {
+      await ensureTable(sql);
+      const rows = await sql`
+        select payload, updated_at from reng_platform_config where id = ${CONFIG_ROW_ID} limit 1
+      `;
+      if (rows?.length) {
+        const payload = rows[0].payload;
+        const values =
+          payload && typeof payload === 'object' && !Array.isArray(payload)
+            ? /** @type {Record<string, string>} */ (
+                Object.fromEntries(
+                  Object.entries(payload).map(([k, v]) => [k, v == null ? '' : String(v)])
+                )
               )
-            )
-          : {};
+            : {};
+        return {
+          values,
+          source: 'postgres',
+          updatedAt: rows[0].updated_at ? new Date(rows[0].updated_at).toISOString() : null,
+        };
+      }
+      return { values: {}, source: 'postgres', updatedAt: null };
+    } catch (e) {
+      console.error(
+        '[platformConfig] Postgres laden mislukt:',
+        e instanceof Error ? e.message : e
+      );
       return {
-        values,
-        source: 'postgres',
-        updatedAt: rows[0].updated_at ? new Date(rows[0].updated_at).toISOString() : null,
+        values: {},
+        source: 'env-only',
+        updatedAt: null,
+        loadError: e instanceof Error ? e.message : String(e),
       };
     }
-    return { values: {}, source: 'postgres', updatedAt: null };
   }
 
   const file = configFilePath();
@@ -216,14 +229,19 @@ async function saveToPersistence(values) {
   const sql = await getPg();
   const updatedAt = new Date().toISOString();
   if (sql) {
-    await ensureTable(sql);
-    const json = JSON.stringify(values);
-    await sql.unsafe(
-      `insert into reng_platform_config (id, payload, updated_at) values ($1, $2::jsonb, now())
-       on conflict (id) do update set payload = excluded.payload, updated_at = excluded.updated_at`,
-      [CONFIG_ROW_ID, json]
-    );
-    return { source: 'postgres', updatedAt };
+    try {
+      await ensureTable(sql);
+      const json = JSON.stringify(values);
+      await sql.unsafe(
+        `insert into reng_platform_config (id, payload, updated_at) values ($1, $2::jsonb, now())
+         on conflict (id) do update set payload = excluded.payload, updated_at = excluded.updated_at`,
+        [CONFIG_ROW_ID, json]
+      );
+      return { source: 'postgres', updatedAt };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new Error(`Platformconfig opslaan in Postgres mislukt: ${msg}`);
+    }
   }
 
   const file = configFilePath();
@@ -237,19 +255,39 @@ async function saveToPersistence(values) {
 }
 
 export async function hydratePlatformConfig() {
-  memoryCache = await loadFromPersistence();
+  try {
+    memoryCache = await loadFromPersistence();
+  } catch (e) {
+    console.error('[platformConfig] hydrate mislukt:', e instanceof Error ? e.message : e);
+    memoryCache = {
+      values: {},
+      source: 'env-only',
+      updatedAt: null,
+      loadError: e instanceof Error ? e.message : String(e),
+    };
+  }
   loadTail = null;
 }
 
 export async function ensurePlatformConfigLoaded() {
   if (memoryCache) return memoryCache;
   if (!loadTail) {
-    loadTail = hydratePlatformConfig().catch((e) => {
-      loadTail = null;
-      throw e;
-    });
+    loadTail = hydratePlatformConfig();
   }
-  await loadTail;
+  try {
+    await loadTail;
+  } catch (e) {
+    console.error('[platformConfig] ensure load mislukt:', e instanceof Error ? e.message : e);
+    loadTail = null;
+    if (!memoryCache) {
+      memoryCache = {
+        values: {},
+        source: 'env-only',
+        updatedAt: null,
+        loadError: e instanceof Error ? e.message : String(e),
+      };
+    }
+  }
   return memoryCache;
 }
 
@@ -304,6 +342,10 @@ export function buildPlatformConfigForApi(stored) {
       updatedAt: memoryCache?.updatedAt || null,
       hasDatabase: Boolean(process.env.DATABASE_URL?.trim()),
       onVercel: String(process.env.VERCEL || '').trim() === '1',
+      loadError:
+        memoryCache && 'loadError' in memoryCache && memoryCache.loadError
+          ? String(memoryCache.loadError)
+          : null,
     },
   };
 }

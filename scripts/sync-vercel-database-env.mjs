@@ -17,25 +17,35 @@ if (!dbUrl) {
   process.exit(1);
 }
 
+function run(args, input) {
+  const r = spawnSync('npx', ['--yes', 'vercel@latest', ...args], {
+    cwd: root,
+    encoding: 'utf-8',
+    input,
+    shell: false,
+  });
+  if (r.stdout) process.stdout.write(r.stdout);
+  if (r.stderr) process.stderr.write(r.stderr);
+  return r.status === 0;
+}
+
+process.stdout.write('DATABASE_URL verwijderen (indien aanwezig) …\n');
+run(['env', 'rm', 'DATABASE_URL', 'production', '-y']);
+
 process.stdout.write('DATABASE_URL → Vercel production …\n');
-const r = spawnSync(
-  'npx',
-  [
-    '--yes',
-    'vercel@latest',
+if (
+  !run([
     'env',
     'add',
     'DATABASE_URL',
     'production',
+    '--value',
+    dbUrl,
     '--sensitive',
     '--force',
     '--yes',
-  ],
-  { cwd: root, encoding: 'utf-8', input: dbUrl, shell: false }
-);
-if (r.stdout) process.stdout.write(r.stdout);
-if (r.stderr) process.stderr.write(r.stderr);
-if (r.status !== 0) {
+  ])
+) {
   process.stderr.write('Mislukt — controleer Vercel-login (npx vercel login)\n');
   process.exit(1);
 }

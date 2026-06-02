@@ -24,7 +24,11 @@ import { getShopifyAuthStatusForRequest } from './requestIntegrations.js';
  * @param {WorkspaceSettings} preferences
  */
 export async function buildPlatformSettingsPayload(req, preferences) {
-  await ensurePlatformConfigLoaded();
+  try {
+    await ensurePlatformConfigLoaded();
+  } catch (e) {
+    console.error('[platformSettings] config load:', e instanceof Error ? e.message : e);
+  }
   const prefs = normalizeWorkspaceSettings(preferences);
   const st = await getShopifyAuthStatusForRequest(req);
   const g = getGmailAuthStatus(req);

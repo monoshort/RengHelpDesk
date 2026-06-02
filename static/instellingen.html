@@ -484,10 +484,12 @@
       if (storage.source === 'postgres') storageLabel = 'PostgreSQL (platform)';
       else if (storage.source === 'file') storageLabel = 'Lokaal configuratiebestand';
 
+      const loadErr = storage.loadError ? String(storage.loadError) : '';
       els.configStorageNote.innerHTML = `
         <span><strong>Opslag:</strong> ${escapeHtml(storageLabel)}</span>
         ${storage.updatedAt ? `<span>· Bijgewerkt ${escapeHtml(new Date(storage.updatedAt).toLocaleString('nl-NL'))}</span>` : ''}
         ${!storage.hasDatabase && storage.source !== 'postgres' ? '<span>· <strong>Tip:</strong> DATABASE_URL op Vercel voor persistente API-keys</span>' : ''}
+        ${loadErr ? `<span>· <strong>Databasefout:</strong> ${escapeHtml(loadErr)} (fallback naar .env)</span>` : ''}
       `;
 
       els.configGroupNav.innerHTML = pc.groups
