@@ -755,3 +755,71 @@
   color: var(--muted);
   font-style: italic;
 }
+
+.quick-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.quick-links a {
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.4rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--accent);
+  text-decoration: none;
+  box-shadow: var(--shadow-sm);
+}
+
+.quick-links a:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.hints-panel {
+  background: #f8faf6;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.1rem;
+  margin-bottom: 1.25rem;
+}
+
+.hints-panel h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--heading);
+}
+
+.hints-panel ul {
+  margin: 0;
+  padding-left: 1.15rem;
+  font-size: 0.84rem;
+  color: var(--muted);
+}
+
+.hints-panel li + li {
+  margin-top: 0.35rem;
+}
+
+.setup-hints {
+  margin: 0;
+  padding: 0.65rem 0.75rem 0.65rem 1.35rem;
+  background: #f8faf6;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.setup-hints li + li {
+  margin-top: 0.3rem;
+}
+
+.int-card .int-actions {
+  margin-top: auto;
+}

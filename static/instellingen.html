@@ -78,6 +78,8 @@
             <p>Snel overzicht van wat actief is op dit helpdesk-platform.</p>
           </div>
           <div class="stats-row" id="statsRow"></div>
+          <div class="quick-links" id="quickLinks"></div>
+          <div id="globalHintsOverview" class="hints-panel" hidden></div>
           <div class="section-head">
             <h2>Koppelingen</h2>
             <p>Compacte weergave — beheer details onder Koppelingen.</p>
@@ -90,6 +92,7 @@
             <h2>Integraties</h2>
             <p>Koppel mail, shop en tracking. Status wordt live bijgewerkt na opslaan of ontkoppelen.</p>
           </div>
+          <div id="globalHintsIntegrations" class="hints-panel" hidden></div>
           <div class="integration-grid" id="integrationGrid"></div>
         </section>
 
@@ -234,6 +237,9 @@
       pageSubtitle: document.getElementById('pageSubtitle'),
       heroMeta: document.getElementById('heroMeta'),
       statsRow: document.getElementById('statsRow'),
+      quickLinks: document.getElementById('quickLinks'),
+      globalHintsOverview: document.getElementById('globalHintsOverview'),
+      globalHintsIntegrations: document.getElementById('globalHintsIntegrations'),
       integrationGrid: document.getElementById('integrationGrid'),
       integrationGridOverview: document.getElementById('integrationGridOverview'),
       platformConfigForm: document.getElementById('platformConfigForm'),
@@ -305,9 +311,35 @@
       });
     });
 
+    function goToPlatformConfig(groupId) {
+      showPanel('platform');
+      if (groupId) {
+        activeConfigGroup = groupId;
+        showConfigGroup(groupId);
+      }
+      document.getElementById('panel-platform')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    /**
+     * @param {string[]} hints
+     * @param {HTMLElement} target
+     */
+    function renderGlobalHints(hints, target) {
+      if (!hints.length) {
+        target.hidden = true;
+        target.innerHTML = '';
+        return;
+      }
+      target.hidden = false;
+      target.innerHTML = `
+        <h3>Aanbevolen vervolgstappen</h3>
+        <ul>${hints.map((h) => `<li>${escapeHtml(h)}</li>`).join('')}</ul>
+      `;
+    }
+
     /**
      * @param {string} id
-     * @param {{ label: string; status: string; detail: string; selfService?: boolean; connectUrl?: string; disconnectApi?: string }} item
+     * @param {{ label: string; status: string; detail: string; selfService?: boolean; connectUrl?: string; disconnectApi?: string; platformConfigGroup?: string; setupHints?: string[] }} item
      * @param {boolean} compact
      */
     function renderIntegrationCard(id, item, compact) {
@@ -316,7 +348,14 @@
       const actions = [];
       if (item.connectUrl && item.selfService !== false) {
         actions.push(
-          `<a class="btn secondary" href="${escapeHtml(item.connectUrl)}">Koppelen</a>`
+          `<a class="btn" href="${escapeHtml(item.connectUrl)}">Koppelen</a>`
+        );
+      }
+      if (item.platformConfigGroup) {
+        const cfgLabel =
+          st === 'connected' ? 'API beheren' : 'API instellen';
+        actions.push(
+          `<button type="button" class="btn secondary" data-configure="${escapeHtml(item.platformConfigGroup)}">${cfgLabel}</button>`
         );
       }
       if (item.disconnectApi && item.status === 'connected' && id !== 'mailGraph') {
@@ -324,9 +363,17 @@
           `<button type="button" class="btn danger" data-disconnect="${escapeHtml(item.disconnectApi)}">Ontkoppelen</button>`
         );
       }
+      const setupHints = Array.isArray(item.setupHints) ? item.setupHints : [];
+      const hintsHtml =
+        setupHints.length && !compact
+          ? `<ul class="setup-hints">${setupHints.map((h) => `<li>${escapeHtml(h)}</li>`).join('')}</ul>`
+          : '';
       const actionHtml =
-        actions.join('') ||
-        (compact ? '' : '<span class="empty-hint">Geen actie vereist</span>');
+        actions.length > 0
+          ? `<div class="int-actions">${actions.join('')}</div>`
+          : compact
+            ? ''
+            : '<div class="int-actions"><span class="empty-hint">Actief — geen actie nodig</span></div>';
       return `<article class="int-card" data-integration="${escapeHtml(id)}">
         <div class="int-card-top">
           <div class="int-icon" aria-hidden="true">${icon}</div>
@@ -336,7 +383,8 @@
           </div>
         </div>
         <p class="detail">${escapeHtml(item.detail)}</p>
-        ${actionHtml ? `<div class="int-actions">${actionHtml}</div>` : ''}
+        ${hintsHtml}
+        ${actionHtml}
       </article>`;
     }
 
@@ -392,6 +440,21 @@
         stat('Inbox', caps.canUseGraphInbox ? 'Microsoft 365' : caps.canUseGmailInbox ? 'Gmail' : '—', ''),
         stat('Verzenden', caps.canSendMail ? 'Beschikbaar' : 'Niet geconfigureerd', caps.canSendMail ? 'ok' : 'warn'),
       ].join('');
+
+      const links = /** @type {{ mail?: string; orders?: string; shopifyConnect?: string; gmailConnect?: string }} */ (
+        data.links || {}
+      );
+      const ql = [];
+      if (links.mail) ql.push(`<a href="${escapeHtml(links.mail)}">→ Naar mail</a>`);
+      if (links.orders) ql.push(`<a href="${escapeHtml(links.orders)}">→ Orders</a>`);
+      if (links.shopifyConnect) ql.push(`<a href="${escapeHtml(links.shopifyConnect)}">Shopify koppelen</a>`);
+      if (links.gmailConnect) ql.push(`<a href="${escapeHtml(links.gmailConnect)}">Gmail koppelen</a>`);
+      ql.push('<a href="#" data-panel-jump="platform">Platform &amp; API</a>');
+      els.quickLinks.innerHTML = ql.join('');
+
+      const hintList = /** @type {string[]} */ (data.hints || []);
+      renderGlobalHints(hintList.slice(0, 5), els.globalHintsOverview);
+      renderGlobalHints(hintList, els.globalHintsIntegrations);
     }
 
     function showConfigGroup(groupId) {
@@ -640,6 +703,25 @@
       }
     });
 
+    function handleIntegrationGridClick(ev) {
+      const cfg = ev.target.closest('[data-configure]');
+      if (cfg) {
+        ev.preventDefault();
+        const group = cfg.getAttribute('data-configure');
+        if (group) goToPlatformConfig(group);
+        return;
+      }
+      handleDisconnectClick(ev);
+    }
+
+    document.getElementById('quickLinks')?.addEventListener('click', (ev) => {
+      const jump = ev.target.closest('[data-panel-jump]');
+      if (!jump) return;
+      ev.preventDefault();
+      const panel = jump.getAttribute('data-panel-jump');
+      if (panel) showPanel(panel);
+    });
+
     function handleDisconnectClick(ev) {
       const btn = ev.target.closest('[data-disconnect]');
       if (!btn) return;
@@ -660,8 +742,8 @@
         });
     }
 
-    els.integrationGrid.addEventListener('click', handleDisconnectClick);
-    els.integrationGridOverview.addEventListener('click', handleDisconnectClick);
+    els.integrationGrid.addEventListener('click', handleIntegrationGridClick);
+    els.integrationGridOverview.addEventListener('click', handleIntegrationGridClick);
 
     void loadSettings();
   </script>
