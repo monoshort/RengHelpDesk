@@ -3,124 +3,162 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Toddie helpdesk · Inloggen</title>
+  <title>Inloggen · Toddie Helpdesk</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
-  <noscript><link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700&display=swap" rel="stylesheet" /></noscript>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg: #faf9f7;
-      --surface: #ffffff;
-      --border: #e0e3db;
-      --text: #444444;
-      --heading: #212529;
-      --muted: #6c7568;
-      --accent: #558235;
-      --accent-hover: #43672a;
-      --danger: #a63c2a;
+      --bg: #f4f6f2;
+      --surface: #fff;
+      --border: #e2e6dc;
+      --text: #3d4540;
+      --heading: #1a211c;
+      --muted: #6b7469;
+      --accent: #4a7a2e;
+      --accent-hover: #3d6626;
+      --danger: #b42318;
     }
+    * { box-sizing: border-box; }
     body {
       margin: 0;
       min-height: 100vh;
-      font-family: "Quicksand", system-ui, sans-serif;
+      font-family: "DM Sans", system-ui, sans-serif;
       background:
-        radial-gradient(800px 400px at 0% 0%, rgba(85, 130, 53, 0.06) 0%, transparent 55%),
+        radial-gradient(900px 420px at 50% -10%, rgba(74, 122, 46, 0.1), transparent 55%),
         var(--bg);
       color: var(--text);
-      padding: 2rem;
-      line-height: 1.5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      -webkit-font-smoothing: antialiased;
+    }
+    .shell {
+      width: 100%;
+      max-width: 400px;
+    }
+    .brand {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+    .brand-mark {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: rgba(74, 122, 46, 0.12);
+      color: var(--accent);
+      margin-bottom: 0.75rem;
+    }
+    .brand h1 {
+      margin: 0;
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--heading);
+      letter-spacing: -0.02em;
+    }
+    .brand p {
+      margin: 0.35rem 0 0;
+      font-size: 0.9rem;
+      color: var(--muted);
     }
     .box {
-      max-width: 32rem;
-      margin: 0 auto;
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 1.5rem 1.75rem;
-      box-shadow: 0 4px 24px rgba(33, 37, 41, 0.06);
+      border-radius: 16px;
+      padding: 1.5rem 1.65rem;
+      box-shadow: 0 8px 32px rgba(26, 33, 28, 0.08);
     }
-    h1 {
-      margin: 0 0 0.75rem;
-      font-size: 1.25rem;
-      color: var(--heading);
-      font-weight: 700;
-    }
-    p {
+    .context {
+      font-size: 0.82rem;
       color: var(--muted);
-      font-size: 0.9rem;
-      margin: 0 0 0.5rem;
+      padding: 0.55rem 0.75rem;
+      background: #f8faf6;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      border: 1px solid var(--border);
     }
     label {
       display: block;
       font-weight: 600;
-      margin: 1rem 0 0.35rem;
-      font-size: 0.85rem;
+      margin-bottom: 0.4rem;
+      font-size: 0.82rem;
       color: var(--heading);
     }
     input {
       width: 100%;
-      max-width: 100%;
-      box-sizing: border-box;
-      padding: 0.55rem 0.65rem;
+      padding: 0.6rem 0.75rem;
       border-radius: 8px;
       border: 1px solid var(--border);
-      background: #f6f7f3;
-      color: var(--text);
+      background: #fafbf9;
+      color: var(--heading);
       font: inherit;
+      font-size: 0.95rem;
     }
     input:focus {
-      outline: 2px solid rgba(85, 130, 53, 0.35);
-      outline-offset: 1px;
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(74, 122, 46, 0.2);
     }
     button {
-      margin-top: 1.25rem;
+      width: 100%;
+      margin-top: 1.15rem;
       font: inherit;
       font-weight: 600;
-      padding: 0.55rem 1.1rem;
+      font-size: 0.95rem;
+      padding: 0.65rem 1rem;
       border-radius: 8px;
       border: none;
       background: var(--accent);
-      color: #ffffff;
+      color: #fff;
       cursor: pointer;
+      transition: background 0.15s;
     }
-    button:hover {
-      background: var(--accent-hover);
-    }
-    button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
+    button:hover { background: var(--accent-hover); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
     .err {
       margin-top: 0.75rem;
       font-size: 0.85rem;
       color: var(--danger);
       font-weight: 600;
     }
-    .foot {
+    .links {
       margin-top: 1.25rem;
+      display: flex;
+      justify-content: space-between;
       font-size: 0.85rem;
     }
-    a {
+    .links a {
       color: var(--accent);
       font-weight: 600;
       text-decoration: none;
     }
-    a:hover {
-      color: var(--accent-hover);
-      text-decoration: underline;
-    }
+    .links a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
-  <div class="box">
-    <h1>Toddie helpdesk · Inloggen</h1>
-    <p>Vul het dashboardwachtwoord in om verder te gaan.</p>
-    <label for="password">Wachtwoord</label>
-    <input id="password" type="password" autocomplete="current-password" autofocus />
-    <p class="err" id="err" hidden></p>
-    <button type="button" id="submit">Inloggen</button>
-    <p class="foot"><a href="/mail.html">← Terug naar mail</a></p>
+  <div class="shell">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      </div>
+      <h1>Toddie Helpdesk</h1>
+      <p id="brandSubtitle">Veilig inloggen voor je team</p>
+    </div>
+    <div class="box">
+      <p class="context" id="loginContext" hidden></p>
+      <label for="password">Wachtwoord</label>
+      <input id="password" type="password" autocomplete="current-password" autofocus />
+      <p class="err" id="err" hidden role="alert"></p>
+      <button type="button" id="submit">Doorgaan</button>
+      <div class="links">
+        <a href="/mail.html">← Mail</a>
+        <a href="/instellingen.html" id="settingsLink" hidden>Instellingen</a>
+      </div>
+    </div>
   </div>
   <script>
     const params = new URLSearchParams(location.search);
@@ -131,21 +169,29 @@
     const errEl = document.getElementById('err');
     const pwEl = document.getElementById('password');
     const submitBtn = document.getElementById('submit');
+    const loginContext = document.getElementById('loginContext');
+    const settingsLink = document.getElementById('settingsLink');
+
+    if (safeNext.includes('instellingen')) {
+      loginContext.hidden = false;
+      loginContext.textContent = 'Na inloggen ga je naar Platforminstellingen.';
+      document.title = 'Inloggen · Instellingen';
+      settingsLink.hidden = false;
+    }
 
     async function doLogin() {
       errEl.hidden = true;
-      const password = pwEl.value;
       submitBtn.disabled = true;
       try {
         const res = await fetch('/api/dashboard/login', {
           method: 'POST',
           credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password }),
+          body: JSON.stringify({ password: pwEl.value }),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          errEl.textContent = data.error || 'Inloggen mislukt';
+          errEl.textContent = data.error || 'Onjuist wachtwoord';
           errEl.hidden = false;
           return;
         }

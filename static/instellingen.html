@@ -1,297 +1,14 @@
 <!DOCTYPE html>
-<html lang="nl">
+<html lang="nl" class="settings-app">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Platforminstellingen · Helpdesk</title>
+  <title>Instellingen · Toddie Helpdesk</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/helpdesk-nav.css" />
-  <style>
-    :root {
-      --bg: #faf9f7;
-      --surface: #fff;
-      --border: #e0e3db;
-      --text: #444;
-      --heading: #212529;
-      --muted: #6c7568;
-      --accent: #558235;
-      --accent-hover: #43672a;
-      --accent-soft: rgba(85, 130, 53, 0.12);
-      --ok: #2f6b22;
-      --warn: #9a7200;
-      --err: #b42318;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      min-height: 100vh;
-      font-family: "Quicksand", system-ui, sans-serif;
-      background:
-        radial-gradient(900px 420px at 0% 0%, rgba(85, 130, 53, 0.07), transparent 55%),
-        var(--bg);
-      color: var(--text);
-      line-height: 1.55;
-    }
-    header {
-      border-bottom: 1px solid var(--border);
-      background: var(--surface);
-      position: sticky;
-      top: 2.55rem;
-      z-index: 10;
-    }
-    .header-inner {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 0.85rem 1.25rem;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.75rem;
-    }
-    .brand h1 {
-      margin: 0;
-      font-size: 1.15rem;
-      color: var(--heading);
-    }
-    .brand p {
-      margin: 0.15rem 0 0;
-      font-size: 0.8rem;
-      color: var(--muted);
-    }
-    main {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 1.5rem 1.25rem 3rem;
-    }
-    .banner {
-      border-radius: 12px;
-      padding: 0.85rem 1rem;
-      margin-bottom: 1.25rem;
-      font-size: 0.88rem;
-      border: 1px solid var(--border);
-      background: var(--surface);
-    }
-    .banner.warn {
-      border-color: #e8d48a;
-      background: #fffbeb;
-      color: #6b5600;
-    }
-    .banner.ok {
-      border-color: #b8d4a8;
-      background: #f4faf0;
-      color: var(--ok);
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 1rem;
-      margin-bottom: 1.5rem;
-    }
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 1rem 1.1rem;
-      box-shadow: 0 2px 12px rgba(33, 37, 41, 0.04);
-    }
-    .card h2 {
-      margin: 0 0 0.35rem;
-      font-size: 0.95rem;
-      color: var(--heading);
-    }
-    .card .sub {
-      margin: 0 0 0.75rem;
-      font-size: 0.8rem;
-      color: var(--muted);
-    }
-    .badge {
-      display: inline-block;
-      font-size: 0.68rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      padding: 0.2rem 0.5rem;
-      border-radius: 6px;
-      margin-bottom: 0.5rem;
-    }
-    .badge.connected { background: #e6f4e1; color: var(--ok); }
-    .badge.partial { background: #fff4d6; color: var(--warn); }
-    .badge.disconnected { background: #fde8e6; color: var(--err); }
-    .badge.admin { background: #eef0f8; color: #4a5568; }
-    .card p.detail {
-      margin: 0 0 0.75rem;
-      font-size: 0.82rem;
-      color: var(--muted);
-    }
-    .card-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.4rem;
-    }
-    .btn {
-      font: inherit;
-      font-weight: 600;
-      font-size: 0.8rem;
-      padding: 0.4rem 0.75rem;
-      border-radius: 8px;
-      border: none;
-      cursor: pointer;
-      background: var(--accent);
-      color: #fff;
-      text-decoration: none;
-      display: inline-block;
-    }
-    .btn:hover { background: var(--accent-hover); }
-    .btn.secondary {
-      background: #fff;
-      color: var(--accent);
-      border: 1px solid var(--accent);
-    }
-    .btn.secondary:hover { background: var(--accent-soft); }
-    .btn.danger {
-      background: #fff;
-      color: var(--err);
-      border: 1px solid #f0c4c0;
-    }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .panel {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 1.1rem 1.25rem;
-      margin-bottom: 1rem;
-    }
-    .panel h2 {
-      margin: 0 0 0.25rem;
-      font-size: 1.05rem;
-      color: var(--heading);
-    }
-    .panel .lead {
-      margin: 0 0 1rem;
-      font-size: 0.85rem;
-      color: var(--muted);
-    }
-    .field {
-      margin-bottom: 1rem;
-    }
-    .field label {
-      display: block;
-      font-weight: 600;
-      font-size: 0.85rem;
-      color: var(--heading);
-      margin-bottom: 0.35rem;
-    }
-    .field .hint {
-      font-size: 0.78rem;
-      color: var(--muted);
-      margin-top: 0.25rem;
-    }
-    select {
-      width: 100%;
-      max-width: 22rem;
-      font: inherit;
-      padding: 0.45rem 0.55rem;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: #f8f9f5;
-    }
-    .toggles {
-      display: grid;
-      gap: 0.65rem;
-    }
-    .toggle-row {
-      display: flex;
-      align-items: flex-start;
-      gap: 0.65rem;
-      font-size: 0.88rem;
-    }
-    .toggle-row input { margin-top: 0.2rem; accent-color: var(--accent); }
-    .toggle-row strong { color: var(--heading); display: block; }
-    .toggle-row span { font-size: 0.8rem; color: var(--muted); }
-    .save-row {
-      margin-top: 1.25rem;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 0.75rem;
-    }
-    #saveStatus {
-      font-size: 0.85rem;
-      color: var(--muted);
-    }
-    #saveStatus.ok { color: var(--ok); }
-    #saveStatus.err { color: var(--err); }
-    .routing-pill {
-      display: inline-block;
-      font-size: 0.78rem;
-      padding: 0.2rem 0.55rem;
-      border-radius: 6px;
-      background: var(--accent-soft);
-      color: var(--accent);
-      font-weight: 600;
-      margin-right: 0.35rem;
-    }
-    #loadErr {
-      color: var(--err);
-      font-weight: 600;
-    }
-    .config-group {
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      margin-bottom: 0.85rem;
-      overflow: hidden;
-    }
-    .config-group summary {
-      cursor: pointer;
-      padding: 0.65rem 0.85rem;
-      font-weight: 700;
-      font-size: 0.9rem;
-      color: var(--heading);
-      background: #f8f9f5;
-      list-style: none;
-    }
-    .config-group summary::-webkit-details-marker { display: none; }
-    .config-group summary::after {
-      content: '▸';
-      float: right;
-      color: var(--muted);
-      font-weight: 400;
-    }
-    .config-group[open] summary::after { content: '▾'; }
-    .config-group .group-body {
-      padding: 0.75rem 0.85rem 0.85rem;
-      border-top: 1px solid var(--border);
-    }
-    .config-group .group-hint {
-      margin: 0 0 0.75rem;
-      font-size: 0.78rem;
-      color: var(--muted);
-    }
-    input[type="text"],
-    input[type="password"] {
-      width: 100%;
-      max-width: 32rem;
-      font: inherit;
-      padding: 0.45rem 0.55rem;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: #f8f9f5;
-    }
-    .field-meta {
-      font-size: 0.72rem;
-      color: var(--muted);
-      margin-top: 0.2rem;
-    }
-    .field-meta.ok { color: var(--ok); }
-    .storage-note {
-      font-size: 0.8rem;
-      color: var(--muted);
-      margin-bottom: 1rem;
-    }
-  </style>
+  <link rel="stylesheet" href="/instellingen.css" />
 </head>
 <body>
   <nav class="helpdesk-main-nav" aria-label="Hoofdmenu">
@@ -300,138 +17,255 @@
     <a href="/orders.html">Orders</a>
     <a href="/instellingen.html" class="is-active">Instellingen</a>
   </nav>
-  <header>
-    <div class="header-inner">
-      <div class="brand">
-        <h1>Platforminstellingen</h1>
-        <p>Koppel mail &amp; shop · stel AI en werkwijze in</p>
+
+  <div class="settings-shell">
+    <aside class="settings-sidebar" aria-label="Instellingenmenu">
+      <ul class="settings-nav" role="tablist">
+        <li class="settings-nav-label">Beheer</li>
+        <li>
+          <button type="button" role="tab" id="tab-overview" aria-selected="true" aria-controls="panel-overview" data-panel="overview" class="is-active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 9.5 12 3l9 6.5V21a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/><path d="M9 22V12h6v10"/></svg>
+            Overzicht
+          </button>
+        </li>
+        <li>
+          <button type="button" role="tab" id="tab-integrations" aria-selected="false" aria-controls="panel-integrations" data-panel="integrations">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+            Koppelingen
+          </button>
+        </li>
+        <li>
+          <button type="button" role="tab" id="tab-platform" aria-selected="false" aria-controls="panel-platform" data-panel="platform">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            Platform &amp; API
+          </button>
+        </li>
+        <li>
+          <button type="button" role="tab" id="tab-workspace" aria-selected="false" aria-controls="panel-workspace" data-panel="workspace">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            Werkruimte
+          </button>
+        </li>
+      </ul>
+    </aside>
+
+    <div class="settings-main">
+      <header class="page-hero">
+        <h1 id="pageTitle">Instellingen</h1>
+        <p class="subtitle" id="pageSubtitle">Beheer koppelingen, platform-API’s en je persoonlijke helpdesk-voorkeuren.</p>
+        <div class="hero-meta" id="heroMeta" hidden></div>
+      </header>
+
+      <p id="loadErr" hidden role="alert"></p>
+      <div id="platformBanner" class="alert warn" hidden role="status">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+        <span id="platformBannerText"></span>
+      </div>
+
+      <div id="loadingState" aria-busy="true" aria-label="Instellingen laden">
+        <div class="skeleton skeleton-hero"></div>
+        <div class="skeleton-grid">
+          <div class="skeleton skeleton-card"></div>
+          <div class="skeleton skeleton-card"></div>
+          <div class="skeleton skeleton-card"></div>
+        </div>
+      </div>
+
+      <div id="settingsContent" hidden>
+        <section id="panel-overview" class="settings-panel is-visible" role="tabpanel" aria-labelledby="tab-overview">
+          <div class="section-head">
+            <h2>Platformstatus</h2>
+            <p>Snel overzicht van wat actief is op dit helpdesk-platform.</p>
+          </div>
+          <div class="stats-row" id="statsRow"></div>
+          <div class="section-head">
+            <h2>Koppelingen</h2>
+            <p>Compacte weergave — beheer details onder Koppelingen.</p>
+          </div>
+          <div class="integration-grid" id="integrationGridOverview"></div>
+        </section>
+
+        <section id="panel-integrations" class="settings-panel" role="tabpanel" aria-labelledby="tab-integrations" hidden>
+          <div class="section-head">
+            <h2>Integraties</h2>
+            <p>Koppel mail, shop en tracking. Status wordt live bijgewerkt na opslaan of ontkoppelen.</p>
+          </div>
+          <div class="integration-grid" id="integrationGrid"></div>
+        </section>
+
+        <section id="panel-platform" class="settings-panel" role="tabpanel" aria-labelledby="tab-platform" hidden>
+          <form id="platformConfigForm" class="panel-card">
+            <h3>Platform &amp; API-sleutels</h3>
+            <p class="lead">
+              Centrale configuratie voor het hele team. Geheimen worden nooit volledig getoond;
+              laat een veld leeg om de bestaande waarde te behouden.
+            </p>
+            <div class="storage-bar" id="configStorageNote"></div>
+            <nav class="config-nav" id="configGroupNav" aria-label="Configuratiegroepen"></nav>
+            <div id="platformConfigFields"></div>
+            <div class="sticky-save">
+              <button type="submit" class="btn" id="btnSavePlatform">Wijzigingen opslaan</button>
+              <span id="platformSaveStatus" class="save-feedback" aria-live="polite"></span>
+            </div>
+          </form>
+        </section>
+
+        <section id="panel-workspace" class="settings-panel" role="tabpanel" aria-labelledby="tab-workspace" hidden>
+          <form id="prefsForm" class="panel-card">
+            <h3>Mail &amp; kanalen</h3>
+            <p class="lead">Kies inbox en verzendkanaal wanneer meerdere opties beschikbaar zijn.</p>
+            <div class="routing-bar">
+              <span class="routing-pill" id="activeInboundPill"></span>
+              <span class="routing-pill" id="activeOutboundPill"></span>
+            </div>
+            <div class="form-grid">
+              <div class="field">
+                <label for="mailInbound">Inkomende mail</label>
+                <select id="mailInbound" name="mailInbound">
+                  <option value="auto">Automatisch (aanbevolen)</option>
+                  <option value="graph">Microsoft 365 (Graph)</option>
+                  <option value="gmail">Gmail</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="mailOutbound">Uitgaande mail</label>
+                <select id="mailOutbound" name="mailOutbound">
+                  <option value="auto">Automatisch</option>
+                  <option value="graph">Microsoft 365 (Graph)</option>
+                  <option value="gmail">Gmail</option>
+                  <option value="smtp">SMTP</option>
+                </select>
+              </div>
+            </div>
+
+            <h3 style="margin-top:1.75rem">AI &amp; automatisering</h3>
+            <p class="lead">Functies per account. OpenAI-sleutel configureer je onder Platform &amp; API.</p>
+            <div class="toggle-list" style="margin-top:0.75rem">
+              <label class="toggle-item">
+                <span class="toggle-item-text">
+                  <strong>AI-antwoorden</strong>
+                  <span>Conceptmails met ordercontext, DPD en kennisbank.</span>
+                </span>
+                <span class="toggle-switch">
+                  <input type="checkbox" id="aiEnabled" name="aiEnabled" />
+                  <span class="slider" aria-hidden="true"></span>
+                </span>
+              </label>
+              <label class="toggle-item">
+                <span class="toggle-item-text">
+                  <strong>Automatisch vertalen</strong>
+                  <span>Vreemde talen direct als Nederlandse versie in het leesvenster.</span>
+                </span>
+                <span class="toggle-switch">
+                  <input type="checkbox" id="aiAutoTranslate" name="aiAutoTranslate" />
+                  <span class="slider" aria-hidden="true"></span>
+                </span>
+              </label>
+              <label class="toggle-item">
+                <span class="toggle-item-text">
+                  <strong>Kennisbank (playbooks)</strong>
+                  <span>Standaard werkwijzen uit desk-knowledge in AI-prompts.</span>
+                </span>
+                <span class="toggle-switch">
+                  <input type="checkbox" id="deskKnowledgeEnabled" name="deskKnowledgeEnabled" />
+                  <span class="slider" aria-hidden="true"></span>
+                </span>
+              </label>
+            </div>
+
+            <div class="field" style="margin-top:1.25rem; max-width:22rem">
+              <label for="defaultReplyStyle">Standaard antwoordstijl</label>
+              <select id="defaultReplyStyle" name="defaultReplyStyle">
+                <option value="default">Standaard</option>
+                <option value="vriendelijk">Vriendelijk</option>
+                <option value="kort">Kort</option>
+                <option value="formeel">Formeel</option>
+                <option value="track_focus">Focus verzending</option>
+                <option value="stappen">Met stappen</option>
+                <option value="uitsluitend_feiten">Alleen feiten</option>
+              </select>
+            </div>
+
+            <div class="sticky-save">
+              <button type="submit" class="btn" id="btnSave">Voorkeuren opslaan</button>
+              <span id="saveStatus" class="save-feedback" aria-live="polite"></span>
+            </div>
+          </form>
+        </section>
       </div>
     </div>
-  </header>
-
-  <main>
-    <p id="loadErr" hidden></p>
-    <div id="platformBanner" class="banner warn" hidden></div>
-
-    <section aria-labelledby="integrationsHeading">
-      <h2 id="integrationsHeading" style="font-size:1.1rem;color:var(--heading);margin:0 0 0.75rem">
-        Koppelingen
-      </h2>
-      <div class="grid" id="integrationGrid"></div>
-    </section>
-
-    <form id="platformConfigForm" class="panel" hidden>
-      <h2>Platformconfiguratie</h2>
-      <p class="lead">
-        API-sleutels en integraties voor het hele platform. Geheimen worden gemaskeerd getoond;
-        laat een wachtwoordveld leeg om de bestaande waarde te behouden.
-      </p>
-      <p class="storage-note" id="configStorageNote"></p>
-      <div id="platformConfigFields"></div>
-      <div class="save-row">
-        <button type="submit" class="btn" id="btnSavePlatform">Platform opslaan</button>
-        <span id="platformSaveStatus" aria-live="polite"></span>
-      </div>
-    </form>
-
-    <form id="prefsForm" class="panel" hidden>
-      <h2>Mail &amp; kanalen</h2>
-      <p class="lead">
-        Kies welk kanaal voor inbox en verzenden wordt gebruikt wanneer meerdere opties beschikbaar zijn.
-        <span class="routing-pill" id="activeInboundPill"></span>
-        <span class="routing-pill" id="activeOutboundPill"></span>
-      </p>
-
-      <div class="field">
-        <label for="mailInbound">Inkomende mail (inbox)</label>
-        <select id="mailInbound" name="mailInbound">
-          <option value="auto">Automatisch (aanbevolen)</option>
-          <option value="graph">Microsoft 365 (Graph)</option>
-          <option value="gmail">Gmail</option>
-        </select>
-        <p class="hint">Automatisch: Graph als het platform dat heeft geactiveerd, anders Gmail.</p>
-      </div>
-      <div class="field">
-        <label for="mailOutbound">Uitgaande mail (antwoorden)</label>
-        <select id="mailOutbound" name="mailOutbound">
-          <option value="auto">Automatisch</option>
-          <option value="graph">Microsoft 365 (Graph)</option>
-          <option value="gmail">Gmail</option>
-          <option value="smtp">SMTP</option>
-        </select>
-      </div>
-
-      <h2 style="margin-top:1.25rem">AI &amp; automatisering</h2>
-      <p class="lead">Schakel functies per account in of uit. OpenAI-sleutel staat hierboven onder Platformconfiguratie.</p>
-      <div class="toggles">
-        <label class="toggle-row">
-          <input type="checkbox" id="aiEnabled" name="aiEnabled" />
-          <span>
-            <strong>AI-antwoorden</strong>
-            <span>Genereer conceptmails met ordercontext, DPD en kennisbank.</span>
-          </span>
-        </label>
-        <label class="toggle-row">
-          <input type="checkbox" id="aiAutoTranslate" name="aiAutoTranslate" />
-          <span>
-            <strong>Automatisch vertalen naar Nederlands</strong>
-            <span>Bij vreemde talen in het leesvenster direct een NL-versie tonen.</span>
-          </span>
-        </label>
-        <label class="toggle-row">
-          <input type="checkbox" id="deskKnowledgeEnabled" name="deskKnowledgeEnabled" />
-          <span>
-            <strong>Kennisbank (playbooks)</strong>
-            <span>Standaard werkwijzen uit desk-knowledge/ meenemen in AI-prompts.</span>
-          </span>
-        </label>
-      </div>
-
-      <div class="field" style="margin-top:1rem">
-        <label for="defaultReplyStyle">Standaard antwoordstijl (AI)</label>
-        <select id="defaultReplyStyle" name="defaultReplyStyle">
-          <option value="default">Standaard</option>
-          <option value="vriendelijk">Vriendelijk</option>
-          <option value="kort">Kort</option>
-          <option value="formeel">Formeel</option>
-          <option value="track_focus">Focus verzending</option>
-          <option value="stappen">Met stappen</option>
-          <option value="uitsluitend_feiten">Alleen feiten</option>
-        </select>
-      </div>
-
-      <div class="save-row">
-        <button type="submit" class="btn" id="btnSave">Voorkeuren opslaan</button>
-        <span id="saveStatus" aria-live="polite"></span>
-      </div>
-    </form>
-  </main>
+  </div>
 
   <script>
-    const integrationGrid = document.getElementById('integrationGrid');
-    const platformConfigForm = document.getElementById('platformConfigForm');
-    const platformConfigFields = document.getElementById('platformConfigFields');
-    const configStorageNote = document.getElementById('configStorageNote');
-    const platformSaveStatus = document.getElementById('platformSaveStatus');
-    const prefsForm = document.getElementById('prefsForm');
-    const loadErr = document.getElementById('loadErr');
-    const platformBanner = document.getElementById('platformBanner');
-    const saveStatus = document.getElementById('saveStatus');
-    const activeInboundPill = document.getElementById('activeInboundPill');
-    const activeOutboundPill = document.getElementById('activeOutboundPill');
+    const INTEGRATION_ORDER = [
+      'mailGraph',
+      'mailGmail',
+      'mailSmtp',
+      'shopify',
+      'openAi',
+      'dpd',
+      'deskKnowledge',
+    ];
+
+    const INTEGRATION_ICONS = {
+      mailGraph: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>',
+      mailGmail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16v12H4z"/><path d="m4 7 8 6 8-6"/></svg>',
+      mailSmtp: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 12H2"/><path d="M5 12V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v5"/><path d="M9 17v2h6v-2"/></svg>',
+      shopify: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 6h15l-1.5 12H7.5L6 6z"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',
+      openAi: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l1.8 5.5L19 10l-5.2 1.5L12 17l-1.8-5.5L5 10l5.2-1.5L12 3z"/></svg>',
+      dpd: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="6" width="15" height="10" rx="1"/><path d="M16 10h4l3 3v3h-7v-6z"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>',
+      deskKnowledge: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
+    };
+
+    const BADGE_LABEL = {
+      connected: 'Actief',
+      partial: 'Deels geconfigureerd',
+      disconnected: 'Niet gekoppeld',
+      admin: 'Platformbeheer',
+    };
+
+    const els = {
+      loadingState: document.getElementById('loadingState'),
+      settingsContent: document.getElementById('settingsContent'),
+      loadErr: document.getElementById('loadErr'),
+      platformBanner: document.getElementById('platformBanner'),
+      platformBannerText: document.getElementById('platformBannerText'),
+      pageTitle: document.getElementById('pageTitle'),
+      pageSubtitle: document.getElementById('pageSubtitle'),
+      heroMeta: document.getElementById('heroMeta'),
+      statsRow: document.getElementById('statsRow'),
+      integrationGrid: document.getElementById('integrationGrid'),
+      integrationGridOverview: document.getElementById('integrationGridOverview'),
+      platformConfigForm: document.getElementById('platformConfigForm'),
+      platformConfigFields: document.getElementById('platformConfigFields'),
+      configGroupNav: document.getElementById('configGroupNav'),
+      configStorageNote: document.getElementById('configStorageNote'),
+      platformSaveStatus: document.getElementById('platformSaveStatus'),
+      prefsForm: document.getElementById('prefsForm'),
+      saveStatus: document.getElementById('saveStatus'),
+      activeInboundPill: document.getElementById('activeInboundPill'),
+      activeOutboundPill: document.getElementById('activeOutboundPill'),
+      tabButtons: /** @type {NodeListOf<HTMLButtonElement>} */ (
+        document.querySelectorAll('.settings-nav [data-panel]')
+      ),
+      panels: /** @type {NodeListOf<HTMLElement>} */ (
+        document.querySelectorAll('.settings-panel')
+      ),
+    };
 
     /** @type {Record<string, unknown> | null} */
     let lastPayload = null;
+    /** @type {string} */
+    let activeConfigGroup = '';
 
     function redirectLogin() {
-      location.href =
-        '/login.html?next=' + encodeURIComponent('/instellingen.html');
+      location.href = '/login.html?next=' + encodeURIComponent('/instellingen.html');
     }
 
-  /**
-   * @param {Response} res
-   * @param {unknown} data
-   */
+    /**
+     * @param {Response} res
+     * @param {unknown} data
+     */
     function loginRequired(res, data) {
       return (
         res.status === 401 &&
@@ -441,43 +275,134 @@
       );
     }
 
-    const BADGE_CLASS = {
-      connected: 'connected',
-      partial: 'partial',
-      disconnected: 'disconnected',
-      admin: 'admin',
-    };
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/"/g, '&quot;');
+    }
 
-    const BADGE_LABEL = {
-      connected: 'Gekoppeld',
-      partial: 'Deels',
-      disconnected: 'Niet gekoppeld',
-      admin: 'Via beheerder',
-    };
+    function showPanel(panelId) {
+      els.tabButtons.forEach((btn) => {
+        const on = btn.dataset.panel === panelId;
+        btn.classList.toggle('is-active', on);
+        btn.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      els.panels.forEach((panel) => {
+        const on = panel.id === 'panel-' + panelId;
+        panel.classList.toggle('is-visible', on);
+        panel.hidden = !on;
+      });
+      if (panelId === 'platform' && activeConfigGroup) {
+        showConfigGroup(activeConfigGroup);
+      }
+    }
+
+    els.tabButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.panel;
+        if (id) showPanel(id);
+      });
+    });
 
     /**
      * @param {string} id
      * @param {{ label: string; status: string; detail: string; selfService?: boolean; connectUrl?: string; disconnectApi?: string }} item
+     * @param {boolean} compact
      */
-    function renderIntegrationCard(id, item) {
-      const st = BADGE_CLASS[item.status] || 'disconnected';
+    function renderIntegrationCard(id, item, compact) {
+      const st = item.status || 'disconnected';
+      const icon = INTEGRATION_ICONS[id] || INTEGRATION_ICONS.shopify;
       const actions = [];
       if (item.connectUrl && item.selfService !== false) {
         actions.push(
-          `<a class="btn secondary" href="${item.connectUrl}">Koppelen</a>`
+          `<a class="btn secondary" href="${escapeHtml(item.connectUrl)}">Koppelen</a>`
         );
       }
       if (item.disconnectApi && item.status === 'connected' && id !== 'mailGraph') {
         actions.push(
-          `<button type="button" class="btn danger" data-disconnect="${item.disconnectApi}">Ontkoppelen</button>`
+          `<button type="button" class="btn danger" data-disconnect="${escapeHtml(item.disconnectApi)}">Ontkoppelen</button>`
         );
       }
-      return `<article class="card" data-integration="${id}">
-        <span class="badge ${st}">${BADGE_LABEL[item.status] || item.status}</span>
-        <h2>${item.label}</h2>
-        <p class="detail">${item.detail}</p>
-        <div class="card-actions">${actions.join('') || '<span class="hint" style="font-size:0.8rem;color:var(--muted)">Geen actie nodig</span>'}</div>
+      const actionHtml =
+        actions.join('') ||
+        (compact ? '' : '<span class="empty-hint">Geen actie vereist</span>');
+      return `<article class="int-card" data-integration="${escapeHtml(id)}">
+        <div class="int-card-top">
+          <div class="int-icon" aria-hidden="true">${icon}</div>
+          <div>
+            <h3>${escapeHtml(item.label)}</h3>
+            <span class="status-pill ${escapeHtml(st)}"><span class="dot"></span>${escapeHtml(BADGE_LABEL[st] || st)}</span>
+          </div>
+        </div>
+        <p class="detail">${escapeHtml(item.detail)}</p>
+        ${actionHtml ? `<div class="int-actions">${actionHtml}</div>` : ''}
       </article>`;
+    }
+
+    /**
+     * @param {Record<string, Record<string, unknown>>} integrations
+     * @param {boolean} compact
+     */
+    function renderIntegrations(integrations, compact) {
+      return INTEGRATION_ORDER.filter((k) => integrations[k])
+        .map((k) =>
+          renderIntegrationCard(
+            k,
+            /** @type {{ label: string; status: string; detail: string }} */ (integrations[k]),
+            compact
+          )
+        )
+        .join('');
+    }
+
+    /**
+     * @param {Record<string, unknown>} data
+     */
+    function renderOverview(data) {
+      const platform = /** @type {{ name?: string; baseUrl?: string; databaseConfigured?: boolean; onVercel?: boolean }} */ (
+        data.platform || {}
+      );
+      const caps = /** @type {Record<string, boolean>} */ (data.capabilities || {});
+      const integrations = /** @type {Record<string, { status: string }>} */ (data.integrations || {});
+
+      const connectedCount = INTEGRATION_ORDER.filter(
+        (k) => integrations[k]?.status === 'connected'
+      ).length;
+
+      els.pageTitle.textContent = platform.name
+        ? platform.name + ' · Instellingen'
+        : 'Instellingen';
+      els.pageSubtitle.textContent =
+        'Beheer koppelingen, platform-API’s en persoonlijke voorkeuren voor je helpdesk.';
+
+      els.heroMeta.hidden = false;
+      els.heroMeta.innerHTML = `
+        <span class="meta-chip ok"><span class="dot"></span>${connectedCount} van ${INTEGRATION_ORDER.length} integraties actief</span>
+        ${platform.onVercel ? '<span class="meta-chip"><span class="dot"></span>Productie (Vercel)</span>' : ''}
+        ${platform.databaseConfigured ? '<span class="meta-chip ok"><span class="dot"></span>Database gekoppeld</span>' : '<span class="meta-chip warn"><span class="dot"></span>Geen DATABASE_URL</span>'}
+      `;
+
+      const stat = (label, value, cls) =>
+        `<div class="stat-card"><div class="label">${escapeHtml(label)}</div><div class="value ${cls || ''}">${escapeHtml(value)}</div></div>`;
+
+      els.statsRow.innerHTML = [
+        stat('AI-antwoorden', caps.canUseAi ? 'Ingeschakeld' : 'Uit of niet geconfigureerd', caps.canUseAi ? 'ok' : 'warn'),
+        stat('Vertalen', caps.canAutoTranslate ? 'Automatisch' : 'Beperkt', caps.canAutoTranslate ? 'ok' : 'muted'),
+        stat('Inbox', caps.canUseGraphInbox ? 'Microsoft 365' : caps.canUseGmailInbox ? 'Gmail' : '—', ''),
+        stat('Verzenden', caps.canSendMail ? 'Beschikbaar' : 'Niet geconfigureerd', caps.canSendMail ? 'ok' : 'warn'),
+      ].join('');
+    }
+
+    function showConfigGroup(groupId) {
+      activeConfigGroup = groupId;
+      els.configGroupNav.querySelectorAll('button').forEach((btn) => {
+        btn.classList.toggle('is-active', btn.dataset.group === groupId);
+      });
+      els.platformConfigFields.querySelectorAll('.config-section').forEach((sec) => {
+        const el = /** @type {HTMLElement} */ (sec);
+        el.classList.toggle('is-visible', el.dataset.group === groupId);
+      });
     }
 
     /**
@@ -485,34 +410,46 @@
      */
     function renderPlatformConfig(pc) {
       if (!pc?.groups?.length) {
-        platformConfigForm.hidden = true;
+        els.platformConfigForm.closest('section')?.setAttribute('hidden', '');
         return;
       }
+      els.platformConfigForm.closest('section')?.removeAttribute('hidden');
+
       const fields = pc.fields || {};
       const storage = pc.storage || {};
-      let storageText = 'Opslag: ';
-      if (storage.source === 'postgres') storageText += 'database (PostgreSQL)';
-      else if (storage.source === 'file') storageText += 'lokaal bestand (data/platform-config.json)';
-      else storageText += 'alleen .env / Vercel-omgeving';
-      if (storage.updatedAt) {
-        storageText += ' · laatst opgeslagen ' + new Date(storage.updatedAt).toLocaleString('nl-NL');
-      }
-      if (!storage.hasDatabase && storage.source !== 'postgres') {
-        storageText +=
-          ' · tip: zet DATABASE_URL voor betrouwbare opslag op Vercel.';
-      }
-      configStorageNote.textContent = storageText;
+      let storageLabel = 'Omgevingsvariabelen';
+      if (storage.source === 'postgres') storageLabel = 'PostgreSQL (platform)';
+      else if (storage.source === 'file') storageLabel = 'Lokaal configuratiebestand';
 
-      platformConfigFields.innerHTML = pc.groups
-        .map((group) => {
+      els.configStorageNote.innerHTML = `
+        <span><strong>Opslag:</strong> ${escapeHtml(storageLabel)}</span>
+        ${storage.updatedAt ? `<span>· Bijgewerkt ${escapeHtml(new Date(storage.updatedAt).toLocaleString('nl-NL'))}</span>` : ''}
+        ${!storage.hasDatabase && storage.source !== 'postgres' ? '<span>· <strong>Tip:</strong> DATABASE_URL op Vercel voor persistente API-keys</span>' : ''}
+      `;
+
+      els.configGroupNav.innerHTML = pc.groups
+        .map(
+          (g, i) =>
+            `<button type="button" data-group="${escapeHtml(g.id)}" class="${i === 0 ? 'is-active' : ''}">${escapeHtml(g.label)}</button>`
+        )
+        .join('');
+
+      els.configGroupNav.querySelectorAll('button').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const g = btn.getAttribute('data-group');
+          if (g) showConfigGroup(g);
+        });
+      });
+
+      els.platformConfigFields.innerHTML = pc.groups
+        .map((group, i) => {
           const hint = group.hint
-            ? `<p class="group-hint">${group.hint}</p>`
+            ? `<p class="lead" style="margin-bottom:1rem">${escapeHtml(group.hint)}</p>`
             : '';
           const inputs = (group.fields || [])
             .map((f) => {
               const meta = fields[f.key] || {};
               const isSecret = f.type === 'secret' || meta.isSecret;
-              const inputType = isSecret ? 'password' : 'text';
               const display =
                 isSecret && meta.masked
                   ? meta.masked
@@ -520,31 +457,47 @@
                     ? String(meta.value || meta.masked)
                     : '';
               const sourceBits = [];
-              if (meta.fromStore) sourceBits.push('opgeslagen in platform');
-              else if (meta.fromEnv) sourceBits.push('uit .env');
+              if (meta.fromStore) sourceBits.push('Opgeslagen in platform');
+              else if (meta.fromEnv) sourceBits.push('Via serveromgeving (.env)');
               const metaClass =
                 meta.fromStore || meta.fromEnv ? 'field-meta ok' : 'field-meta';
               const placeholder = isSecret
                 ? display
-                  ? 'Laat leeg om te behouden (' + display + ')'
+                  ? 'Laat leeg om te behouden'
                   : f.placeholder || 'Nog niet ingesteld'
                 : f.placeholder || '';
               const value = isSecret ? '' : display;
-              return `<div class="field" data-config-key="${f.key}">
-                <label for="cfg_${f.key}">${f.label}</label>
-                <input type="${inputType}" id="cfg_${f.key}" name="${f.key}" autocomplete="off"
-                  placeholder="${placeholder.replace(/"/g, '&quot;')}" value="${String(value).replace(/"/g, '&quot;')}" />
-                <p class="${metaClass}">${sourceBits.join(' · ') || 'Nog niet geconfigureerd'}</p>
+              const inputId = 'cfg_' + f.key;
+              const inputHtml = isSecret
+                ? `<div class="input-wrap">
+                    <input type="password" id="${inputId}" name="${escapeHtml(f.key)}" autocomplete="off"
+                      placeholder="${escapeHtml(placeholder)}" value="" data-secret="1" />
+                    <button type="button" class="toggle-secret" data-target="${inputId}" aria-label="Toon waarde">Toon</button>
+                  </div>`
+                : `<input type="text" id="${inputId}" name="${escapeHtml(f.key)}" autocomplete="off"
+                    placeholder="${escapeHtml(placeholder)}" value="${escapeHtml(value)}" />`;
+              return `<div class="field" data-config-key="${escapeHtml(f.key)}">
+                <label for="${inputId}">${escapeHtml(f.label)}</label>
+                ${inputHtml}
+                <p class="${metaClass}">${escapeHtml(sourceBits.join(' · ') || 'Nog niet geconfigureerd')}${display && isSecret ? ' · Huidig: ' + escapeHtml(display) : ''}</p>
               </div>`;
             })
             .join('');
-          return `<details class="config-group" open>
-            <summary>${group.label}</summary>
-            <div class="group-body">${hint}${inputs}</div>
-          </details>`;
+          return `<div class="config-section ${i === 0 ? 'is-visible' : ''}" data-group="${escapeHtml(group.id)}">${hint}<div class="form-grid">${inputs}</div></div>`;
         })
         .join('');
-      platformConfigForm.hidden = false;
+
+      activeConfigGroup = pc.groups[0]?.id || '';
+      els.platformConfigFields.querySelectorAll('.toggle-secret').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-target');
+          const input = id ? document.getElementById(id) : null;
+          if (!input || !(input instanceof HTMLInputElement)) return;
+          const show = input.type === 'password';
+          input.type = show ? 'text' : 'password';
+          btn.textContent = show ? 'Verberg' : 'Toon';
+        });
+      });
     }
 
     /**
@@ -555,73 +508,51 @@
       const integrations = /** @type {Record<string, Record<string, unknown>>} */ (
         data.integrations || {}
       );
-      const order = [
-        'mailGraph',
-        'mailGmail',
-        'mailSmtp',
-        'shopify',
-        'openAi',
-        'dpd',
-        'deskKnowledge',
-      ];
+
+      renderOverview(data);
       renderPlatformConfig(
         /** @type {{ groups?: unknown[] }} */ (data.platformConfig || {})
       );
 
-      integrationGrid.innerHTML = order
-        .filter((k) => integrations[k])
-        .map((k) =>
-          renderIntegrationCard(
-            k,
-            /** @type {{ label: string; status: string; detail: string }} */ (
-              integrations[k]
-            )
-          )
-        )
-        .join('');
+      const cardsFull = renderIntegrations(integrations, false);
+      els.integrationGrid.innerHTML = cardsFull;
+      els.integrationGridOverview.innerHTML = renderIntegrations(integrations, true);
 
-      const platform = /** @type {{ persistenceWarning?: string | null }} */ (
-        data.platform || {}
-      );
+      const platform = /** @type {{ persistenceWarning?: string | null }} */ (data.platform || {});
       if (platform.persistenceWarning) {
-        platformBanner.hidden = false;
-        platformBanner.className = 'banner warn';
-        platformBanner.textContent = platform.persistenceWarning;
+        els.platformBanner.hidden = false;
+        els.platformBannerText.textContent = platform.persistenceWarning;
       } else {
-        platformBanner.hidden = true;
+        els.platformBanner.hidden = true;
       }
 
       const prefs = /** @type {Record<string, unknown>} */ (data.preferences || {});
       const routing = /** @type {{ activeInbound?: string; activeOutbound?: string }} */ (
         data.routing || {}
       );
-      document.getElementById('mailInbound').value =
-        String(prefs.mailInbound || 'auto');
-      document.getElementById('mailOutbound').value =
-        String(prefs.mailOutbound || 'auto');
+      document.getElementById('mailInbound').value = String(prefs.mailInbound || 'auto');
+      document.getElementById('mailOutbound').value = String(prefs.mailOutbound || 'auto');
       document.getElementById('aiEnabled').checked = prefs.aiEnabled !== false;
-      document.getElementById('aiAutoTranslate').checked =
-        prefs.aiAutoTranslate !== false;
-      document.getElementById('deskKnowledgeEnabled').checked =
-        prefs.deskKnowledgeEnabled !== false;
-      document.getElementById('defaultReplyStyle').value =
-        String(prefs.defaultReplyStyle || 'default');
+      document.getElementById('aiAutoTranslate').checked = prefs.aiAutoTranslate !== false;
+      document.getElementById('deskKnowledgeEnabled').checked = prefs.deskKnowledgeEnabled !== false;
+      document.getElementById('defaultReplyStyle').value = String(prefs.defaultReplyStyle || 'default');
 
-      activeInboundPill.textContent =
-        'Inbox nu: ' + (routing.activeInbound === 'graph' ? 'Microsoft 365' : 'Gmail');
-      activeOutboundPill.textContent =
-        'Verzenden nu: ' +
+      els.activeInboundPill.textContent =
+        'Inbox: ' + (routing.activeInbound === 'graph' ? 'Microsoft 365' : 'Gmail');
+      els.activeOutboundPill.textContent =
+        'Verzenden: ' +
         (routing.activeOutbound === 'graph'
           ? 'Graph'
           : routing.activeOutbound === 'gmail'
             ? 'Gmail'
             : 'SMTP');
 
-      prefsForm.hidden = false;
+      els.loadingState.hidden = true;
+      els.settingsContent.hidden = false;
     }
 
     async function loadSettings() {
-      loadErr.hidden = true;
+      els.loadErr.hidden = true;
       try {
         const res = await fetch('/api/settings', { credentials: 'same-origin' });
         const data = await res.json().catch(() => ({}));
@@ -632,19 +563,20 @@
         if (!res.ok) throw new Error(data.error || res.statusText);
         applyPayload(data);
       } catch (e) {
-        loadErr.hidden = false;
-        loadErr.textContent =
+        els.loadingState.hidden = true;
+        els.loadErr.hidden = false;
+        els.loadErr.textContent =
           e instanceof Error ? e.message : 'Instellingen laden mislukt.';
       }
     }
 
-    platformConfigForm.addEventListener('submit', async (ev) => {
+    els.platformConfigForm.addEventListener('submit', async (ev) => {
       ev.preventDefault();
-      platformSaveStatus.textContent = 'Opslaan…';
-      platformSaveStatus.className = '';
+      els.platformSaveStatus.textContent = 'Opslaan…';
+      els.platformSaveStatus.className = 'save-feedback';
       /** @type {Record<string, string>} */
       const platformConfig = {};
-      platformConfigFields.querySelectorAll('[data-config-key]').forEach((wrap) => {
+      els.platformConfigFields.querySelectorAll('[data-config-key]').forEach((wrap) => {
         const key = wrap.getAttribute('data-config-key');
         const input = wrap.querySelector('input');
         if (!key || !input) return;
@@ -664,19 +596,19 @@
         }
         if (!res.ok) throw new Error(data.error || res.statusText);
         applyPayload(data);
-        platformSaveStatus.textContent = 'Platformconfiguratie opgeslagen.';
-        platformSaveStatus.className = 'ok';
+        els.platformSaveStatus.textContent = 'Opgeslagen';
+        els.platformSaveStatus.className = 'save-feedback ok';
       } catch (e) {
-        platformSaveStatus.textContent =
+        els.platformSaveStatus.textContent =
           e instanceof Error ? e.message : 'Opslaan mislukt.';
-        platformSaveStatus.className = 'err';
+        els.platformSaveStatus.className = 'save-feedback err';
       }
     });
 
-    prefsForm.addEventListener('submit', async (ev) => {
+    els.prefsForm.addEventListener('submit', async (ev) => {
       ev.preventDefault();
-      saveStatus.textContent = 'Opslaan…';
-      saveStatus.className = '';
+      els.saveStatus.textContent = 'Opslaan…';
+      els.saveStatus.className = 'save-feedback';
       const preferences = {
         mailInbound: document.getElementById('mailInbound').value,
         mailOutbound: document.getElementById('mailOutbound').value,
@@ -699,35 +631,37 @@
         }
         if (!res.ok) throw new Error(data.error || res.statusText);
         applyPayload(data);
-        saveStatus.textContent = 'Opgeslagen.';
-        saveStatus.className = 'ok';
+        els.saveStatus.textContent = 'Opgeslagen';
+        els.saveStatus.className = 'save-feedback ok';
       } catch (e) {
-        saveStatus.textContent =
+        els.saveStatus.textContent =
           e instanceof Error ? e.message : 'Opslaan mislukt.';
-        saveStatus.className = 'err';
+        els.saveStatus.className = 'save-feedback err';
       }
     });
 
-    integrationGrid.addEventListener('click', async (ev) => {
+    function handleDisconnectClick(ev) {
       const btn = ev.target.closest('[data-disconnect]');
       if (!btn) return;
       const url = btn.getAttribute('data-disconnect');
       if (!url || !confirm('Weet je zeker dat je deze koppeling wilt verwijderen?')) return;
       btn.disabled = true;
-      try {
-        const res = await fetch(url, {
-          method: 'POST',
-          credentials: 'same-origin',
+      fetch(url, { method: 'POST', credentials: 'same-origin' })
+        .then((res) => res.json().then((data) => ({ res, data })))
+        .then(({ res, data }) => {
+          if (!res.ok) throw new Error(data.error || res.statusText);
+          return loadSettings();
+        })
+        .catch((e) => {
+          alert(e instanceof Error ? e.message : String(e));
+        })
+        .finally(() => {
+          btn.disabled = false;
         });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || res.statusText);
-        await loadSettings();
-      } catch (e) {
-        alert(e instanceof Error ? e.message : String(e));
-      } finally {
-        btn.disabled = false;
-      }
-    });
+    }
+
+    els.integrationGrid.addEventListener('click', handleDisconnectClick);
+    els.integrationGridOverview.addEventListener('click', handleDisconnectClick);
 
     void loadSettings();
   </script>
