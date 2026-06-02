@@ -1,0 +1,43 @@
+/* Gedeeld hoofdmenu — Mail · Orders · Instellingen */
+.helpdesk-main-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 1rem;
+  background: #fff;
+  border-bottom: 1px solid #e0e3db;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  box-shadow: 0 1px 0 rgba(85, 130, 53, 0.08);
+}
+.helpdesk-main-nav__brand {
+  margin-right: auto;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6c7568;
+}
+.helpdesk-main-nav a {
+  font-family: "Quicksand", system-ui, sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.38rem 0.9rem;
+  border-radius: 999px;
+  text-decoration: none;
+  color: #444;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.helpdesk-main-nav a:hover {
+  background: rgba(85, 130, 53, 0.1);
+  color: #558235;
+  border-color: rgba(85, 130, 53, 0.2);
+}
+.helpdesk-main-nav a.is-active {
+  background: rgba(85, 130, 53, 0.14);
+  border-color: rgba(85, 130, 53, 0.38);
+  color: #558235;
+}

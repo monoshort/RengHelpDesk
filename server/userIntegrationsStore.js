@@ -66,7 +66,7 @@ async function ensureTable(sql) {
 
 /**
  * @param {string} sid
- * @param {'shopify' | 'gmail'} kind
+ * @param {'shopify' | 'gmail' | 'settings'} kind
  * @returns {Promise<Record<string, unknown> | null>}
  */
 export async function loadUserIntegrationDoc(sid, kind) {
@@ -105,7 +105,7 @@ export async function loadUserIntegrationDoc(sid, kind) {
 /**
  * Verwijdert een opgeslagen koppeling (bijv. oude Gmail-token wissen zodat env weer geldt).
  * @param {string} sid
- * @param {'shopify' | 'gmail'} kind
+ * @param {'shopify' | 'gmail' | 'settings'} kind
  */
 export async function deleteUserIntegrationDoc(sid, kind) {
   const key = sanitizeDashboardSid(sid);
@@ -126,7 +126,7 @@ export async function deleteUserIntegrationDoc(sid, kind) {
 
 /**
  * @param {string} sid
- * @param {'shopify' | 'gmail'} kind
+ * @param {'shopify' | 'gmail' | 'settings'} kind
  * @param {Record<string, unknown>} doc
  */
 export async function saveUserIntegrationDoc(sid, kind, doc) {

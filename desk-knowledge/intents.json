@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "shopName": "Toddie",
+  "intents": [
+    {
+      "id": "shipping_delay",
+      "label": "Verzending / waar blijft mijn order",
+      "keywords": [
+        "waar blijft",
+        "nog niet ontvangen",
+        "niet ontvangen",
+        "wanneer komt",
+        "verzonden",
+        "verzending",
+        "track",
+        "trace",
+        "pakket",
+        "levering",
+        "where is my order",
+        "not received",
+        "shipping",
+        "tracking"
+      ],
+      "workflow": "workflows/shipping-delay.md",
+      "snippets": ["snippets/shipping-delay.nl.md"],
+      "replyStyle": "track_focus"
+    },
+    {
+      "id": "return_exchange",
+      "label": "Retour / ruilen",
+      "keywords": [
+        "retour",
+        "ruilen",
+        "ruil",
+        "terugsturen",
+        "terug senden",
+        "return",
+        "exchange",
+        "refund",
+        "geld terug",
+        "annuleren"
+      ],
+      "workflow": "workflows/return-exchange.md",
+      "snippets": ["snippets/return-exchange.nl.md"],
+      "replyStyle": "formeel"
+    },
+    {
+      "id": "damaged_or_wrong",
+      "label": "Beschadigd / verkeerd product",
+      "keywords": [
+        "beschadigd",
+        "kapot",
+        "defect",
+        "verkeerd",
+        "mis",
+        "ontbreekt",
+        "damaged",
+        "broken",
+        "wrong item",
+        "missing"
+      ],
+      "workflow": "workflows/damaged-wrong.md",
+      "snippets": ["snippets/damaged-wrong.nl.md"],
+      "replyStyle": "vriendelijk"
+    },
+    {
+      "id": "product_advice",
+      "label": "Product / gebruik / advies",
+      "keywords": [
+        "hoe gebruik",
+        "montage",
+        "handleiding",
+        "welke maat",
+        "advies",
+        "werkt niet",
+        "vraag over product",
+        "how to use",
+        "manual"
+      ],
+      "workflow": "workflows/product-advice.md",
+      "snippets": ["snippets/product-advice.nl.md"],
+      "replyStyle": "vriendelijk"
+    },
+    {
+      "id": "restock",
+      "label": "Op voorraad / wanneer weer leverbaar",
+      "keywords": [
+        "op voorraad",
+        "voorraad",
+        "weer leverbaar",
+        "uitverkocht",
+        "niet leverbaar",
+        "restock",
+        "out of stock"
+      ],
+      "workflow": "workflows/restock.md",
+      "snippets": ["snippets/restock.nl.md"],
+      "replyStyle": "kort"
+    },
+    {
+      "id": "no_order_match",
+      "label": "Geen order gevonden (wel bestelvraag)",
+      "keywords": [
+        "order",
+        "bestelling",
+        "bestelnummer",
+        "order number",
+        "status bestelling"
+      ],
+      "workflow": "workflows/no-order-match.md",
+      "snippets": ["snippets/no-order-match.nl.md"],
+      "replyStyle": "kort",
+      "requiresNoOrder": true
+    }
+  ]
+}

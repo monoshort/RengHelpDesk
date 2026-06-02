@@ -128,3 +128,18 @@ export function isLikelyDpdCarrier(trackingCompany) {
   if (!trackingCompany) return false;
   return /dpd/i.test(String(trackingCompany));
 }
+
+/**
+ * Of we DPD Parcel Life Cycle moeten proberen voor dit Shopify-trackingregel.
+ * @param {{ company?: string; number?: string; url?: string }} t
+ */
+export function shouldQueryDpdTracking(t) {
+  if (!t?.number) return false;
+  const num = String(t.number).replace(/\s/g, '');
+  if (!num) return false;
+  if (isLikelyDpdCarrier(t.company)) return true;
+  if (/dpd/i.test(String(t.url || ''))) return true;
+  if (/^\d{12,16}$/.test(num)) return true;
+  if (!String(t.company || '').trim() && /^\d{10,16}$/.test(num)) return true;
+  return false;
+}

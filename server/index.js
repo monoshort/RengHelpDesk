@@ -20,15 +20,30 @@ import {
   findOrderForMailbox,
   enrichOrderRowForAi,
   orderContextPromptBlock,
+  orderContextBlockForCustomerMail,
+  isCustomerMailOrderRelated,
   noOrderContextPromptBlock,
   mergeMailOrderHints,
   generateCustomerReplyDraft,
   generateOverviewDeskInsight,
   buildStandardMailReplyText,
   voornaamFromDisplayName,
+  customerReplyLanguageLabel,
+  detectCustomerReplyLanguage,
+  summarizeDpdTrackings,
+  hasUsableDpdData,
 } from './aiReply.js';
+import {
+  resolveDeskKnowledge,
+  isDeskKnowledgeEnabled,
+  listDeskKnowledgeIntents,
+} from './deskKnowledge.js';
+import {
+  translateIncomingMailToDutch,
+  plainTextFromMailHtml,
+} from './mailTranslate.js';
 import { computeDeskHeuristics, deskHintForRow } from './orderInsights.js';
-import { getDpdTracking, isLikelyDpdCarrier } from './dpd.js';
+import { getDpdTracking, shouldQueryDpdTracking } from './dpd.js';
 import {
   isSmtpConfigured,
   isGmailApiConfigured,
@@ -40,6 +55,29 @@ import {
   isGmailInvalidGrantError,
 } from './mail.js';
 import { fetchInboxForUi } from './gmailInbox.js';
+import {
+  fetchGraphInboxForUi,
+  fetchGraphMessageForUi,
+  fetchGraphFoldersForUi,
+  fetchGraphAttachmentBytes,
+  patchGraphMessageRead,
+} from './graphInbox.js';
+import { isGraphMailConfigured, graphConnectionHints } from './graphMail.js';
+import { useGraphForInbound, resolveMailRoutingSummary } from './mailRouting.js';
+import {
+  loadWorkspaceSettings,
+  saveWorkspaceSettings,
+  mergeWorkspaceSettings,
+  isAiEnabledForSettings,
+  isAiAutoTranslateForSettings,
+  isDeskKnowledgeEnabledForSettings,
+} from './workspaceSettings.js';
+import { buildPlatformSettingsPayload } from './platformSettings.js';
+import { getDpdCredsFromPlatform } from './platformConfig.js';
+import {
+  ensurePlatformConfigLoaded,
+  mergePlatformConfigPatch,
+} from './platformConfigStore.js';
 import {
   getShopifyAuthStatus,
   shopifyCredentialAttempts,
@@ -69,7 +107,11 @@ import {
   buildCachedMailLogs,
 } from './overviewSync.js';
 import { exchangeShopifyClientCredentials } from './shopifyClientCredentials.js';
-import { saveUserIntegrationDoc, sanitizeDashboardSid } from './userIntegrationsStore.js';
+import {
+  saveUserIntegrationDoc,
+  deleteUserIntegrationDoc,
+  sanitizeDashboardSid,
+} from './userIntegrationsStore.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = process.env.VERCEL
@@ -91,6 +133,11 @@ app.use(dashboardAuthMiddleware);
 app.use((req, res, next) => {
   void attachUserIntegrations(req, res, next).catch(next);
 });
+app.use((req, res, next) => {
+  void ensurePlatformConfigLoaded()
+    .then(() => next())
+    .catch(next);
+});
 mountShopifyAuth(app, { port });
 mountGmailAuth(app, { port });
 
@@ -101,11 +148,7 @@ if (String(process.env.VERCEL || '').trim() === '1' && !process.env.DATABASE_URL
 }
 
 function dpdCreds() {
-  const delisId = process.env.DPD_DELIS_ID?.trim();
-  const password = process.env.DPD_DELIS_PASSWORD?.trim();
-  const useStage = String(process.env.DPD_USE_STAGE).toLowerCase() === 'true';
-  if (!delisId || !password) return null;
-  return { delisId, password, useStage };
+  return getDpdCredsFromPlatform();
 }
 
 /**
@@ -389,11 +432,7 @@ app.get('/api/overview', async (req, res) => {
       for (let ri = 0; ri < enriched.length; ri++) {
         const row = enriched[ri];
         for (const t of row.trackings) {
-          if (!t.number) continue;
-          const tryDpd =
-            isLikelyDpdCarrier(t.company) ||
-            /^\d{14}$/.test(t.number.replace(/\s/g, ''));
-          if (!tryDpd) continue;
+          if (!shouldQueryDpdTracking(t)) continue;
           dpdJobs.push({ ri, t });
         }
       }
@@ -478,6 +517,8 @@ app.get('/api/overview', async (req, res) => {
       dpdConfigured: Boolean(dpd),
       smtpConfigured: isSmtpConfigured(),
       gmailApiConfigured: isGmailApiConfigured(req),
+      graphMailConfigured: isGraphMailConfigured(),
+      mailInboundProvider: useGraphForInbound(req) ? 'graph' : 'gmail',
       mailOutboundConfigured: isMailOutboundConfigured(req),
       openAiConfigured: isOpenAiConfigured(),
       deskHeuristics,
@@ -653,7 +694,82 @@ app.get('/api/config', async (req, res) => {
     gmailSharedMailboxMode: Boolean(g.gmailSharedMailboxMode),
     gmailOAuthCallbackUrl: gmailRedirect,
     gmailRedirectUsesEnv: Boolean(fixedGmailRedirect),
+    graphMailConfigured: isGraphMailConfigured(),
+    graphMailbox: isGraphMailConfigured()
+      ? process.env.MICROSOFT_GRAPH_MAILBOX?.trim() || 'info@toddie.nl'
+      : null,
+    mailInboundProvider: useGraphForInbound(req) ? 'graph' : 'gmail',
+    mailRouting: resolveMailRoutingSummary(req),
+    dpdConfigured: Boolean(dpdCreds()),
+    settingsUrl: '/instellingen.html',
   });
+});
+
+/** Platforminstellingen — koppelingen, status en bewerkbare voorkeuren (commercieel dashboard). */
+app.get('/api/settings', async (req, res) => {
+  try {
+    const sid = sanitizeDashboardSid(req.dashboardSid);
+    if (!sid) {
+      return res.status(401).json({ ok: false, error: 'Niet ingelogd.', loginRequired: true });
+    }
+    const preferences =
+      req.workspaceSettings || (await loadWorkspaceSettings(sid));
+    const payload = await buildPlatformSettingsPayload(req, preferences);
+    res.json(payload);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    res.status(500).json({ ok: false, error: message });
+  }
+});
+
+app.patch('/api/settings', async (req, res) => {
+  try {
+    const sid = sanitizeDashboardSid(req.dashboardSid);
+    if (!sid) {
+      return res.status(401).json({ ok: false, error: 'Niet ingelogd.', loginRequired: true });
+    }
+    const current =
+      req.workspaceSettings || (await loadWorkspaceSettings(sid));
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    let saved = current;
+    if (body.preferences && typeof body.preferences === 'object') {
+      saved = await saveWorkspaceSettings(
+        sid,
+        mergeWorkspaceSettings(
+          /** @type {Partial<import('./workspaceSettings.js').WorkspaceSettings>} */ (
+            body.preferences
+          ),
+          current
+        )
+      );
+      req.workspaceSettings = saved;
+    }
+    if (body.platformConfig && typeof body.platformConfig === 'object') {
+      await mergePlatformConfigPatch(
+        /** @type {Record<string, string>} */ (body.platformConfig)
+      );
+    }
+    const payload = await buildPlatformSettingsPayload(req, saved);
+    res.json({ ok: true, saved: true, ...payload });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    res.status(400).json({ ok: false, error: message });
+  }
+});
+
+app.post('/api/settings/disconnect/shopify', async (req, res) => {
+  try {
+    const sid = sanitizeDashboardSid(req.dashboardSid);
+    if (!sid) {
+      return res.status(401).json({ ok: false, error: 'Niet ingelogd.', loginRequired: true });
+    }
+    await deleteUserIntegrationDoc(sid, 'shopify');
+    req.userIntegrationShopify = null;
+    res.json({ ok: true, message: 'Shopify-koppeling voor jouw account verwijderd.' });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    res.status(500).json({ ok: false, error: message });
+  }
 });
 
 /**
@@ -759,15 +875,32 @@ app.get('/api/orders/:orderId/timeline', async (req, res) => {
   }
 });
 
+/** Overzicht desk-knowledge intents (playbooks) voor beheer/UI. */
+app.get('/api/desk/knowledge', (req, res) => {
+  try {
+    const envOn = isDeskKnowledgeEnabled();
+    const userOn = isDeskKnowledgeEnabledForSettings(req.workspaceSettings);
+    res.json({
+      ok: true,
+      enabled: envOn && userOn,
+      intents: listDeskKnowledgeIntents(),
+    });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    res.status(500).json({ error: message });
+  }
+});
+
 /**
  * Genereert een klantmail-concept op basis van geplakte inkomende tekst + Shopify-order (match op e-mail) + DPD.
  * Volgende stap in product: inkomende mail via Microsoft Graph / webhook → deze endpoint → SMTP verzenden (eventueel na goedkeuring).
  */
 app.post('/api/ai/reply-draft', async (req, res) => {
   try {
-    if (!isOpenAiConfigured()) {
+    if (!isOpenAiConfigured() || !isAiEnabledForSettings(req.workspaceSettings)) {
       return res.status(400).json({
-        error: 'Zet OPENAI_API_KEY in .env om AI-antwoorden te genereren.',
+        error:
+          'AI-antwoorden zijn niet beschikbaar. Zet OPENAI_API_KEY op het platform of schakel AI in onder Instellingen.',
       });
     }
     await ensureShopifyAccessForRequest(req);
@@ -796,7 +929,10 @@ app.post('/api/ai/reply-draft', async (req, res) => {
     const replyStyle =
       typeof body.replyStyle === 'string' && body.replyStyle.trim()
         ? body.replyStyle.trim()
-        : undefined;
+        : req.workspaceSettings?.defaultReplyStyle &&
+            req.workspaceSettings.defaultReplyStyle !== 'default'
+          ? req.workspaceSettings.defaultReplyStyle
+          : undefined;
     const extraInstructions =
       typeof body.extraInstructions === 'string' && body.extraInstructions.trim()
         ? body.extraInstructions.trim()
@@ -865,6 +1001,18 @@ app.post('/api/ai/reply-draft', async (req, res) => {
     const dpd = dpdCreds();
     const enriched = order ? await enrichOrderRowForAi(order, ordersCfg.shopDomain, dpd, ordersCfg) : null;
 
+    const orderRelevant = enriched
+      ? isCustomerMailOrderRelated(incomingText, incomingSubject)
+      : false;
+    const deskKnowledge = resolveDeskKnowledge({
+      incomingBody: incomingText,
+      incomingSubject,
+      hasOrderMatch: Boolean(enriched),
+      orderRelevantToQuestion: orderRelevant,
+      workspaceSettings: req.workspaceSettings,
+    });
+    const effectiveReplyStyle = replyStyle || deskKnowledge.replyStyle || undefined;
+
     if (!enriched) {
       const contextBlock = noOrderContextPromptBlock({
         shopName: shopInfo?.name ?? null,
@@ -877,38 +1025,126 @@ app.post('/api/ai/reply-draft', async (req, res) => {
         orderContextBlock: contextBlock,
         incomingSubject,
         incomingBody: incomingText,
-        replyStyle,
+        replyStyle: effectiveReplyStyle,
         extraInstructions,
         noOrderMatch: true,
+        deskKnowledgeBlock: deskKnowledge.promptBlock,
       });
       return res.json({
         ok: true,
         subject: draft.subject,
         body: draft.body,
         model: draft.model,
+        replyLanguage: draft.replyLanguage,
+        replyLanguageLabel: customerReplyLanguageLabel(draft.replyLanguage),
+        hasDpd: Boolean(draft.hasDpd),
+        dpdSummary: draft.dpdSummary || null,
         matchedOrderName: null,
         customerMatched: false,
         searchKeywords,
+        deskKnowledge: {
+          enabled: deskKnowledge.enabled,
+          intentIds: deskKnowledge.intentIds,
+          labels: deskKnowledge.labels,
+          replyStyle: deskKnowledge.replyStyle,
+        },
       });
     }
 
-    const contextBlock = orderContextPromptBlock(enriched, shopInfo?.name ?? null);
+    const contextBlock = orderContextBlockForCustomerMail(
+      enriched,
+      shopInfo?.name ?? null,
+      incomingText,
+      incomingSubject
+    );
     const draft = await generateCustomerReplyDraft({
       shopName: shopInfo?.name ?? null,
       orderContextBlock: contextBlock,
       incomingSubject,
       incomingBody: incomingText,
-      replyStyle,
+      replyStyle: effectiveReplyStyle,
       extraInstructions,
+      orderRelevantToQuestion: orderRelevant,
+      deskKnowledgeBlock: deskKnowledge.promptBlock,
     });
     res.json({
       ok: true,
       subject: draft.subject,
       body: draft.body,
       model: draft.model,
+      replyLanguage: draft.replyLanguage,
+      replyLanguageLabel: customerReplyLanguageLabel(draft.replyLanguage),
+      orderRelevantToQuestion: draft.orderRelevantToQuestion ?? orderRelevant,
+      hasDpd:
+        orderRelevant && hasUsableDpdData(enriched.dpdTrackings),
+      dpdSummary:
+        orderRelevant ? summarizeDpdTrackings(enriched.dpdTrackings) : null,
       matchedOrderName: enriched.shopifyOrderName,
       customerMatched: true,
       searchKeywords,
+      deskKnowledge: {
+        enabled: deskKnowledge.enabled,
+        intentIds: deskKnowledge.intentIds,
+        labels: deskKnowledge.labels,
+        replyStyle: deskKnowledge.replyStyle,
+      },
+    });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    res.status(500).json({ error: message });
+  }
+});
+
+/**
+ * Vertaal inkomende mailtekst naar Nederlands (voor medewerkers in leesvenster).
+ */
+app.post('/api/mail/translate-to-nl', async (req, res) => {
+  try {
+    if (!isOpenAiConfigured()) {
+      return res.status(400).json({ error: 'Vertalen vereist OpenAI op het platform.' });
+    }
+    const body = req.body || {};
+    const force = body.force === true;
+    if (!force && !isAiAutoTranslateForSettings(req.workspaceSettings)) {
+      return res.status(403).json({
+        error:
+          'Automatisch vertalen staat uit. Klik op Vertaal naar Nederlands of schakel dit in bij Instellingen.',
+        translationDisabled: true,
+        manualAllowed: true,
+      });
+    }
+    const subject =
+      typeof body.subject === 'string' && body.subject.trim() ? body.subject.trim() : undefined;
+    const html = typeof body.html === 'string' ? body.html : '';
+    const textIn = typeof body.text === 'string' ? body.text.trim() : '';
+    const plain = textIn || plainTextFromMailHtml(html);
+    if (!plain) {
+      return res.status(400).json({ error: 'Geen tekst om te vertalen.' });
+    }
+    const result = await translateIncomingMailToDutch({ text: plain, subject });
+    res.json({ ok: true, ...result });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    res.status(500).json({ error: message });
+  }
+});
+
+/** Snelle taaldetectie voor mail-leesvenster (geen vertaling). */
+app.post('/api/mail/detect-language', (req, res) => {
+  try {
+    const body = req.body || {};
+    const subject =
+      typeof body.subject === 'string' && body.subject.trim() ? body.subject.trim() : undefined;
+    const html = typeof body.html === 'string' ? body.html : '';
+    const textIn = typeof body.text === 'string' ? body.text.trim() : '';
+    const plain = textIn || plainTextFromMailHtml(html);
+    const detected = detectCustomerReplyLanguage(plain, subject);
+    res.json({
+      ok: true,
+      detectedLanguage: detected,
+      detectedLanguageLabel: customerReplyLanguageLabel(detected),
+      needsTranslation: detected !== 'nl' && plain.length >= 12,
+      autoTranslateEnabled: isAiAutoTranslateForSettings(req.workspaceSettings),
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
@@ -1006,7 +1242,11 @@ app.post('/api/mail/standard-reply', async (req, res) => {
         },
         vn,
         topicHint,
-        { shopName: shopInfo?.name ?? null }
+        {
+          shopName: shopInfo?.name ?? null,
+          incomingText,
+          incomingSubject: subject || undefined,
+        }
       );
       return res.json({
         ok: true,
@@ -1023,21 +1263,38 @@ app.post('/api/mail/standard-reply', async (req, res) => {
       return res.status(500).json({ error: 'Kon ordercontext niet opbouwen.' });
     }
 
+    const orderRelevant = isCustomerMailOrderRelated(incomingText, subject);
     const vn = voornaamFromDisplayName(enriched.customerDisplayName);
     let text = '';
     let model = null;
+    let replyLanguage = null;
     if (isOpenAiConfigured() && incomingText) {
       try {
-        const contextBlock = orderContextPromptBlock(enriched, shopInfo?.name ?? null);
+        const contextBlock = orderContextBlockForCustomerMail(
+          enriched,
+          shopInfo?.name ?? null,
+          incomingText,
+          subject || undefined
+        );
+        const deskKnowledge = resolveDeskKnowledge({
+          incomingBody: incomingText,
+          incomingSubject: subject || undefined,
+          hasOrderMatch: true,
+          orderRelevantToQuestion: orderRelevant,
+          workspaceSettings: req.workspaceSettings,
+        });
         const aiDraft = await generateCustomerReplyDraft({
           shopName: shopInfo?.name ?? null,
           orderContextBlock: contextBlock,
           incomingSubject: subject || undefined,
           incomingBody: incomingText,
-          replyStyle: 'vriendelijk',
+          replyStyle: deskKnowledge.replyStyle || 'vriendelijk',
+          orderRelevantToQuestion: orderRelevant,
+          deskKnowledgeBlock: deskKnowledge.promptBlock,
         });
         text = aiDraft.body;
         model = aiDraft.model;
+        replyLanguage = aiDraft.replyLanguage;
       } catch {
         text = '';
       }
@@ -1045,6 +1302,8 @@ app.post('/api/mail/standard-reply', async (req, res) => {
     if (!text) {
       text = buildStandardMailReplyText(enriched, vn, topicHint, {
         shopName: shopInfo?.name ?? null,
+        incomingText,
+        incomingSubject: subject || undefined,
       });
     }
 
@@ -1052,16 +1311,11 @@ app.post('/api/mail/standard-reply', async (req, res) => {
       ok: true,
       subject: replySubject,
       body: text,
+      replyLanguage: replyLanguage || undefined,
+      replyLanguageLabel: replyLanguage ? customerReplyLanguageLabel(replyLanguage) : undefined,
       matchedOrderName: enriched.shopifyOrderName,
-      hasDpd: Boolean((enriched.dpdTrackings || []).filter((d) => !d.error).length),
-      dpdSummary: (() => {
-        const first = (enriched.dpdTrackings || []).find((d) => d && !d.error && (d.label || d.rawStatus));
-        if (!first) return null;
-        const parts = [first.label || first.rawStatus];
-        if (first.date) parts.push(first.date);
-        if (first.location) parts.push(first.location);
-        return parts.filter(Boolean).join(' · ');
-      })(),
+      hasDpd: hasUsableDpdData(enriched.dpdTrackings),
+      dpdSummary: summarizeDpdTrackings(enriched.dpdTrackings),
       model,
     });
   } catch (e) {
@@ -1139,8 +1393,25 @@ app.get('/api/mail/order-context', async (req, res) => {
                 error: true,
                 errorMessage: typeof d.error === 'string' ? d.error : String(d.error ?? ''),
               }
-            : { number: d.number, label: d.label, date: d.date, location: d.location }
+            : {
+                number: d.number,
+                label: d.label,
+                rawStatus: d.rawStatus,
+                date: d.date,
+                location: d.location,
+                description: d.description,
+                timeline: Array.isArray(d.timeline)
+                  ? d.timeline.slice(-6).map((step) => ({
+                      label: step.label,
+                      status: step.status,
+                      date: step.date,
+                      location: step.location,
+                    }))
+                  : [],
+              }
         ),
+        hasDpd: hasUsableDpdData(enriched.dpdTrackings),
+        dpdSummary: summarizeDpdTrackings(enriched.dpdTrackings),
         trackings: (enriched.trackings || []).map((t) => ({
           company: t.company,
           number: t.number,
@@ -1159,9 +1430,9 @@ app.get('/api/mail/order-context', async (req, res) => {
  */
 app.post('/api/ai/desk-insight', async (req, res) => {
   try {
-    if (!isOpenAiConfigured()) {
+    if (!isOpenAiConfigured() || !isAiEnabledForSettings(req.workspaceSettings)) {
       return res.status(400).json({
-        error: 'Zet OPENAI_API_KEY in .env voor AI-inzicht.',
+        error: 'AI-inzicht is niet beschikbaar (platform-key of uitgeschakeld in Instellingen).',
       });
     }
     const body = req.body || {};
@@ -1191,21 +1462,62 @@ app.post('/api/ai/desk-insight', async (req, res) => {
   }
 });
 
-/** Inbox van gekoppeld Gmail-account (vereist OAuth-scope gmail.readonly). */
-app.get('/api/mail/inbox', async (req, res) => {
+/** Mappen (Microsoft Graph). */
+app.get('/api/mail/folders', async (req, res) => {
   try {
-    if (!isGmailApiConfigured(req)) {
-      const { hints } = gmailConnectionHints(req);
-      return res.status(503).json({
+    if (!useGraphForInbound(req)) {
+      return res.status(501).json({
         ok: false,
-        error: 'Gmail niet gekoppeld.',
-        gmailConfigured: false,
-        hints,
+        error: 'Mappenlijst is alleen beschikbaar met Microsoft Graph.',
       });
     }
-    const maxQ = req.query.maxResults != null ? Number(req.query.maxResults) : 40;
-    const maxResults = Number.isFinite(maxQ) ? maxQ : 40;
+    const result = await fetchGraphFoldersForUi();
+    res.json({ ok: true, source: 'graph', ...result });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    res.status(500).json({ ok: false, error: msg.slice(0, 400) });
+  }
+});
+
+/** Inbox — Microsoft Graph (app-only) of gekoppeld Gmail-account. */
+app.get('/api/mail/inbox', async (req, res) => {
+  try {
+    const defaultPage = Math.min(
+      250,
+      Math.max(1, Number(process.env.MAIL_INBOX_PAGE_SIZE || '') || 100)
+    );
+    const maxQ = req.query.maxResults != null ? Number(req.query.maxResults) : defaultPage;
+    const maxResults = Number.isFinite(maxQ) ? maxQ : defaultPage;
     const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+    const pageToken =
+      typeof req.query.pageToken === 'string' ? req.query.pageToken.trim() : '';
+    const folderId =
+      typeof req.query.folderId === 'string' ? req.query.folderId.trim() : '';
+    const folder =
+      typeof req.query.folder === 'string' ? req.query.folder.trim() : 'inbox';
+
+    if (useGraphForInbound(req)) {
+      const result = await fetchGraphInboxForUi({
+        maxResults,
+        q,
+        pageToken,
+        folderId,
+        folder,
+      });
+      return res.json({ ok: true, source: 'graph', ...result });
+    }
+
+    if (!isGmailApiConfigured(req)) {
+      const { hints } = gmailConnectionHints(req);
+      const graph = graphConnectionHints();
+      return res.status(503).json({
+        ok: false,
+        error: 'Mail-inbox niet gekoppeld (Gmail of Microsoft Graph).',
+        gmailConfigured: false,
+        graphConfigured: graph.configured,
+        hints: [...hints, ...graph.hints],
+      });
+    }
     const result = await fetchInboxForUi({ req, maxResults, q });
     res.json({ ok: true, source: 'gmail', ...result });
   } catch (e) {
@@ -1234,13 +1546,65 @@ app.get('/api/mail/inbox', async (req, res) => {
         needsGmailReadonly: true,
       });
     }
-    if (httpStatus === 429 || /\b(429|rate|quota|UserRateLimit)\b/i.test(msg)) {
+    const graphInbound = useGraphForInbound(req);
+    if (httpStatus === 429 || /\b(429|rate|quota|UserRateLimit|throttl)\b/i.test(msg)) {
       return res.status(429).json({
         ok: false,
-        error: 'Gmail API-limiet bereikt. Wacht even en probeer opnieuw.',
+        error: graphInbound
+          ? 'Microsoft Graph-limiet bereikt. Wacht even en probeer opnieuw.'
+          : 'Gmail API-limiet bereikt. Wacht even en probeer opnieuw.',
         rateLimited: true,
+        mailProvider: graphInbound ? 'graph' : 'gmail',
       });
     }
+    res.status(500).json({ ok: false, error: msg.slice(0, 400) });
+  }
+});
+
+/** Volledig bericht (Graph: lazy load na lijst met preview). */
+app.get('/api/mail/messages/:id', async (req, res) => {
+  try {
+    const id = String(req.params.id || '').trim();
+    if (!id) return res.status(400).json({ ok: false, error: 'id ontbreekt.' });
+    if (!useGraphForInbound(req)) {
+      return res.status(501).json({
+        ok: false,
+        error: 'Volledig bericht apart laden is alleen voor Microsoft Graph-inbox.',
+      });
+    }
+    const message = await fetchGraphMessageForUi(id);
+    try {
+      if (!message.isRead) {
+        await patchGraphMessageRead(id, true);
+        message.isRead = true;
+      }
+    } catch {
+      /* niet fataal */
+    }
+    res.json({ ok: true, source: 'graph', message });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    const st = e && typeof e === 'object' && 'status' in e ? Number(e.status) : 500;
+    res.status(st >= 400 && st < 600 ? st : 500).json({ ok: false, error: msg.slice(0, 400) });
+  }
+});
+
+app.get('/api/mail/messages/:id/attachments/:attId', async (req, res) => {
+  try {
+    if (!useGraphForInbound(req)) {
+      return res.status(501).json({ ok: false, error: 'Alleen met Microsoft Graph.' });
+    }
+    const messageId = String(req.params.id || '').trim();
+    const attId = String(req.params.attId || '').trim();
+    if (!messageId || !attId) {
+      return res.status(400).json({ ok: false, error: 'messageId of attId ontbreekt.' });
+    }
+    const { name, contentType, buffer } = await fetchGraphAttachmentBytes(messageId, attId);
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${name.replace(/"/g, '')}"`);
+    res.send(buffer);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
     res.status(500).json({ ok: false, error: msg.slice(0, 400) });
   }
 });

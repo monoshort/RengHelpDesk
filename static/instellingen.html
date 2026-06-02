@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Platforminstellingen · Helpdesk</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/helpdesk-nav.css" />
+  <style>
+    :root {
+      --bg: #faf9f7;
+      --surface: #fff;
+      --border: #e0e3db;
+      --text: #444;
+      --heading: #212529;
+      --muted: #6c7568;
+      --accent: #558235;
+      --accent-hover: #43672a;
+      --accent-soft: rgba(85, 130, 53, 0.12);
+      --ok: #2f6b22;
+      --warn: #9a7200;
+      --err: #b42318;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Quicksand", system-ui, sans-serif;
+      background:
+        radial-gradient(900px 420px at 0% 0%, rgba(85, 130, 53, 0.07), transparent 55%),
+        var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+    }
+    header {
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      position: sticky;
+      top: 2.55rem;
+      z-index: 10;
+    }
+    .header-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0.85rem 1.25rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+    .brand h1 {
+      margin: 0;
+      font-size: 1.15rem;
+      color: var(--heading);
+    }
+    .brand p {
+      margin: 0.15rem 0 0;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 3rem;
+    }
+    .banner {
+      border-radius: 12px;
+      padding: 0.85rem 1rem;
+      margin-bottom: 1.25rem;
+      font-size: 0.88rem;
+      border: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .banner.warn {
+      border-color: #e8d48a;
+      background: #fffbeb;
+      color: #6b5600;
+    }
+    .banner.ok {
+      border-color: #b8d4a8;
+      background: #f4faf0;
+      color: var(--ok);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1rem 1.1rem;
+      box-shadow: 0 2px 12px rgba(33, 37, 41, 0.04);
+    }
+    .card h2 {
+      margin: 0 0 0.35rem;
+      font-size: 0.95rem;
+      color: var(--heading);
+    }
+    .card .sub {
+      margin: 0 0 0.75rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .badge {
+      display: inline-block;
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 0.2rem 0.5rem;
+      border-radius: 6px;
+      margin-bottom: 0.5rem;
+    }
+    .badge.connected { background: #e6f4e1; color: var(--ok); }
+    .badge.partial { background: #fff4d6; color: var(--warn); }
+    .badge.disconnected { background: #fde8e6; color: var(--err); }
+    .badge.admin { background: #eef0f8; color: #4a5568; }
+    .card p.detail {
+      margin: 0 0 0.75rem;
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+    .card-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+    .btn {
+      font: inherit;
+      font-weight: 600;
+      font-size: 0.8rem;
+      padding: 0.4rem 0.75rem;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      background: var(--accent);
+      color: #fff;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .btn:hover { background: var(--accent-hover); }
+    .btn.secondary {
+      background: #fff;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+    }
+    .btn.secondary:hover { background: var(--accent-soft); }
+    .btn.danger {
+      background: #fff;
+      color: var(--err);
+      border: 1px solid #f0c4c0;
+    }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.1rem 1.25rem;
+      margin-bottom: 1rem;
+    }
+    .panel h2 {
+      margin: 0 0 0.25rem;
+      font-size: 1.05rem;
+      color: var(--heading);
+    }
+    .panel .lead {
+      margin: 0 0 1rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    .field {
+      margin-bottom: 1rem;
+    }
+    .field label {
+      display: block;
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: var(--heading);
+      margin-bottom: 0.35rem;
+    }
+    .field .hint {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 0.25rem;
+    }
+    select {
+      width: 100%;
+      max-width: 22rem;
+      font: inherit;
+      padding: 0.45rem 0.55rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #f8f9f5;
+    }
+    .toggles {
+      display: grid;
+      gap: 0.65rem;
+    }
+    .toggle-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.65rem;
+      font-size: 0.88rem;
+    }
+    .toggle-row input { margin-top: 0.2rem; accent-color: var(--accent); }
+    .toggle-row strong { color: var(--heading); display: block; }
+    .toggle-row span { font-size: 0.8rem; color: var(--muted); }
+    .save-row {
+      margin-top: 1.25rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    #saveStatus {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    #saveStatus.ok { color: var(--ok); }
+    #saveStatus.err { color: var(--err); }
+    .routing-pill {
+      display: inline-block;
+      font-size: 0.78rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 6px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 600;
+      margin-right: 0.35rem;
+    }
+    #loadErr {
+      color: var(--err);
+      font-weight: 600;
+    }
+    .config-group {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 0.85rem;
+      overflow: hidden;
+    }
+    .config-group summary {
+      cursor: pointer;
+      padding: 0.65rem 0.85rem;
+      font-weight: 700;
+      font-size: 0.9rem;
+      color: var(--heading);
+      background: #f8f9f5;
+      list-style: none;
+    }
+    .config-group summary::-webkit-details-marker { display: none; }
+    .config-group summary::after {
+      content: '▸';
+      float: right;
+      color: var(--muted);
+      font-weight: 400;
+    }
+    .config-group[open] summary::after { content: '▾'; }
+    .config-group .group-body {
+      padding: 0.75rem 0.85rem 0.85rem;
+      border-top: 1px solid var(--border);
+    }
+    .config-group .group-hint {
+      margin: 0 0 0.75rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      max-width: 32rem;
+      font: inherit;
+      padding: 0.45rem 0.55rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #f8f9f5;
+    }
+    .field-meta {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-top: 0.2rem;
+    }
+    .field-meta.ok { color: var(--ok); }
+    .storage-note {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <nav class="helpdesk-main-nav" aria-label="Hoofdmenu">
+    <span class="helpdesk-main-nav__brand">Toddie helpdesk</span>
+    <a href="/mail.html">Mail</a>
+    <a href="/orders.html">Orders</a>
+    <a href="/instellingen.html" class="is-active">Instellingen</a>
+  </nav>
+  <header>
+    <div class="header-inner">
+      <div class="brand">
+        <h1>Platforminstellingen</h1>
+        <p>Koppel mail &amp; shop · stel AI en werkwijze in</p>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <p id="loadErr" hidden></p>
+    <div id="platformBanner" class="banner warn" hidden></div>
+
+    <section aria-labelledby="integrationsHeading">
+      <h2 id="integrationsHeading" style="font-size:1.1rem;color:var(--heading);margin:0 0 0.75rem">
+        Koppelingen
+      </h2>
+      <div class="grid" id="integrationGrid"></div>
+    </section>
+
+    <form id="platformConfigForm" class="panel" hidden>
+      <h2>Platformconfiguratie</h2>
+      <p class="lead">
+        API-sleutels en integraties voor het hele platform. Geheimen worden gemaskeerd getoond;
+        laat een wachtwoordveld leeg om de bestaande waarde te behouden.
+      </p>
+      <p class="storage-note" id="configStorageNote"></p>
+      <div id="platformConfigFields"></div>
+      <div class="save-row">
+        <button type="submit" class="btn" id="btnSavePlatform">Platform opslaan</button>
+        <span id="platformSaveStatus" aria-live="polite"></span>
+      </div>
+    </form>
+
+    <form id="prefsForm" class="panel" hidden>
+      <h2>Mail &amp; kanalen</h2>
+      <p class="lead">
+        Kies welk kanaal voor inbox en verzenden wordt gebruikt wanneer meerdere opties beschikbaar zijn.
+        <span class="routing-pill" id="activeInboundPill"></span>
+        <span class="routing-pill" id="activeOutboundPill"></span>
+      </p>
+
+      <div class="field">
+        <label for="mailInbound">Inkomende mail (inbox)</label>
+        <select id="mailInbound" name="mailInbound">
+          <option value="auto">Automatisch (aanbevolen)</option>
+          <option value="graph">Microsoft 365 (Graph)</option>
+          <option value="gmail">Gmail</option>
+        </select>
+        <p class="hint">Automatisch: Graph als het platform dat heeft geactiveerd, anders Gmail.</p>
+      </div>
+      <div class="field">
+        <label for="mailOutbound">Uitgaande mail (antwoorden)</label>
+        <select id="mailOutbound" name="mailOutbound">
+          <option value="auto">Automatisch</option>
+          <option value="graph">Microsoft 365 (Graph)</option>
+          <option value="gmail">Gmail</option>
+          <option value="smtp">SMTP</option>
+        </select>
+      </div>
+
+      <h2 style="margin-top:1.25rem">AI &amp; automatisering</h2>
+      <p class="lead">Schakel functies per account in of uit. OpenAI-sleutel staat hierboven onder Platformconfiguratie.</p>
+      <div class="toggles">
+        <label class="toggle-row">
+          <input type="checkbox" id="aiEnabled" name="aiEnabled" />
+          <span>
+            <strong>AI-antwoorden</strong>
+            <span>Genereer conceptmails met ordercontext, DPD en kennisbank.</span>
+          </span>
+        </label>
+        <label class="toggle-row">
+          <input type="checkbox" id="aiAutoTranslate" name="aiAutoTranslate" />
+          <span>
+            <strong>Automatisch vertalen naar Nederlands</strong>
+            <span>Bij vreemde talen in het leesvenster direct een NL-versie tonen.</span>
+          </span>
+        </label>
+        <label class="toggle-row">
+          <input type="checkbox" id="deskKnowledgeEnabled" name="deskKnowledgeEnabled" />
+          <span>
+            <strong>Kennisbank (playbooks)</strong>
+            <span>Standaard werkwijzen uit desk-knowledge/ meenemen in AI-prompts.</span>
+          </span>
+        </label>
+      </div>
+
+      <div class="field" style="margin-top:1rem">
+        <label for="defaultReplyStyle">Standaard antwoordstijl (AI)</label>
+        <select id="defaultReplyStyle" name="defaultReplyStyle">
+          <option value="default">Standaard</option>
+          <option value="vriendelijk">Vriendelijk</option>
+          <option value="kort">Kort</option>
+          <option value="formeel">Formeel</option>
+          <option value="track_focus">Focus verzending</option>
+          <option value="stappen">Met stappen</option>
+          <option value="uitsluitend_feiten">Alleen feiten</option>
+        </select>
+      </div>
+
+      <div class="save-row">
+        <button type="submit" class="btn" id="btnSave">Voorkeuren opslaan</button>
+        <span id="saveStatus" aria-live="polite"></span>
+      </div>
+    </form>
+  </main>
+
+  <script>
+    const integrationGrid = document.getElementById('integrationGrid');
+    const platformConfigForm = document.getElementById('platformConfigForm');
+    const platformConfigFields = document.getElementById('platformConfigFields');
+    const configStorageNote = document.getElementById('configStorageNote');
+    const platformSaveStatus = document.getElementById('platformSaveStatus');
+    const prefsForm = document.getElementById('prefsForm');
+    const loadErr = document.getElementById('loadErr');
+    const platformBanner = document.getElementById('platformBanner');
+    const saveStatus = document.getElementById('saveStatus');
+    const activeInboundPill = document.getElementById('activeInboundPill');
+    const activeOutboundPill = document.getElementById('activeOutboundPill');
+
+    /** @type {Record<string, unknown> | null} */
+    let lastPayload = null;
+
+    function redirectLogin() {
+      location.href =
+        '/login.html?next=' + encodeURIComponent('/instellingen.html');
+    }
+
+  /**
+   * @param {Response} res
+   * @param {unknown} data
+   */
+    function loginRequired(res, data) {
+      return (
+        res.status === 401 &&
+        data &&
+        typeof data === 'object' &&
+        /** @type {{ loginRequired?: boolean }} */ (data).loginRequired === true
+      );
+    }
+
+    const BADGE_CLASS = {
+      connected: 'connected',
+      partial: 'partial',
+      disconnected: 'disconnected',
+      admin: 'admin',
+    };
+
+    const BADGE_LABEL = {
+      connected: 'Gekoppeld',
+      partial: 'Deels',
+      disconnected: 'Niet gekoppeld',
+      admin: 'Via beheerder',
+    };
+
+    /**
+     * @param {string} id
+     * @param {{ label: string; status: string; detail: string; selfService?: boolean; connectUrl?: string; disconnectApi?: string }} item
+     */
+    function renderIntegrationCard(id, item) {
+      const st = BADGE_CLASS[item.status] || 'disconnected';
+      const actions = [];
+      if (item.connectUrl && item.selfService !== false) {
+        actions.push(
+          `<a class="btn secondary" href="${item.connectUrl}">Koppelen</a>`
+        );
+      }
+      if (item.disconnectApi && item.status === 'connected' && id !== 'mailGraph') {
+        actions.push(
+          `<button type="button" class="btn danger" data-disconnect="${item.disconnectApi}">Ontkoppelen</button>`
+        );
+      }
+      return `<article class="card" data-integration="${id}">
+        <span class="badge ${st}">${BADGE_LABEL[item.status] || item.status}</span>
+        <h2>${item.label}</h2>
+        <p class="detail">${item.detail}</p>
+        <div class="card-actions">${actions.join('') || '<span class="hint" style="font-size:0.8rem;color:var(--muted)">Geen actie nodig</span>'}</div>
+      </article>`;
+    }
+
+    /**
+     * @param {{ groups?: { id: string; label: string; hint?: string; fields: { key: string; label: string; type: string; placeholder?: string }[] }[]; fields?: Record<string, { masked?: string; fromEnv?: boolean; fromStore?: boolean; isSecret?: boolean; value?: string }>; storage?: { source?: string; updatedAt?: string | null; hasDatabase?: boolean } }} pc
+     */
+    function renderPlatformConfig(pc) {
+      if (!pc?.groups?.length) {
+        platformConfigForm.hidden = true;
+        return;
+      }
+      const fields = pc.fields || {};
+      const storage = pc.storage || {};
+      let storageText = 'Opslag: ';
+      if (storage.source === 'postgres') storageText += 'database (PostgreSQL)';
+      else if (storage.source === 'file') storageText += 'lokaal bestand (data/platform-config.json)';
+      else storageText += 'alleen .env / Vercel-omgeving';
+      if (storage.updatedAt) {
+        storageText += ' · laatst opgeslagen ' + new Date(storage.updatedAt).toLocaleString('nl-NL');
+      }
+      if (!storage.hasDatabase && storage.source !== 'postgres') {
+        storageText +=
+          ' · tip: zet DATABASE_URL voor betrouwbare opslag op Vercel.';
+      }
+      configStorageNote.textContent = storageText;
+
+      platformConfigFields.innerHTML = pc.groups
+        .map((group) => {
+          const hint = group.hint
+            ? `<p class="group-hint">${group.hint}</p>`
+            : '';
+          const inputs = (group.fields || [])
+            .map((f) => {
+              const meta = fields[f.key] || {};
+              const isSecret = f.type === 'secret' || meta.isSecret;
+              const inputType = isSecret ? 'password' : 'text';
+              const display =
+                isSecret && meta.masked
+                  ? meta.masked
+                  : !isSecret && (meta.value || meta.masked)
+                    ? String(meta.value || meta.masked)
+                    : '';
+              const sourceBits = [];
+              if (meta.fromStore) sourceBits.push('opgeslagen in platform');
+              else if (meta.fromEnv) sourceBits.push('uit .env');
+              const metaClass =
+                meta.fromStore || meta.fromEnv ? 'field-meta ok' : 'field-meta';
+              const placeholder = isSecret
+                ? display
+                  ? 'Laat leeg om te behouden (' + display + ')'
+                  : f.placeholder || 'Nog niet ingesteld'
+                : f.placeholder || '';
+              const value = isSecret ? '' : display;
+              return `<div class="field" data-config-key="${f.key}">
+                <label for="cfg_${f.key}">${f.label}</label>
+                <input type="${inputType}" id="cfg_${f.key}" name="${f.key}" autocomplete="off"
+                  placeholder="${placeholder.replace(/"/g, '&quot;')}" value="${String(value).replace(/"/g, '&quot;')}" />
+                <p class="${metaClass}">${sourceBits.join(' · ') || 'Nog niet geconfigureerd'}</p>
+              </div>`;
+            })
+            .join('');
+          return `<details class="config-group" open>
+            <summary>${group.label}</summary>
+            <div class="group-body">${hint}${inputs}</div>
+          </details>`;
+        })
+        .join('');
+      platformConfigForm.hidden = false;
+    }
+
+    /**
+     * @param {Record<string, unknown>} data
+     */
+    function applyPayload(data) {
+      lastPayload = data;
+      const integrations = /** @type {Record<string, Record<string, unknown>>} */ (
+        data.integrations || {}
+      );
+      const order = [
+        'mailGraph',
+        'mailGmail',
+        'mailSmtp',
+        'shopify',
+        'openAi',
+        'dpd',
+        'deskKnowledge',
+      ];
+      renderPlatformConfig(
+        /** @type {{ groups?: unknown[] }} */ (data.platformConfig || {})
+      );
+
+      integrationGrid.innerHTML = order
+        .filter((k) => integrations[k])
+        .map((k) =>
+          renderIntegrationCard(
+            k,
+            /** @type {{ label: string; status: string; detail: string }} */ (
+              integrations[k]
+            )
+          )
+        )
+        .join('');
+
+      const platform = /** @type {{ persistenceWarning?: string | null }} */ (
+        data.platform || {}
+      );
+      if (platform.persistenceWarning) {
+        platformBanner.hidden = false;
+        platformBanner.className = 'banner warn';
+        platformBanner.textContent = platform.persistenceWarning;
+      } else {
+        platformBanner.hidden = true;
+      }
+
+      const prefs = /** @type {Record<string, unknown>} */ (data.preferences || {});
+      const routing = /** @type {{ activeInbound?: string; activeOutbound?: string }} */ (
+        data.routing || {}
+      );
+      document.getElementById('mailInbound').value =
+        String(prefs.mailInbound || 'auto');
+      document.getElementById('mailOutbound').value =
+        String(prefs.mailOutbound || 'auto');
+      document.getElementById('aiEnabled').checked = prefs.aiEnabled !== false;
+      document.getElementById('aiAutoTranslate').checked =
+        prefs.aiAutoTranslate !== false;
+      document.getElementById('deskKnowledgeEnabled').checked =
+        prefs.deskKnowledgeEnabled !== false;
+      document.getElementById('defaultReplyStyle').value =
+        String(prefs.defaultReplyStyle || 'default');
+
+      activeInboundPill.textContent =
+        'Inbox nu: ' + (routing.activeInbound === 'graph' ? 'Microsoft 365' : 'Gmail');
+      activeOutboundPill.textContent =
+        'Verzenden nu: ' +
+        (routing.activeOutbound === 'graph'
+          ? 'Graph'
+          : routing.activeOutbound === 'gmail'
+            ? 'Gmail'
+            : 'SMTP');
+
+      prefsForm.hidden = false;
+    }
+
+    async function loadSettings() {
+      loadErr.hidden = true;
+      try {
+        const res = await fetch('/api/settings', { credentials: 'same-origin' });
+        const data = await res.json().catch(() => ({}));
+        if (loginRequired(res, data)) {
+          redirectLogin();
+          return;
+        }
+        if (!res.ok) throw new Error(data.error || res.statusText);
+        applyPayload(data);
+      } catch (e) {
+        loadErr.hidden = false;
+        loadErr.textContent =
+          e instanceof Error ? e.message : 'Instellingen laden mislukt.';
+      }
+    }
+
+    platformConfigForm.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      platformSaveStatus.textContent = 'Opslaan…';
+      platformSaveStatus.className = '';
+      /** @type {Record<string, string>} */
+      const platformConfig = {};
+      platformConfigFields.querySelectorAll('[data-config-key]').forEach((wrap) => {
+        const key = wrap.getAttribute('data-config-key');
+        const input = wrap.querySelector('input');
+        if (!key || !input) return;
+        platformConfig[key] = input.value;
+      });
+      try {
+        const res = await fetch('/api/settings', {
+          method: 'PATCH',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ platformConfig }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (loginRequired(res, data)) {
+          redirectLogin();
+          return;
+        }
+        if (!res.ok) throw new Error(data.error || res.statusText);
+        applyPayload(data);
+        platformSaveStatus.textContent = 'Platformconfiguratie opgeslagen.';
+        platformSaveStatus.className = 'ok';
+      } catch (e) {
+        platformSaveStatus.textContent =
+          e instanceof Error ? e.message : 'Opslaan mislukt.';
+        platformSaveStatus.className = 'err';
+      }
+    });
+
+    prefsForm.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      saveStatus.textContent = 'Opslaan…';
+      saveStatus.className = '';
+      const preferences = {
+        mailInbound: document.getElementById('mailInbound').value,
+        mailOutbound: document.getElementById('mailOutbound').value,
+        aiEnabled: document.getElementById('aiEnabled').checked,
+        aiAutoTranslate: document.getElementById('aiAutoTranslate').checked,
+        deskKnowledgeEnabled: document.getElementById('deskKnowledgeEnabled').checked,
+        defaultReplyStyle: document.getElementById('defaultReplyStyle').value,
+      };
+      try {
+        const res = await fetch('/api/settings', {
+          method: 'PATCH',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ preferences }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (loginRequired(res, data)) {
+          redirectLogin();
+          return;
+        }
+        if (!res.ok) throw new Error(data.error || res.statusText);
+        applyPayload(data);
+        saveStatus.textContent = 'Opgeslagen.';
+        saveStatus.className = 'ok';
+      } catch (e) {
+        saveStatus.textContent =
+          e instanceof Error ? e.message : 'Opslaan mislukt.';
+        saveStatus.className = 'err';
+      }
+    });
+
+    integrationGrid.addEventListener('click', async (ev) => {
+      const btn = ev.target.closest('[data-disconnect]');
+      if (!btn) return;
+      const url = btn.getAttribute('data-disconnect');
+      if (!url || !confirm('Weet je zeker dat je deze koppeling wilt verwijderen?')) return;
+      btn.disabled = true;
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          credentials: 'same-origin',
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || res.statusText);
+        await loadSettings();
+      } catch (e) {
+        alert(e instanceof Error ? e.message : String(e));
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    void loadSettings();
+  </script>
+</body>
+</html>

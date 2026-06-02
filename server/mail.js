@@ -8,6 +8,13 @@ import {
   clearGmailRuntimeAccessCache,
   resolveGmailOAuthRedirectUriForApi,
 } from './gmailSession.js';
+import {
+  isGraphMailConfigured,
+  sendGraphMail,
+  getGraphMailbox,
+} from './graphMail.js';
+import { useGraphForOutbound } from './mailRouting.js';
+import { getPlatformConfigValue } from './platformConfigStore.js';
 
 /** Standaard zichtbare afzender als `GOOGLE_GMAIL_FROM` / `SMTP_FROM` / OAuth leeg zijn. Overschrijf met env. */
 export const DEFAULT_OUTBOUND_FROM = (
@@ -59,11 +66,11 @@ async function persistRefreshedGmailTokens(oauth2, base, req) {
 }
 
 function resolvedSmtpFrom() {
-  return process.env.SMTP_FROM?.trim() || DEFAULT_OUTBOUND_FROM;
+  return getPlatformConfigValue('SMTP_FROM') || DEFAULT_OUTBOUND_FROM;
 }
 
 export function isSmtpConfigured() {
-  const host = process.env.SMTP_HOST?.trim();
+  const host = getPlatformConfigValue('SMTP_HOST');
   return Boolean(host && resolvedSmtpFrom());
 }
 
@@ -81,7 +88,7 @@ export function isGmailApiConfigured(req) {
  * @param {import('express').Request | undefined} [req]
  */
 export function isMailOutboundConfigured(req) {
-  return isSmtpConfigured() || isGmailApiConfigured(req);
+  return isSmtpConfigured() || isGmailApiConfigured(req) || isGraphMailConfigured();
 }
 
 /**
@@ -89,7 +96,7 @@ export function isMailOutboundConfigured(req) {
  * staan — ook als Gmail OAuth gekoppeld is (inbox blijft Gmail API). Nodig o.a. voor info@domein via je host.
  */
 export function isSmtpSendFirst() {
-  const v = String(process.env.SMTP_SEND_FIRST || '').trim().toLowerCase();
+  const v = String(getPlatformConfigValue('SMTP_SEND_FIRST') || '').trim().toLowerCase();
   return v === '1' || v === 'true' || v === 'yes';
 }
 
@@ -99,9 +106,10 @@ export function isSmtpSendFirst() {
  */
 export function getMailSendChannelLabel(req) {
   if (isSmtpSendFirst() && isSmtpConfigured()) return 'smtp';
+  if (useGraphForOutbound(req)) return 'graph';
   if (isGmailApiConfigured(req)) return 'gmail';
   if (isSmtpConfigured()) return 'smtp';
-  return 'smtp';
+  return 'graph';
 }
 
 /** @param {string} s */
@@ -139,10 +147,13 @@ export function getDefaultOutboundFrom(tokens, req) {
   if (isSmtpSendFirst() && isSmtpConfigured()) {
     return resolvedSmtpFrom();
   }
+  if (useGraphForOutbound(req)) {
+    return getGraphMailbox();
+  }
   if (isGmailApiConfigured(req)) {
     const t = tokens ?? readGmailTokens(req);
     return (
-      process.env.GOOGLE_GMAIL_FROM?.trim() ||
+      getPlatformConfigValue('GOOGLE_GMAIL_FROM') ||
       t?.sender_email?.trim() ||
       DEFAULT_OUTBOUND_FROM
     );
@@ -208,11 +219,11 @@ export function getMailSendFromOptions(req) {
 }
 
 function createTransport() {
-  const host = process.env.SMTP_HOST?.trim();
-  const port = Number(process.env.SMTP_PORT || 587);
+  const host = getPlatformConfigValue('SMTP_HOST');
+  const port = Number(getPlatformConfigValue('SMTP_PORT') || 587);
   const secure = String(process.env.SMTP_SECURE || '').toLowerCase() === 'true';
-  const user = process.env.SMTP_USER?.trim();
-  const pass = process.env.SMTP_PASS?.trim();
+  const user = getPlatformConfigValue('SMTP_USER');
+  const pass = getPlatformConfigValue('SMTP_PASS');
   return nodemailer.createTransport({
     host,
     port,
@@ -446,7 +457,7 @@ export async function sendGmailApiMail(opts) {
   const req = opts.req;
   await withGmailRetry(req, async ({ gmail, tokens }) => {
     const defaultFrom =
-      process.env.GOOGLE_GMAIL_FROM?.trim() ||
+      getPlatformConfigValue('GOOGLE_GMAIL_FROM') ||
       tokens.sender_email?.trim() ||
       DEFAULT_OUTBOUND_FROM;
 
@@ -486,7 +497,7 @@ export async function sendSmtpMail(opts) {
   const from = resolveOutboundFrom(opts.from, defaultFrom);
   const transporter = createTransport();
 
-  const authUser = process.env.SMTP_USER?.trim() || '';
+  const authUser = getPlatformConfigValue('SMTP_USER') || '';
   /** SMTP-sessie (MAIL FROM): vaak het login-adres; zichtbare From-header blijft `from` (bijv. info@toddie.nl). */
   const envelopeFromExplicit = process.env.SMTP_ENVELOPE_FROM?.trim();
   const envelopeFrom =
@@ -518,6 +529,10 @@ export async function sendOutboundMail(opts) {
   const req = opts.req;
   if (isSmtpSendFirst() && isSmtpConfigured()) {
     await sendSmtpMail(opts);
+    return;
+  }
+  if (useGraphForOutbound(req)) {
+    await sendGraphMail(opts);
     return;
   }
   if (isGmailApiConfigured(req)) {

@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { getDashboardSessionId } from './dashboardAuth.js';
 import { loadUserIntegrationDoc, saveUserIntegrationDoc, sanitizeDashboardSid } from './userIntegrationsStore.js';
+import { getPlatformConfigValue } from './platformConfigStore.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -66,7 +67,7 @@ export function resolveGmailOAuthRedirectUriForApi(req, tokens) {
   const fromToken =
     typeof tokens?.oauth_redirect_uri === 'string' ? tokens.oauth_redirect_uri.trim() : '';
   if (fromToken) return fromToken;
-  const envUri = process.env.GOOGLE_REDIRECT_URI?.trim();
+  const envUri = getPlatformConfigValue('GOOGLE_REDIRECT_URI');
   if (envUri) return envUri;
   if (String(process.env.VERCEL || '').trim() === '1') {
     const vu = process.env.VERCEL_URL?.trim();
@@ -135,7 +136,7 @@ export function readGmailTokens(req) {
   const forceEnv = envFlagTrue('GOOGLE_GMAIL_FORCE_ENV');
   /** Lokaal: negeer env-refresh voor lezen/opslag zodat gmail-koppel + bestand/DB wint boven een dode Vercel-copy in .env */
   const useStoredOnly = envFlagTrue('GOOGLE_GMAIL_USE_STORED_LINK_ONLY');
-  const rawEnvRt = sanitizeGmailRefreshToken(process.env.GOOGLE_GMAIL_REFRESH_TOKEN);
+  const rawEnvRt = sanitizeGmailRefreshToken(getPlatformConfigValue('GOOGLE_GMAIL_REFRESH_TOKEN'));
   const envRt = forceEnv ? rawEnvRt : useStoredOnly ? '' : rawEnvRt;
 
   /**
@@ -156,16 +157,16 @@ export function readGmailTokens(req) {
         refresh_token: envRt,
         access_token: gmailRuntimeAccessToken,
         expiry_date: gmailRuntimeExpiryMs,
-        sender_email: process.env.GOOGLE_GMAIL_FROM?.trim() || undefined,
-        oauth_redirect_uri: process.env.GOOGLE_REDIRECT_URI?.trim() || undefined,
+        sender_email: getPlatformConfigValue('GOOGLE_GMAIL_FROM') || undefined,
+        oauth_redirect_uri: getPlatformConfigValue('GOOGLE_REDIRECT_URI') || undefined,
       };
     }
     return {
       refresh_token: envRt,
       access_token: process.env.GOOGLE_GMAIL_ACCESS_TOKEN?.trim() || undefined,
       expiry_date: readEpochMsGmail(process.env.GOOGLE_GMAIL_TOKEN_EXPIRY),
-      sender_email: process.env.GOOGLE_GMAIL_FROM?.trim() || undefined,
-      oauth_redirect_uri: process.env.GOOGLE_REDIRECT_URI?.trim() || undefined,
+      sender_email: getPlatformConfigValue('GOOGLE_GMAIL_FROM') || undefined,
+      oauth_redirect_uri: getPlatformConfigValue('GOOGLE_REDIRECT_URI') || undefined,
     };
   };
 
@@ -247,7 +248,7 @@ export function readGmailTokensFileOnly() {
  */
 export async function writeGmailTokens(tokens, req) {
   const envLock =
-    Boolean(sanitizeGmailRefreshToken(process.env.GOOGLE_GMAIL_REFRESH_TOKEN)) &&
+    Boolean(sanitizeGmailRefreshToken(getPlatformConfigValue('GOOGLE_GMAIL_REFRESH_TOKEN'))) &&
     !envFlagTrue('GOOGLE_GMAIL_USE_STORED_LINK_ONLY');
   if (envLock) {
     throw Object.assign(
@@ -273,7 +274,7 @@ export async function writeGmailTokens(tokens, req) {
  */
 export async function mergeGmailTokens(partial, req) {
   const envLock =
-    Boolean(sanitizeGmailRefreshToken(process.env.GOOGLE_GMAIL_REFRESH_TOKEN)) &&
+    Boolean(sanitizeGmailRefreshToken(getPlatformConfigValue('GOOGLE_GMAIL_REFRESH_TOKEN'))) &&
     !envFlagTrue('GOOGLE_GMAIL_USE_STORED_LINK_ONLY');
   if (envLock) {
     throw Object.assign(
@@ -307,8 +308,8 @@ export async function mergeGmailTokens(partial, req) {
 }
 
 export function getGmailOAuthCreds() {
-  const id = process.env.GOOGLE_CLIENT_ID?.trim();
-  const secret = process.env.GOOGLE_CLIENT_SECRET?.trim();
+  const id = getPlatformConfigValue('GOOGLE_CLIENT_ID');
+  const secret = getPlatformConfigValue('GOOGLE_CLIENT_SECRET');
   return { clientId: id || '', clientSecret: secret || '' };
 }
 
@@ -320,7 +321,7 @@ export function isGmailSharedEnvMailboxMode() {
   if (envFlagTrue('GOOGLE_GMAIL_USE_STORED_LINK_ONLY') && !envFlagTrue('GOOGLE_GMAIL_FORCE_ENV')) {
     return false;
   }
-  const envRt = sanitizeGmailRefreshToken(process.env.GOOGLE_GMAIL_REFRESH_TOKEN);
+  const envRt = sanitizeGmailRefreshToken(getPlatformConfigValue('GOOGLE_GMAIL_REFRESH_TOKEN'));
   if (!envRt) return false;
   if (envFlagTrue('GOOGLE_GMAIL_FORCE_ENV')) return true;
   if (!envFlagTrue('GOOGLE_GMAIL_PREFER_USER_LINK')) return true;
@@ -334,13 +335,13 @@ export function getGmailAuthStatus(req) {
   const { clientId, clientSecret } = getGmailOAuthCreds();
   const t = readGmailTokens(req);
   const envRt =
-    Boolean(sanitizeGmailRefreshToken(process.env.GOOGLE_GMAIL_REFRESH_TOKEN)) &&
+    Boolean(sanitizeGmailRefreshToken(getPlatformConfigValue('GOOGLE_GMAIL_REFRESH_TOKEN'))) &&
     !envFlagTrue('GOOGLE_GMAIL_USE_STORED_LINK_ONLY');
   const userRow = Boolean(req?.userIntegrationGmail && req.userIntegrationGmail.refresh_token);
   return {
     hasOAuthCreds: Boolean(clientId && clientSecret),
     hasRefreshToken: Boolean(t?.refresh_token),
-    senderEmail: t?.sender_email || process.env.GOOGLE_GMAIL_FROM?.trim() || null,
+    senderEmail: t?.sender_email || getPlatformConfigValue('GOOGLE_GMAIL_FROM') || null,
     /** Per-dashboard-gebruiker gekoppeld (Postgres), los van .env */
     userGmailLinked: userRow,
     /** Refresh-token uit omgeving (Vercel/.env) — geen /gmail-koppel nodig */
@@ -361,7 +362,7 @@ export function gmailConnectionHints(req) {
   const hasRefresh = Boolean(t?.refresh_token);
   const vercel = Boolean(process.env.VERCEL);
   const hasDb = Boolean(process.env.DATABASE_URL?.trim());
-  const hasEnvRt = Boolean(sanitizeGmailRefreshToken(process.env.GOOGLE_GMAIL_REFRESH_TOKEN));
+  const hasEnvRt = Boolean(sanitizeGmailRefreshToken(getPlatformConfigValue('GOOGLE_GMAIL_REFRESH_TOKEN')));
   const forceEnv = envFlagTrue('GOOGLE_GMAIL_FORCE_ENV');
   /** @type {string[]} */
   const hints = [];

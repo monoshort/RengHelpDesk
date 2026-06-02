@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
   <noscript><link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet" /></noscript>
+  <link rel="stylesheet" href="/helpdesk-nav.css" />
   <style>
     /* Toddie storefront: Quicksand + primair groen rgb(85,130,53) — toddie.nl */
     :root {
@@ -140,7 +141,7 @@
       backdrop-filter: blur(10px);
       box-shadow: 0 1px 0 rgba(85, 130, 53, 0.06);
       position: sticky;
-      top: 0;
+      top: 2.55rem;
       z-index: 2;
     }
     .header-inner {
@@ -1413,16 +1414,21 @@
   </style>
 </head>
 <body>
+  <nav class="helpdesk-main-nav" aria-label="Hoofdmenu">
+    <span class="helpdesk-main-nav__brand">Toddie helpdesk</span>
+    <a href="/mail.html">Mail</a>
+    <a href="/orders.html" class="is-active">Orders</a>
+    <a href="/instellingen.html">Instellingen</a>
+  </nav>
   <div class="ux-progress" id="uxProgress" hidden></div>
   <header>
     <div class="header-inner">
       <div class="app-bar-row">
         <div class="app-bar-brand">
-          <h1>Toddie helpdesk</h1>
-          <p class="app-bar-tagline">Shopify-orderoverzicht — startscherm is <a href="/mail.html" style="color:var(--accent);font-weight:600">mail</a></p>
+          <h1>Orders</h1>
+          <p class="app-bar-tagline">Shopify-orderoverzicht met mailhistorie en DPD</p>
         </div>
-        <nav class="app-bar-nav" aria-label="Hoofdacties">
-          <a href="/mail.html" class="link-pill">← Mail</a>
+        <nav class="app-bar-nav" aria-label="Pagina-acties">
           <button type="button" class="primary" id="refresh">Vernieuwen</button>
           <label class="overview-fast-label" title="Vink aan: minder werk op de server (geen mail-historie uit timeline, geen DPD-live; productfoto’s wel). Uit = volledige mailkolom + DPD.">
             <input type="checkbox" id="overviewFastToggle" checked />

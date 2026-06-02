@@ -10,6 +10,7 @@ import {
   shopifySessionFromJsonDoc,
 } from './shopifySession.js';
 import { loadUserIntegrationDoc, saveUserIntegrationDoc, sanitizeDashboardSid } from './userIntegrationsStore.js';
+import { loadWorkspaceSettings } from './workspaceSettings.js';
 
 /** @type {Map<string, Promise<void>>} */
 const userShopifyRefreshTails = new Map();
@@ -39,18 +40,22 @@ export async function attachUserIntegrations(req, _res, next) {
     if (!sid) {
       req.userIntegrationShopify = null;
       req.userIntegrationGmail = null;
+      req.workspaceSettings = null;
       return next();
     }
-    const [shopifyDoc, gmailDoc] = await Promise.all([
+    const [shopifyDoc, gmailDoc, workspaceSettings] = await Promise.all([
       loadUserIntegrationDoc(sid, 'shopify'),
       loadUserIntegrationDoc(sid, 'gmail'),
+      loadWorkspaceSettings(sid),
     ]);
     req.userIntegrationShopify = shopifyDoc;
     req.userIntegrationGmail = gmailDoc;
+    req.workspaceSettings = workspaceSettings;
   } catch (e) {
     console.error('[requestIntegrations] attach failed:', e instanceof Error ? e.message : e);
     req.userIntegrationShopify = null;
     req.userIntegrationGmail = null;
+    req.workspaceSettings = null;
   }
   next();
 }

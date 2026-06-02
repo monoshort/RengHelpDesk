@@ -6,6 +6,7 @@ import {
   pgLoadShopifySessionDoc,
   pgSaveShopifySessionDoc,
 } from './shopifySessionPostgres.js';
+import { getPlatformConfigValue } from './platformConfigStore.js';
 
 export { postgresShopifySessionEnabled };
 
@@ -155,7 +156,7 @@ export async function hydrateShopifySessionFromDatabase() {
   if (_hydrateShopifyInflight) return _hydrateShopifyInflight;
   _hydrateShopifyInflight = (async () => {
     try {
-      const envShop = normalizeShop(process.env.SHOPIFY_SHOP_DOMAIN || '') || '';
+      const envShop = normalizeShop(getPlatformConfigValue('SHOPIFY_SHOP_DOMAIN') || '') || '';
       const hint = envShop || (_pgSessionMem?.shopDomain ? String(_pgSessionMem.shopDomain) : '');
       const doc = await pgLoadShopifySessionDoc(hint);
       _pgSessionMem = doc ? sessionFromDoc(doc) : null;
@@ -348,8 +349,8 @@ export function ensureShopifySessionAccessTokenFresh() {
 async function refreshShopifySessionIfNeeded() {
   await hydrateShopifySessionFromDatabase();
 
-  const clientId = process.env.SHOPIFY_CLIENT_ID?.trim();
-  const clientSecret = process.env.SHOPIFY_CLIENT_SECRET?.trim();
+  const clientId = getPlatformConfigValue('SHOPIFY_CLIENT_ID');
+  const clientSecret = getPlatformConfigValue('SHOPIFY_CLIENT_SECRET');
   if (!clientId || !clientSecret) return;
 
   /* Op Vercel met vaste env-token is /tmp-sessie niet gedeeld; refresh alleen ruis en mislukte writes. */
@@ -437,8 +438,8 @@ async function refreshShopifySessionIfNeeded() {
 /** Voor foutmeldingen: wat ontbreekt er aan credentials? */
 export async function getShopifyAuthStatus() {
   await hydrateShopifySessionFromDatabase();
-  const envShop = process.env.SHOPIFY_SHOP_DOMAIN?.trim();
-  const envToken = process.env.SHOPIFY_ACCESS_TOKEN?.trim();
+  const envShop = getPlatformConfigValue('SHOPIFY_SHOP_DOMAIN');
+  const envToken = getPlatformConfigValue('SHOPIFY_ACCESS_TOKEN');
   const prefer = shopifyPreferEnvTokenOverEphemeralSession();
   const disk = readShopifySessionDiskOrPg();
   const session = readShopifySession();
@@ -450,7 +451,8 @@ export async function getShopifyAuthStatus() {
     hasToken: Boolean(token),
     shopDomain: shop || null,
     hasOAuthCreds: Boolean(
-      process.env.SHOPIFY_CLIENT_ID?.trim() && process.env.SHOPIFY_CLIENT_SECRET?.trim()
+      getPlatformConfigValue('SHOPIFY_CLIENT_ID') &&
+      getPlatformConfigValue('SHOPIFY_CLIENT_SECRET')
     ),
     hasSessionFile: Boolean(disk?.accessToken),
     shopifySessionPostgres: postgresShopifySessionEnabled(),
@@ -465,7 +467,7 @@ export async function getShopifyAuthStatus() {
 export function shopifyPreferEnvTokenOverEphemeralSession() {
   return (
     String(process.env.VERCEL || '').trim() === '1' &&
-    Boolean(process.env.SHOPIFY_ACCESS_TOKEN?.trim()) &&
+    Boolean(getPlatformConfigValue('SHOPIFY_ACCESS_TOKEN')) &&
     !postgresShopifySessionEnabled()
   );
 }
@@ -478,8 +480,8 @@ export function shopifyPreferEnvTokenOverEphemeralSession() {
  * @returns {{ shopDomain: string, accessToken: string, source: 'env' | 'session' }[]}
  */
 export function shopifyCredentialAttempts() {
-  const envShop = process.env.SHOPIFY_SHOP_DOMAIN?.trim();
-  const envToken = process.env.SHOPIFY_ACCESS_TOKEN?.trim();
+  const envShop = getPlatformConfigValue('SHOPIFY_SHOP_DOMAIN');
+  const envToken = getPlatformConfigValue('SHOPIFY_ACCESS_TOKEN');
   const session = readShopifySession();
   const diskShop =
     shopifyPreferEnvTokenOverEphemeralSession() && !envShop
@@ -518,8 +520,8 @@ export function shopifyCredentialAttempts() {
  * @returns {string[]}
  */
 export function shopifyOverviewSetupHints() {
-  const envShop = process.env.SHOPIFY_SHOP_DOMAIN?.trim();
-  const envToken = process.env.SHOPIFY_ACCESS_TOKEN?.trim();
+  const envShop = getPlatformConfigValue('SHOPIFY_SHOP_DOMAIN');
+  const envToken = getPlatformConfigValue('SHOPIFY_ACCESS_TOKEN');
   const disk = readShopifySessionDiskOrPg();
   const session = readShopifySession();
   const shopHint = envShop || session?.shopDomain || disk?.shopDomain;
@@ -542,8 +544,8 @@ export function shopifyOverviewSetupHints() {
     );
   }
   if (!envToken && !session?.accessToken) {
-    const cid = process.env.SHOPIFY_CLIENT_ID?.trim();
-    const cs = process.env.SHOPIFY_CLIENT_SECRET?.trim();
+    const cid = getPlatformConfigValue('SHOPIFY_CLIENT_ID');
+    const cs = getPlatformConfigValue('SHOPIFY_CLIENT_SECRET');
     if (!cid || !cs) {
       hints.push('Voor OAuth: zet SHOPIFY_CLIENT_ID en SHOPIFY_CLIENT_SECRET in .env (App-ontwikkeling → API-credentials).');
     }
@@ -552,7 +554,7 @@ export function shopifyOverviewSetupHints() {
   if (
     String(process.env.VERCEL || '').trim() === '1' &&
     !postgresShopifySessionEnabled() &&
-    !process.env.SHOPIFY_ACCESS_TOKEN?.trim()
+    !getPlatformConfigValue('SHOPIFY_ACCESS_TOKEN')
   ) {
     hints.push(
       'Meerdere Vercel-instances: zet DATABASE_URL (zelfde als order-cache) zodat OAuth in Postgres wordt gedeeld, óf gebruik SHOPIFY_ACCESS_TOKEN. Zet SHOPIFY_SESSION_STORE=file alleen als je één instance en lokaal bestand wilt.'
@@ -561,7 +563,7 @@ export function shopifyOverviewSetupHints() {
   if (
     String(process.env.VERCEL || '').trim() === '1' &&
     !postgresShopifySessionEnabled() &&
-    process.env.SHOPIFY_ACCESS_TOKEN?.trim()
+    getPlatformConfigValue('SHOPIFY_ACCESS_TOKEN')
   ) {
     hints.push(
       'Vercel met SHOPIFY_ACCESS_TOKEN: API-calls gebruiken die token; een los bestand in /tmp wordt genegeerd (voorkomt “na even wachten” andere instance met oud token).'

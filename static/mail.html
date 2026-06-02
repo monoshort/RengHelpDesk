@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
   <noscript><link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet" /></noscript>
+  <link rel="stylesheet" href="/helpdesk-nav.css" />
   <style>
     :root {
       --bg: #faf9f7;
@@ -45,7 +46,7 @@
       border-bottom: 1px solid var(--border);
       gap: 0.75rem 1rem;
       position: sticky;
-      top: 0;
+      top: 2.55rem;
       z-index: 30;
       box-shadow: 0 1px 0 rgba(85, 130, 53, 0.06);
     }
@@ -212,7 +213,56 @@
       border-left-color: var(--accent-mail);
       font-weight: 600;
     }
-    .folder .cnt { color: var(--muted); font-size: 0.75rem; }
+    .folder .cnt { color: var(--muted); font-size: 0.75rem; margin-left: 0.35rem; }
+    .msg-row--unread .msg-from,
+    .msg-row--unread .msg-subj { font-weight: 700; }
+    .msg-att {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-left: 0.25rem;
+    }
+    .list-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      padding: 0.45rem 0.65rem;
+      border-bottom: 1px solid var(--border);
+      background: #fafcf8;
+    }
+    .list-toolbar input[type="search"] {
+      flex: 1 1 140px;
+      min-width: 120px;
+      padding: 0.35rem 0.5rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font: inherit;
+      font-size: 0.82rem;
+    }
+    .list-toolbar .tb-btn {
+      padding: 0.35rem 0.55rem;
+      font-size: 0.78rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #fff;
+      cursor: pointer;
+      color: var(--text);
+    }
+    .list-toolbar .tb-btn:hover { background: var(--accent-mail-soft); }
+    .read-attachments {
+      margin: 0 0 0.65rem;
+      padding: 0.5rem 0.65rem;
+      background: #f6f9f3;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.82rem;
+    }
+    .read-attachments ul { margin: 0.35rem 0 0; padding-left: 1.1rem; }
+    .read-meta-extra {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin: 0 0 0.5rem;
+      line-height: 1.4;
+    }
     .sub { padding-left: 1.25rem; font-size: 0.8rem; }
     .sidebar-note {
       margin: 0.5rem 0.85rem 0;
@@ -379,6 +429,41 @@
     .mail-order-strip.order-strip-match {
       border-color: #a8c090;
     }
+    .mail-translate-toolbar {
+      flex-shrink: 0;
+      margin: 0 1rem 0.75rem;
+      padding: 0.55rem 0.95rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.45rem 0.65rem;
+      background: linear-gradient(90deg, #e3edd8 0%, #f6f9f2 55%, #fff 100%);
+      border: 2px solid #a8c090;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(85, 130, 53, 0.1);
+    }
+    .mail-translate-toolbar[hidden] {
+      display: none !important;
+    }
+    .mail-translate-toolbar-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #558235;
+      margin-right: 0.25rem;
+    }
+    .read-translate-btn.secondary {
+      background: #fff;
+      color: var(--heading);
+      border-color: var(--border);
+      font-weight: 600;
+    }
+    .read-translate-btn.secondary:hover {
+      background: #f5f5f3;
+      border-color: #999;
+      color: var(--heading);
+    }
     .order-strip-head {
       display: flex;
       flex-wrap: wrap;
@@ -479,14 +564,68 @@
       overflow-y: auto;
       border-top: none;
     }
-    .read-original-label {
+    .read-original-label-row {
       flex-shrink: 0;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem 0.75rem;
       padding: 0.5rem 1rem 0.25rem;
+    }
+    .read-original-label {
+      margin: 0;
       font-size: 0.65rem;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.07em;
       color: var(--muted);
+    }
+    .read-translate-bar {
+      flex-shrink: 0;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.45rem 0.65rem;
+      padding: 0.4rem 1rem 0.55rem;
+      border-bottom: 1px solid #c5d4b8;
+      background: linear-gradient(180deg, #eef4e8 0%, #f6f8f2 100%);
+    }
+    .read-translate-bar[hidden] {
+      display: none !important;
+    }
+    .read-translate-btn {
+      font: inherit;
+      font-size: 0.82rem;
+      font-weight: 700;
+      padding: 0.35rem 0.75rem;
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--accent);
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(85, 130, 53, 0.12);
+    }
+    .read-translate-btn:hover,
+    .read-translate-btn:focus-visible {
+      background: #e8efe0;
+      border-color: var(--accent);
+      outline: none;
+    }
+    .read-translate-btn:disabled {
+      opacity: 0.55;
+      cursor: wait;
+    }
+    .read-translate-status {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    .read-body-scroll.is-translated {
+      background: #fafcf7;
+    }
+    .read-body-translated {
+      white-space: pre-wrap;
+      word-break: break-word;
     }
     .read-body-scroll {
       flex: 1 1 auto;
@@ -816,25 +955,35 @@
   </style>
 </head>
 <body>
+  <nav class="helpdesk-main-nav" aria-label="Hoofdmenu">
+    <span class="helpdesk-main-nav__brand">Toddie helpdesk</span>
+    <a href="/mail.html" class="is-active">Mail</a>
+    <a href="/orders.html">Orders</a>
+    <a href="/instellingen.html">Instellingen</a>
+  </nav>
   <div class="ux-progress" id="uxProgress" hidden></div>
   <header class="topbar">
     <div class="topbar-brand">
-      <h1>Toddie helpdesk · Mail</h1>
-      <p class="hint" id="mailHint">Gmail-inbox — kies een bericht, beantwoord en verstuur.</p>
+      <h1>Mail</h1>
+      <p class="hint" id="mailHint">Postvak IN — kies een bericht, beantwoord en verstuur.</p>
     </div>
-    <nav class="topbar-nav" aria-label="Snelkoppelingen">
-      <a href="/orders.html">Orders</a>
-      <a href="/gmail-koppel.html" id="mailNavGmailKoppel">Gmail</a>
+    <nav class="topbar-nav" aria-label="Extra">
+      <a href="/gmail-koppel.html" id="mailNavGmailKoppel" hidden>Gmail koppelen</a>
     </nav>
   </header>
   <div class="shell">
     <aside class="sidebar" aria-label="Postvak">
-      <h2>Postvak</h2>
-      <div class="folder active"><span>Postvak IN</span></div>
-      <p class="sidebar-note">Andere mappen open je in Gmail.</p>
+      <h2>Mappen</h2>
+      <div id="mailFolderList" aria-label="Mailbox-mappen"></div>
+      <p class="sidebar-note" id="mailSidebarNote">Postvak via gekoppelde mailbox.</p>
     </aside>
     <section class="list-col" aria-label="Berichtenlijst">
       <div class="list-head" id="listHead">Postvak IN</div>
+      <div class="list-toolbar" id="listToolbar">
+        <input type="search" id="mailSearchInput" placeholder="Zoeken in mail…" aria-label="Zoeken in mail" />
+        <button type="button" class="tb-btn" id="btnMailSearch" title="Zoeken">Zoek</button>
+        <button type="button" class="tb-btn" id="btnMailRefresh" title="Lijst vernieuwen">↻</button>
+      </div>
       <div class="list-scroll" id="listScroll"></div>
     </section>
     <section class="read-col" aria-label="Leesvenster">
@@ -846,9 +995,66 @@
           <p class="snip" id="readSnippet"></p>
         </div>
         <div class="mail-order-strip loading" id="mailOrderStrip" hidden aria-live="polite"></div>
+        <div class="mail-translate-toolbar" id="mailTranslateToolbar" hidden>
+          <span class="mail-translate-toolbar-label">Vertaling</span>
+          <button
+            type="button"
+            class="read-translate-btn"
+            id="btnTranslateNlMain"
+            title="Vertaal de klantmail naar Nederlands (voor je team)"
+          >
+            Vertaal naar Nederlands
+          </button>
+          <button
+            type="button"
+            class="read-translate-btn secondary"
+            id="btnShowOriginalMain"
+            hidden
+            title="Toon de oorspronkelijke taal"
+          >
+            Toon origineel
+          </button>
+          <span class="read-translate-status" id="readTranslateStatusMain" aria-live="polite"></span>
+        </div>
         <div class="read-split-host" id="readSplitHost">
           <div class="read-original-wrap" id="readOriginalWrap">
-            <div class="read-original-label">Inkomende mail van de klant</div>
+            <div class="read-original-label-row">
+              <div class="read-original-label">Inkomende mail van de klant</div>
+              <button
+                type="button"
+                class="read-translate-btn"
+                id="btnTranslateNlInline"
+                title="Vertaal de mailtekst naar Nederlands voor je team"
+                hidden
+              >
+                Vertaal naar Nederlands
+              </button>
+            </div>
+            <div class="read-meta-extra" id="readMetaExtra" hidden></div>
+            <div class="read-attachments" id="readAttachments" hidden>
+              <strong>Bijlagen</strong>
+              <ul id="readAttachmentsList"></ul>
+            </div>
+            <div class="read-translate-bar" id="readTranslateBar" hidden>
+              <button
+                type="button"
+                class="read-translate-btn"
+                id="btnTranslateNl"
+                title="Vertaal naar Nederlands"
+              >
+                Vertaal naar Nederlands
+              </button>
+              <button
+                type="button"
+                class="read-translate-btn"
+                id="btnShowOriginalMail"
+                hidden
+                title="Toon originele taal"
+              >
+                Toon origineel
+              </button>
+              <span class="read-translate-status" id="readTranslateStatus" aria-live="polite"></span>
+            </div>
             <div class="read-body-scroll" id="readBody"></div>
           </div>
           <button
@@ -920,8 +1126,20 @@
   </div>
 
   <script>
-    /** Alleen Gmail INBOX via GET /api/mail/inbox — geen mockdata. */
+    /** Inbox via GET /api/mail/inbox (Microsoft Graph of Gmail). */
     let messages = [];
+    let mailUsesGraph = false;
+    let inboxNextPageToken = '';
+    let inboxHasMore = false;
+    /** @type {Array<{ id: string; wellKnown: string; displayName: string; totalCount: number; unreadCount: number }>} */
+    let mailFolders = [];
+    let currentFolder = 'inbox';
+    let currentFolderId = '';
+    let currentFolderLabel = 'Postvak IN';
+    let mailSearchQuery = '';
+    const MAIL_LOAD_ALL_MAX = 500;
+    /** @type {Record<string, unknown> | null} */
+    let lastOrderMatch = null;
 
     const listScroll = document.getElementById('listScroll');
     const listHead = document.getElementById('listHead');
@@ -1067,8 +1285,21 @@
     const btnSendMail = document.getElementById('btnSendMail');
     const composeHint = document.getElementById('composeHint');
     const mailComposeErr = document.getElementById('mailComposeErr');
+    const mailTranslateToolbar = document.getElementById('mailTranslateToolbar');
+    const btnTranslateNlMain = document.getElementById('btnTranslateNlMain');
+    const btnShowOriginalMain = document.getElementById('btnShowOriginalMain');
+    const readTranslateStatusMain = document.getElementById('readTranslateStatusMain');
+    const readTranslateBar = document.getElementById('readTranslateBar');
+    const btnTranslateNl = document.getElementById('btnTranslateNl');
+    const btnTranslateNlInline = document.getElementById('btnTranslateNlInline');
+    const btnShowOriginalMail = document.getElementById('btnShowOriginalMail');
+    const readTranslateStatus = document.getElementById('readTranslateStatus');
 
     let selectedId = null;
+    /** @type {Map<string, { originalHtml: string; translatedText: string; detectedLanguageLabel: string }>} */
+    const mailTranslationCache = new Map();
+    /** @type {string | null} */
+    let mailReadViewMode = null;
 
     function esc(s) {
       if (s == null) return '';
@@ -1182,21 +1413,30 @@
             '</div>' +
             '<div>We vinden geen Shopify-order op dit adres, afzendernaam of ordernummer (onderwerp, snippet of mailtekst). ' +
             '<strong>Genereer met AI</strong> beantwoordt de mail op inhoud; bij verzend-/bestelvragen kan het om een ordernummer vragen. Of gebruik <strong>standaardtekst zonder AI</strong>.</div>';
+          lastOrderMatch = null;
           updateMailAiContextRow('no', sk);
           return;
         }
         const x = data.match;
         const href = escAttr(x.adminOrderUrl || '');
+        lastOrderMatch = x;
         const dpdBits = (x.dpdTrackings || []).map((d) => {
           if (d.error) {
             const num = d.number ? esc(String(d.number)) : '—';
             const msg = d.errorMessage ? esc(String(d.errorMessage).slice(0, 120)) : 'DPD-fout';
             return `<span style="color:#a33">${num}: ${msg}</span>`;
           }
-          if (!d.label) return '';
-          let t = esc(d.label);
+          if (!d.label && !d.rawStatus) return d.number ? esc(String(d.number)) : '';
+          let t = esc(d.label || d.rawStatus || '');
+          if (d.number) t = `<strong>${esc(String(d.number))}</strong>: ${t}`;
           if (d.date) t += ' · ' + esc(d.date);
           if (d.location) t += ' · ' + esc(d.location);
+          const steps = Array.isArray(d.timeline) ? d.timeline : [];
+          if (steps.length) {
+            const last = steps[steps.length - 1];
+            const stepTxt = [last.label, last.location].filter(Boolean).join(' · ');
+            if (stepTxt) t += ` <span style="color:var(--muted)">(${esc(stepTxt)})</span>`;
+          }
           return t;
         }).filter(Boolean);
         const trackBits = (x.trackings || [])
@@ -1220,9 +1460,9 @@
           `</div>` +
           `<div class="order-meta">${line}${lineEll}</div>` +
           (dpdBits.length
-            ? `<div class="order-meta"><strong>DPD</strong> · ${dpdBits.join(' · ')}</div>`
+            ? `<div class="order-meta"><strong>DPD (live)</strong><br>${dpdBits.join('<br>')}</div>`
             : trackBits.length
-              ? `<div class="order-meta"><strong>Tracking</strong> · ${trackBits.join(' · ')}</div>`
+              ? `<div class="order-meta"><strong>Tracking (Shopify)</strong> · ${trackBits.join(' · ')} — DPD-live niet beschikbaar voor dit nummer.</div>`
               : '');
       } catch {
         mailOrderStrip.className = 'mail-order-strip';
@@ -1310,6 +1550,263 @@
         mailFrom.innerHTML = '<option value="">—</option>';
         mailFrom.disabled = true;
       }
+    }
+
+    function setTranslateStatusText(text) {
+      const s = String(text || '');
+      if (readTranslateStatusMain) readTranslateStatusMain.textContent = s;
+      if (readTranslateStatus) readTranslateStatus.textContent = s;
+    }
+
+    function setTranslateButtonsVisible(visible) {
+      const show = Boolean(visible);
+      if (mailTranslateToolbar) mailTranslateToolbar.hidden = !show;
+      if (readTranslateBar) readTranslateBar.hidden = !show;
+      if (btnTranslateNlInline) btnTranslateNlInline.hidden = !show;
+      if (btnTranslateNl) btnTranslateNl.hidden = !show;
+      if (btnTranslateNlMain) btnTranslateNlMain.hidden = !show;
+    }
+
+    function setShowOriginalButtonsVisible(visible) {
+      const show = Boolean(visible);
+      if (btnShowOriginalMain) btnShowOriginalMain.hidden = !show;
+      if (btnShowOriginalMail) btnShowOriginalMail.hidden = !show;
+    }
+
+    function setTranslateButtonsDisabled(disabled) {
+      const dis = Boolean(disabled);
+      const label = dis ? 'Vertalen…' : 'Vertaal naar Nederlands';
+      for (const btn of [btnTranslateNlMain, btnTranslateNl, btnTranslateNlInline]) {
+        if (!btn || btn.hidden) continue;
+        btn.disabled = dis;
+        btn.textContent = label;
+      }
+    }
+
+    function resetMailTranslationUi() {
+      mailReadViewMode = null;
+      setTranslateButtonsVisible(false);
+      setShowOriginalButtonsVisible(false);
+      setTranslateButtonsDisabled(false);
+      setTranslateStatusText('');
+      if (readBody) readBody.classList.remove('is-translated');
+    }
+
+    function showMailTranslateToolbar() {
+      if (mailTranslateToolbar) mailTranslateToolbar.hidden = false;
+      setTranslateButtonsVisible(true);
+      setShowOriginalButtonsVisible(false);
+      if (btnTranslateNlMain) btnTranslateNlMain.hidden = false;
+    }
+
+    /**
+     * @param {string} plain
+     */
+    function renderTranslatedMailBody(plain) {
+      if (!readBody) return;
+      readBody.classList.add('is-translated');
+      readBody.innerHTML = `<div class="read-body-translated">${esc(plain)}</div>`;
+    }
+
+    /**
+     * @param {string} html
+     */
+    function renderOriginalMailBody(html) {
+      if (!readBody) return;
+      readBody.classList.remove('is-translated');
+      readBody.innerHTML = html || '<p style="color:var(--muted)">Geen inhoud.</p>';
+    }
+
+    /**
+     * Toont vertaalknoppen altijd bij leesbare mail; optioneel auto-vertalen bij vreemde taal.
+     * @param {{ id: string; subject?: string; body?: string }} m
+     * @param {{ auto?: boolean }} [opts]
+     */
+    async function setupMailTranslationUi(m, opts = {}) {
+      if (!readBody || !m || !m.id) return;
+      const plain = htmlToPlain(typeof m.body === 'string' ? m.body : '');
+      if (!plain || plain.length < 8) {
+        resetMailTranslationUi();
+        return;
+      }
+
+      showMailTranslateToolbar();
+      setTranslateStatusText('Klik op Vertaal naar Nederlands — handig bij Duits/Engels e.d.');
+
+      let needsTranslation = false;
+      let detectedLabel = '';
+      let autoTranslateEnabled = true;
+      try {
+        const r = await fetch('/api/mail/detect-language', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: plain,
+            subject: m.subject || undefined,
+          }),
+        });
+        const data = await r.json().catch(() => ({}));
+        if (dashboardLoginRequired(r, data)) {
+          redirectDashboardLogin();
+          return;
+        }
+        if (r.ok) {
+          needsTranslation = data.needsTranslation === true;
+          detectedLabel = data.detectedLanguageLabel || '';
+          autoTranslateEnabled = data.autoTranslateEnabled !== false;
+          if (needsTranslation) {
+            setTranslateStatusText(
+              detectedLabel
+                ? `Taal: ${detectedLabel}. ${autoTranslateEnabled ? 'Wordt automatisch vertaald…' : 'Klik op de groene knop hierboven.'}`
+                : 'Niet-Nederlands — klik op Vertaal naar Nederlands.'
+            );
+          } else {
+            setTranslateStatusText(
+              detectedLabel
+                ? `Taal: ${detectedLabel}. Je kunt alsnog vertalen via de knop hierboven.`
+                : 'Vertaal naar Nederlands voor je team (optioneel).'
+            );
+          }
+        }
+      } catch {
+        setTranslateStatusText(
+          'Klik op Vertaal naar Nederlands (taalherkenning tijdelijk niet beschikbaar).'
+        );
+        needsTranslation = true;
+      }
+
+      const cached = mailTranslationCache.get(m.id);
+      if (cached) {
+        mailReadViewMode = 'translated';
+        renderTranslatedMailBody(cached.translatedText);
+        showMailTranslateToolbar();
+        if (btnTranslateNlMain) btnTranslateNlMain.hidden = true;
+        if (btnTranslateNl) btnTranslateNl.hidden = true;
+        if (btnTranslateNlInline) btnTranslateNlInline.hidden = true;
+        setShowOriginalButtonsVisible(true);
+        setTranslateStatusText(`Nederlandse vertaling · was ${cached.detectedLanguageLabel}`);
+        return;
+      }
+
+      if (needsTranslation && autoTranslateEnabled && opts.auto !== false) {
+        await translateOpenMessageToNl(m, { quiet: true });
+      }
+    }
+
+    /**
+     * @param {{ id: string; subject?: string; body?: string }} m
+     * @param {{ quiet?: boolean }} [opts]
+     */
+    async function translateOpenMessageToNl(m, opts = {}) {
+      if (!m || !m.id || selectedId !== m.id) return;
+      const plain = htmlToPlain(typeof m.body === 'string' ? m.body : '');
+      if (!plain) return;
+
+      const cached = mailTranslationCache.get(m.id);
+      if (cached) {
+        mailReadViewMode = 'translated';
+        renderTranslatedMailBody(cached.translatedText);
+        if (readTranslateBar) readTranslateBar.hidden = false;
+        if (btnShowOriginalMail) btnShowOriginalMail.hidden = false;
+        if (btnTranslateNlMain) btnTranslateNlMain.hidden = true;
+        if (btnTranslateNl) btnTranslateNl.hidden = true;
+        if (btnTranslateNlInline) btnTranslateNlInline.hidden = true;
+        setShowOriginalButtonsVisible(true);
+        setTranslateStatusText(`Nederlandse vertaling · was ${cached.detectedLanguageLabel}`);
+        return;
+      }
+
+      setTranslateButtonsDisabled(true);
+      if (!opts.quiet) setTranslateStatusText('Bezig met vertalen…');
+
+      try {
+        const r = await fetch('/api/mail/translate-to-nl', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: plain,
+            subject: m.subject || undefined,
+            force: opts.force === true,
+          }),
+        });
+        const data = await r.json().catch(() => ({}));
+        if (dashboardLoginRequired(r, data)) {
+          redirectDashboardLogin();
+          return;
+        }
+        if (!r.ok) throw new Error(data.error || r.statusText);
+
+        if (data.alreadyDutch) {
+          resetMailTranslationUi();
+          renderOriginalMailBody(m.body || '');
+          return;
+        }
+
+        const translatedText = String(data.translatedText || '').trim();
+        if (!translatedText) throw new Error('Lege vertaling ontvangen');
+
+        mailTranslationCache.set(m.id, {
+          originalHtml: typeof m.body === 'string' ? m.body : '',
+          translatedText,
+          detectedLanguageLabel: data.detectedLanguageLabel || 'andere taal',
+        });
+
+        if (selectedId !== m.id) return;
+
+        mailReadViewMode = 'translated';
+        renderTranslatedMailBody(translatedText);
+        showMailTranslateToolbar();
+        setShowOriginalButtonsVisible(true);
+        if (btnTranslateNlMain) btnTranslateNlMain.hidden = true;
+        if (btnTranslateNl) btnTranslateNl.hidden = true;
+        if (btnTranslateNlInline) btnTranslateNlInline.hidden = true;
+        setTranslateStatusText(
+          `Nederlandse vertaling · was ${data.detectedLanguageLabel || 'andere taal'}`
+        );
+      } catch (e) {
+        if (selectedId === m.id) {
+          showMailTranslateToolbar();
+          setTranslateStatusText(
+            e instanceof Error ? e.message.slice(0, 160) : String(e)
+          );
+          renderOriginalMailBody(m.body || '');
+        }
+      } finally {
+        setTranslateButtonsDisabled(false);
+      }
+    }
+
+    function showOriginalOpenMessage() {
+      const m = selectedId ? messages.find((x) => x.id === selectedId) : null;
+      if (!m) return;
+      const cached = mailTranslationCache.get(m.id);
+      mailReadViewMode = 'original';
+      renderOriginalMailBody(
+        cached?.originalHtml || (typeof m.body === 'string' ? m.body : '')
+      );
+      setShowOriginalButtonsVisible(false);
+      showMailTranslateToolbar();
+      setTranslateStatusText(
+        cached ? `Origineel (${cached.detectedLanguageLabel})` : 'Originele mail'
+      );
+    }
+
+    function onTranslateNlClick() {
+      const m = selectedId ? messages.find((x) => x.id === selectedId) : null;
+      if (m) void translateOpenMessageToNl(m, { force: true });
+    }
+    if (btnTranslateNlMain) btnTranslateNlMain.addEventListener('click', onTranslateNlClick);
+    if (btnShowOriginalMain) {
+      btnShowOriginalMain.addEventListener('click', () => showOriginalOpenMessage());
+    }
+    if (btnTranslateNl) btnTranslateNl.addEventListener('click', onTranslateNlClick);
+    if (btnTranslateNlInline) btnTranslateNlInline.addEventListener('click', onTranslateNlClick);
+    if (btnShowOriginalMail) {
+      btnShowOriginalMail.addEventListener('click', () => {
+        showOriginalOpenMessage();
+      });
     }
 
     /** @param {string} html */
@@ -1493,7 +1990,7 @@
     function renderList() {
       if (messages.length === 0) {
         listScroll.innerHTML =
-          '<p style="padding:1.25rem 0.85rem;color:var(--muted)">Geen berichten in Postvak IN.</p>';
+          `<p style="padding:1.25rem 0.85rem;color:var(--muted)">Geen berichten in ${esc(currentFolderLabel)}.</p>`;
         return;
       }
       const groups = {};
@@ -1509,9 +2006,11 @@
         html += `<div class="group-label">${esc(g)}</div>`;
         for (const m of items) {
           const sel = m.id === selectedId ? ' selected' : '';
-          html += `<div class="msg-row${sel}" data-id="${esc(m.id)}" role="button" tabindex="0">
+          const unread = m.isRead === false ? ' msg-row--unread' : '';
+          const att = m.hasAttachments ? '<span class="msg-att" title="Bijlage">📎</span>' : '';
+          html += `<div class="msg-row${sel}${unread}" data-id="${esc(m.id)}" role="button" tabindex="0">
             <div class="msg-main">
-              <div class="msg-from">${esc(m.from)}</div>
+              <div class="msg-from">${esc(m.from)}${att}</div>
               <div class="msg-subj">${esc(m.subject)}</div>
               <div class="msg-snip">${esc(m.snippet)}</div>
               <div class="msg-meta">${esc(m.time)}</div>
@@ -1519,10 +2018,98 @@
           </div>`;
         }
       }
+      if (inboxHasMore) {
+        html += `<div style="padding:0.65rem 0.85rem 0.5rem;display:flex;flex-direction:column;gap:0.35rem">
+          <button type="button" class="btn-send" id="btnLoadMoreInbox" style="width:100%;font-size:0.88rem">Meer laden (+100)</button>
+          <button type="button" class="tb-btn" id="btnLoadAllInbox" style="width:100%">Alles laden (max ${MAIL_LOAD_ALL_MAX})</button>
+        </div>`;
+      }
       listScroll.innerHTML = html;
+      const moreBtn = document.getElementById('btnLoadMoreInbox');
+      if (moreBtn) {
+        moreBtn.addEventListener('click', () => {
+          void loadInboxPage({ append: true });
+        });
+      }
+      const allBtn = document.getElementById('btnLoadAllInbox');
+      if (allBtn) {
+        allBtn.addEventListener('click', () => {
+          void loadAllInboxPages();
+        });
+      }
     }
 
-    function openMessage(id) {
+    function renderMailFolders() {
+      const host = document.getElementById('mailFolderList');
+      if (!host) return;
+      if (!mailFolders.length) {
+        host.innerHTML =
+          '<div class="folder active"><span>Postvak IN</span></div>';
+        return;
+      }
+      host.innerHTML = mailFolders
+        .map((f) => {
+          const active =
+            (currentFolderId && f.id === currentFolderId) ||
+            (!currentFolderId && f.wellKnown === currentFolder);
+          const cnt =
+            f.unreadCount > 0
+              ? `<span class="cnt">${f.unreadCount}</span>`
+              : f.totalCount > 0
+                ? `<span class="cnt">${f.totalCount}</span>`
+                : '';
+          return `<div class="folder${active ? ' active' : ''}" data-folder="${esc(f.wellKnown)}" data-folder-id="${esc(f.id)}" role="button" tabindex="0">
+            <span>${esc(f.displayName)}</span>${cnt}
+          </div>`;
+        })
+        .join('');
+      host.querySelectorAll('.folder').forEach((el) => {
+        el.addEventListener('click', () => {
+          const fk = el.getAttribute('data-folder') || 'inbox';
+          const fid = el.getAttribute('data-folder-id') || '';
+          switchMailFolder(fk, fid, el.querySelector('span')?.textContent || fk);
+        });
+      });
+    }
+
+    async function loadMailFolders() {
+      if (!mailUsesGraph) return;
+      try {
+        const r = await fetch('/api/mail/folders', { credentials: 'same-origin' });
+        const data = await r.json().catch(() => ({}));
+        if (r.ok && Array.isArray(data.folders)) {
+          mailFolders = data.folders;
+          renderMailFolders();
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+
+    function switchMailFolder(wellKnown, folderId, label) {
+      currentFolder = wellKnown || 'inbox';
+      currentFolderId = folderId || '';
+      currentFolderLabel = label || currentFolder;
+      mailSearchQuery = '';
+      const searchEl = document.getElementById('mailSearchInput');
+      if (searchEl) searchEl.value = '';
+      renderMailFolders();
+      void loadInboxPage();
+    }
+
+    async function loadAllInboxPages() {
+      let steps = 0;
+      const maxSteps = Math.ceil(MAIL_LOAD_ALL_MAX / 100);
+      while (inboxHasMore && messages.length < MAIL_LOAD_ALL_MAX && steps < maxSteps) {
+        steps += 1;
+        await loadInboxPage({ append: true, quiet: true });
+      }
+      if (listHead) {
+        listHead.textContent = `${currentFolderLabel} · ${messages.length} berichten`;
+      }
+    }
+
+    async function openMessage(id) {
       const m = messages.find((x) => x.id === id);
       if (!m) return;
       selectedId = id;
@@ -1540,10 +2127,97 @@
           ? String(m.snippet).trim()
           : 'Geen voorbeeldregel — zie hieronder het volledige bericht.';
       }
-      readBody.innerHTML = m.body;
+      const readMetaExtra = document.getElementById('readMetaExtra');
+      const readAttachments = document.getElementById('readAttachments');
+      const readAttachmentsList = document.getElementById('readAttachmentsList');
+      if (readMetaExtra) {
+        readMetaExtra.hidden = true;
+        readMetaExtra.textContent = '';
+      }
+      if (readAttachments) readAttachments.hidden = true;
+      if (readAttachmentsList) readAttachmentsList.innerHTML = '';
+      mailReadViewMode = null;
+      if (readBody) readBody.classList.remove('is-translated');
+      showMailTranslateToolbar();
+      setTranslateStatusText('Mail laden… vertalen kan zodra de tekst zichtbaar is.');
+
+      readBody.innerHTML = m.bodyIsPreview
+        ? '<p style="color:var(--muted);padding:0.5rem 0">Bericht laden…</p>'
+        : m.body;
       applyComposeDefaults(m);
       scheduleReadSplitInit();
       void loadMailOrderStrip(m);
+      {
+        const mUi = { ...m };
+        const plainNow = htmlToPlain(typeof m.body === 'string' ? m.body : '');
+        if ((!plainNow || plainNow.length < 8) && m.snippet) {
+          mUi.body = `<p>${esc(String(m.snippet))}</p>`;
+        }
+        void setupMailTranslationUi(mUi, { auto: !m.bodyIsPreview });
+      }
+      if (mailUsesGraph) {
+        try {
+          const r = await fetch(`/api/mail/messages/${encodeURIComponent(id)}`, {
+            credentials: 'same-origin',
+          });
+          const data = await r.json().catch(() => ({}));
+          if (r.ok && data.message) {
+            const msg = data.message;
+            if (typeof msg.body === 'string') {
+              m.body = msg.body;
+              m.bodyIsPreview = false;
+              if (selectedId === id && mailReadViewMode !== 'translated') {
+                readBody.innerHTML = m.body;
+              }
+            }
+            m.isRead = msg.isRead !== false;
+            if (readMetaExtra) {
+              const bits = [];
+              if (Array.isArray(msg.to) && msg.to.length) {
+                bits.push(`Aan: ${msg.to.map((x) => esc(String(x))).join(', ')}`);
+              }
+              if (Array.isArray(msg.cc) && msg.cc.length) {
+                bits.push(`Cc: ${msg.cc.map((x) => esc(String(x))).join(', ')}`);
+              }
+              if (msg.replyTo) bits.push(`Reply-To: ${esc(String(msg.replyTo))}`);
+              if (bits.length) {
+                readMetaExtra.innerHTML = bits.join('<br>');
+                readMetaExtra.hidden = false;
+              }
+            }
+            if (
+              readAttachments &&
+              readAttachmentsList &&
+              Array.isArray(msg.attachments) &&
+              msg.attachments.length
+            ) {
+              readAttachmentsList.innerHTML = msg.attachments
+                .map((a) => {
+                  const nm = esc(a.name || 'bijlage');
+                  const sz =
+                    a.size > 0 ? ` (${Math.round(a.size / 1024)} KB)` : '';
+                  const href = `/api/mail/messages/${encodeURIComponent(id)}/attachments/${encodeURIComponent(a.id)}`;
+                  return `<li><a href="${href}" download>${nm}</a>${sz}</li>`;
+                })
+                .join('');
+              readAttachments.hidden = false;
+            }
+            renderList();
+            if (selectedId === id) {
+              void setupMailTranslationUi(m, { auto: true });
+            }
+          } else if (selectedId === id && m.bodyIsPreview) {
+            readBody.innerHTML =
+              '<p style="color:#a33">Kon volledige inhoud niet laden.</p>' + (m.body || '');
+          }
+        } catch {
+          if (selectedId === id && m.bodyIsPreview) {
+            readBody.innerHTML = m.body || '<p>Inhoud niet beschikbaar.</p>';
+          }
+        }
+      } else if (!m.bodyIsPreview && selectedId === id) {
+        void setupMailTranslationUi(m, { auto: true });
+      }
     }
 
     function showInboxError(title, detailHtml) {
@@ -1662,6 +2336,7 @@ Het team`;
         if (data.matchedOrderName) bits.push(`Order ${data.matchedOrderName} automatisch meegenomen`);
         if (data.hasDpd) bits.push('DPD-status in de tekst');
         if (data.dpdSummary) bits.push(`Laatste DPD: ${data.dpdSummary}`);
+        if (data.replyLanguageLabel) bits.push(`Taal: ${data.replyLanguageLabel}`);
         setComposeHint(
           bits.length > 0
             ? `${bits.join(' · ')}. Lees even mee en druk op Verstuur.`
@@ -1733,7 +2408,6 @@ Het team`;
             shopifyOrderName: orderHint,
             incomingText: incoming,
             incomingSubject: (m.subject && String(m.subject).trim()) || undefined,
-            replyStyle: 'default',
             extraInstructions: extraInstructions || undefined,
           }),
         });
@@ -1750,9 +2424,30 @@ Het team`;
           data.customerMatched === true ||
           (data.customerMatched == null && Boolean(data.matchedOrderName));
         const parts = [];
-        if (matched && data.matchedOrderName) parts.push(`Order ${data.matchedOrderName} in de prompt.`);
+        if (
+          matched &&
+          data.matchedOrderName &&
+          data.orderRelevantToQuestion !== false
+        ) {
+          parts.push(`Order ${data.matchedOrderName} in de prompt.`);
+        } else if (matched && data.orderRelevantToQuestion === false) {
+          parts.push('Order gekoppeld maar niet in antwoord (vraag gaat niet over bestelling).');
+        }
+        if (data.hasDpd || (lastOrderMatch && lastOrderMatch.hasDpd && data.orderRelevantToQuestion !== false)) {
+          parts.push('DPD-status in AI-antwoord');
+          const sum = data.dpdSummary || (lastOrderMatch && lastOrderMatch.dpdSummary);
+          if (sum) parts.push(String(sum));
+        } else if (matched) {
+          parts.push('Geen live DPD — wel Shopify-order');
+        }
         if (!matched) parts.push('Geen order in Shopify — AI zonder ordercontext (past antwoord aan de vraag aan). ');
         if (data.model) parts.push(`Model: ${data.model}.`);
+        if (data.replyLanguageLabel) {
+          parts.push(`Taal antwoord: ${data.replyLanguageLabel} (volgt klantmail).`);
+        }
+        if (data.deskKnowledge && Array.isArray(data.deskKnowledge.labels) && data.deskKnowledge.labels.length) {
+          parts.push(`Playbook: ${data.deskKnowledge.labels.join(' · ')}`);
+        }
         parts.push('Controleer en druk op Verstuur.');
         setComposeHint(parts.join(' '), matched ? 'success' : 'warn');
         scrollReplyIntoView();
@@ -1845,25 +2540,20 @@ Het team`;
         }
       });
     }
-    (async function init() {
-      const koppel = document.getElementById('mailNavGmailKoppel');
-      const mailHintEl = document.getElementById('mailHint');
-      /** @type {Record<string, unknown>} */
-      let cfg = {};
-      try {
-        const cfgR = await fetch('/api/config', { credentials: 'same-origin' });
-        cfg = await cfgR.json().catch(() => ({}));
-        if (koppel && cfg.gmailReady) koppel.hidden = true;
-        if (mailHintEl && cfg.gmailSharedMailboxMode && cfg.gmailReady) {
-          mailHintEl.textContent = 'Gedeelde mailbox — één Gmail-token op de server.';
-        }
-      } catch {
-        /* ignore */
-      }
+    /**
+     * @param {{ append?: boolean }} [opts]
+     */
+    async function loadInboxPage(opts = {}) {
+      const append = Boolean(opts.append);
+      const quiet = Boolean(opts.quiet);
       const uxProgressEl = document.getElementById('uxProgress');
-      try {
-        if (uxProgressEl) uxProgressEl.hidden = false;
-        if (listHead) listHead.textContent = 'Postvak IN · laden…';
+      const moreBtn = document.getElementById('btnLoadMoreInbox');
+      const allBtn = document.getElementById('btnLoadAllInbox');
+      if (moreBtn) moreBtn.disabled = true;
+      if (allBtn) allBtn.disabled = true;
+      if (!append) {
+        if (uxProgressEl && !quiet) uxProgressEl.hidden = false;
+        if (listHead) listHead.textContent = `${currentFolderLabel} · laden…`;
         if (listScroll) {
           listScroll.innerHTML = Array.from(
             { length: 10 },
@@ -1871,8 +2561,19 @@ Het team`;
               '<div class="msg-row msg-row--skeleton" aria-hidden="true"><div class="msg-main"><div class="sk-line sk-line--from"></div><div class="sk-line sk-line--subj"></div><div class="sk-line sk-line--snip"></div></div></div>'
           ).join('');
         }
-        const r = await fetch('/api/mail/inbox?maxResults=50', { credentials: 'same-origin' });
-        const data = await r.json().catch(() => ({}));
+      }
+      const url = new URL('/api/mail/inbox', location.origin);
+      url.searchParams.set('maxResults', '100');
+      if (mailSearchQuery) url.searchParams.set('q', mailSearchQuery);
+      else {
+        url.searchParams.set('folder', currentFolder);
+        if (currentFolderId) url.searchParams.set('folderId', currentFolderId);
+      }
+      if (append && inboxNextPageToken) {
+        url.searchParams.set('pageToken', inboxNextPageToken);
+      }
+      const r = await fetch(url.toString(), { credentials: 'same-origin' });
+      const data = await r.json().catch(() => ({}));
         if (r.status === 401) {
           location.href = '/login.html?next=' + encodeURIComponent('/mail.html');
           return;
@@ -1917,10 +2618,11 @@ Het team`;
           return;
         }
         if (r.status === 429 || data.rateLimited) {
-          showInboxError(
-            'Even wachten.',
-            'Gmail hanteert een aanvraaglimiet. Probeer over een minuut opnieuw.'
-          );
+          const lim =
+            data.mailProvider === 'graph' || mailUsesGraph
+              ? 'Microsoft Graph hanteert een aanvraaglimiet. Probeer over een minuut opnieuw.'
+              : 'Gmail hanteert een aanvraaglimiet. Probeer over een minuut opnieuw.';
+          showInboxError('Even wachten.', lim);
           return;
         }
         if (!r.ok || !Array.isArray(data.messages)) {
@@ -1928,28 +2630,122 @@ Het team`;
           showInboxError('Laden mislukt.', `<p style="margin:0">${esc(errText)}</p>`);
           return;
         }
-        messages = data.messages.map(({ internalDate: _x, ...rest }) => rest);
-        if (listHead) listHead.textContent = `Postvak IN · ${messages.length} bericht${messages.length === 1 ? '' : 'en'}`;
-        if (mailHint) {
-          mailHint.textContent = cfg.gmailSharedMailboxMode
-            ? 'Postvak IN · gedeelde mailbox'
-            : 'Postvak IN · gekoppeld';
+        const batch = data.messages.map(({ internalDate: _x, ...rest }) => rest);
+        if (append) {
+          const seen = new Set(messages.map((m) => m.id));
+          for (const m of batch) {
+            if (!seen.has(m.id)) {
+              messages.push(m);
+              seen.add(m.id);
+            }
+          }
+        } else {
+          messages = batch;
+        }
+        if (data.source === 'graph') mailUsesGraph = true;
+        inboxNextPageToken =
+          typeof data.nextPageToken === 'string' ? data.nextPageToken : '';
+        inboxHasMore = Boolean(data.hasMore && inboxNextPageToken);
+        const nLabel = inboxHasMore ? `${messages.length}+` : String(messages.length);
+        if (listHead) {
+          const qPart = mailSearchQuery ? ` · zoek: “${mailSearchQuery}”` : '';
+          listHead.textContent = `${currentFolderLabel}${qPart} · ${nLabel} bericht${messages.length === 1 ? '' : 'en'}`;
+        }
+        if (mailHint && mailUsesGraph) {
+          mailHint.textContent = 'Postvak IN · Microsoft 365 (info@toddie.nl)';
+        } else if (mailHint) {
+          mailHint.textContent = 'Postvak IN · gekoppeld';
         }
         renderList();
-        if (messages.length > 0) {
-          openMessage(messages[0].id);
-        } else {
-          readPane.hidden = true;
-          readEmpty.style.display = 'block';
-          readEmpty.textContent = 'Geen berichten in Postvak IN.';
+        if (!append) {
+          if (messages.length > 0) {
+            void openMessage(messages[0].id);
+          } else {
+            readPane.hidden = true;
+            readEmpty.style.display = 'block';
+            readEmpty.textContent = 'Geen berichten in Postvak IN.';
+          }
+          await loadMailFromOptions();
         }
-        await loadMailFromOptions();
+    }
+
+    (async function init() {
+      const koppel = document.getElementById('mailNavGmailKoppel');
+      const mailHintEl = document.getElementById('mailHint');
+      const sidebarNote = document.getElementById('mailSidebarNote');
+      /** @type {Record<string, unknown>} */
+      let cfg = {};
+      try {
+        const cfgR = await fetch('/api/config', { credentials: 'same-origin' });
+        cfg = await cfgR.json().catch(() => ({}));
+        mailUsesGraph =
+          cfg.mailInboundProvider === 'graph' || Boolean(cfg.graphMailConfigured);
+        if (mailUsesGraph) {
+          if (koppel) koppel.hidden = true;
+          if (mailHintEl) {
+            const mb =
+              typeof cfg.graphMailbox === 'string' && cfg.graphMailbox
+                ? cfg.graphMailbox
+                : 'info@toddie.nl';
+            mailHintEl.textContent = `Postvak ${mb} via Microsoft 365.`;
+          }
+          if (sidebarNote) {
+            sidebarNote.textContent =
+              'Alle standaardmappen. “Alles laden” haalt tot 500 berichten op.';
+          }
+          void loadMailFolders();
+        } else if (koppel && cfg.gmailReady) {
+          koppel.hidden = true;
+          if (mailHintEl && cfg.gmailSharedMailboxMode) {
+            mailHintEl.textContent = 'Gedeelde mailbox — één Gmail-token op de server.';
+          }
+          if (sidebarNote) sidebarNote.textContent = 'Andere mappen open je in Gmail.';
+          const tb = document.getElementById('listToolbar');
+          if (tb) tb.hidden = true;
+        } else if (koppel) {
+          koppel.hidden = false;
+        }
+      } catch {
+        /* ignore */
+      }
+      const searchInput = document.getElementById('mailSearchInput');
+      const btnSearch = document.getElementById('btnMailSearch');
+      const btnRefresh = document.getElementById('btnMailRefresh');
+      if (btnSearch) {
+        btnSearch.addEventListener('click', () => {
+          mailSearchQuery = searchInput ? String(searchInput.value || '').trim() : '';
+          void loadInboxPage();
+        });
+      }
+      if (searchInput) {
+        searchInput.addEventListener('keydown', (ev) => {
+          if (ev.key === 'Enter') {
+            mailSearchQuery = String(searchInput.value || '').trim();
+            void loadInboxPage();
+          }
+        });
+      }
+      if (btnRefresh) {
+        btnRefresh.addEventListener('click', () => {
+          mailSearchQuery = '';
+          if (searchInput) searchInput.value = '';
+          void loadMailFolders();
+          void loadInboxPage();
+        });
+      }
+      try {
+        await loadInboxPage();
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         showInboxError('Netwerkfout.', `<p style="margin:0">${esc(msg)}</p>`);
         console.error(e);
       } finally {
+        const uxProgressEl = document.getElementById('uxProgress');
         if (uxProgressEl) uxProgressEl.hidden = true;
+        const moreBtn = document.getElementById('btnLoadMoreInbox');
+        const allBtn = document.getElementById('btnLoadAllInbox');
+        if (moreBtn) moreBtn.disabled = false;
+        if (allBtn) allBtn.disabled = false;
       }
     })();
   </script>

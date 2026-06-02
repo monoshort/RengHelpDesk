@@ -7,12 +7,13 @@ import {
 } from './shopify.js';
 import { shouldDiscardCustomerEmail } from './mailContactExtract.js';
 import { resolveOrdersForOverview } from './overviewSync.js';
-import { getDpdTracking, isLikelyDpdCarrier } from './dpd.js';
+import { getDpdTracking, shouldQueryDpdTracking } from './dpd.js';
+import { getOpenAiApiKey, getOpenAiModel, isOpenAiConfiguredFromPlatform } from './platformConfig.js';
 
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 
 export function isOpenAiConfigured() {
-  return Boolean(process.env.OPENAI_API_KEY?.trim());
+  return isOpenAiConfiguredFromPlatform();
 }
 
 /**
@@ -382,15 +383,16 @@ export async function enrichOrderRowForAi(order, shopDomain, dpd, cfg) {
 
   const out = { ...row, dpdTrackings: [] };
   if (dpd) {
+    const seenNums = new Set();
     for (const t of row.trackings) {
-      if (!t.number) continue;
-      const tryDpd =
-        isLikelyDpdCarrier(t.company) || /^\d{14}$/.test(t.number.replace(/\s/g, ''));
-      if (!tryDpd) continue;
+      if (!shouldQueryDpdTracking(t)) continue;
+      const num = String(t.number).replace(/\s/g, '');
+      if (seenNums.has(num)) continue;
+      seenNums.add(num);
       try {
         const d = await getDpdTracking({
           creds: dpd,
-          parcelLabelNumber: t.number,
+          parcelLabelNumber: num,
         });
         out.dpdTrackings.push({
           number: t.number,
@@ -412,6 +414,28 @@ export async function enrichOrderRowForAi(order, shopDomain, dpd, cfg) {
     }
   }
   return out;
+}
+
+/**
+ * @param {Array<{ error?: string; label?: string; rawStatus?: string; date?: string; location?: string; number?: string }>} dpdTrackings
+ */
+export function summarizeDpdTrackings(dpdTrackings) {
+  const list = Array.isArray(dpdTrackings) ? dpdTrackings : [];
+  const first = list.find((d) => d && !d.error && (d.label || d.rawStatus));
+  if (!first) return null;
+  const parts = [first.label || first.rawStatus];
+  if (first.date) parts.push(first.date);
+  if (first.location) parts.push(first.location);
+  if (first.number) parts.push(`pakket ${first.number}`);
+  return parts.filter(Boolean).join(' · ');
+}
+
+/** @param {Array<{ error?: unknown }>} dpdTrackings */
+export function hasUsableDpdData(dpdTrackings) {
+  return (
+    Array.isArray(dpdTrackings) &&
+    dpdTrackings.some((d) => d && !d.error && (d.label || d.rawStatus || d.timeline?.length))
+  );
 }
 
 /**
@@ -500,6 +524,75 @@ export function orderContextPromptBlock(row, shopName) {
 }
 
 /**
+ * Gaat de klantmail (onderwerp + body) over bestelling, levering, retour, betaling, …?
+ * Bij twijfel: false — liever geen order in het antwoord.
+ * @param {string | null | undefined} incomingBody
+ * @param {string | null | undefined} [incomingSubject]
+ * @param {string | null | undefined} [extraText]
+ */
+export function isCustomerMailOrderRelated(incomingBody, incomingSubject, extraText) {
+  const text = [incomingSubject, incomingBody, extraText]
+    .map((s) => String(s || '').trim())
+    .filter(Boolean)
+    .join('\n');
+  if (text.length < 6) return false;
+
+  const orderRe = [
+    /\b(bestell|order|ordernummer|bestelnummer|order\s*#|order\s*nr)\b/i,
+    /\b(verzend|verzending|lever|levering|geleverd|bezorg|bezorging)\b/i,
+    /\b(track|trace|tracking|pakket|zending|dpd|postnl|colis|parcel|shipment|delivered|delivery)\b/i,
+    /\b(waar blijft|nog niet ontvangen|niet ontvangen|not received|where is my|when will i receive)\b/i,
+    /\b(retour|ruil|ruilen|terugsturen|return|exchange|refund|geld terug|annuleer|annuleren|cancel)\b/i,
+    /\b(betaal|betaling|payment|factuur|invoice|rekening)\b/i,
+    /\b(beschadigd|kapot|defect|verkeerd|misgeleverd|ontbreekt|damaged|wrong item|missing)\b/i,
+    /\b(op voorraad|voorraad|weer leverbaar|uitverkocht|out of stock|restock)\b/i,
+  ];
+  const nonOrderRe = [
+    /\b(hoe gebruik|how to use|handleiding|manual|montage|installatie|inbouw|welke maat|maatadvies)\b/i,
+    /\b(productadvies|advies over|vraag over het product|werkt niet goed)\b/i,
+    /\b(nieuwsbrief|newsletter|samenwerking|collab|wholesale|groothandel|vacature|sollicit)\b/i,
+    /\b(algemene vraag|informatie over jullie bedrijf)\b/i,
+  ];
+
+  const orderHits = orderRe.reduce((n, re) => n + (re.test(text) ? 1 : 0), 0);
+  const nonOrderHits = nonOrderRe.reduce((n, re) => n + (re.test(text) ? 1 : 0), 0);
+
+  if (orderHits >= 1 && nonOrderHits === 0) return true;
+  if (orderHits >= 2) return true;
+  if (nonOrderHits >= 1 && orderHits === 0) return false;
+  if (orderHits >= 1 && nonOrderHits >= 1) return orderHits > nonOrderHits;
+  return false;
+}
+
+/**
+ * Minimale context als er wél een order is gekoppeld maar de vraag gaat er niet over.
+ * @param {any} row
+ * @param {string | null} shopName
+ */
+export function orderBackgroundOnlyPromptBlock(row, shopName) {
+  return [
+    `Winkel: ${shopName || 'onbekend'}`,
+    '',
+    '--- Achtergrond voor de assistent (niet in het klantantwoord) ---',
+    `Intern is order ${row.shopifyOrderName} (id ${row.shopifyOrderId}) aan dit e-mailadres gekoppeld.`,
+    'De inkomende klantmail gaat naar inschatting NIET over levering, tracking, betaling of retour van die order.',
+    'Antwoord uitsluitend op de inhoudelijke vraag van de klant.',
+    'Noem GEEN ordernummer, GEEN verzend-/betaalstatus en GEEN DPD — ook niet ter verduidelijking.',
+  ].join('\n');
+}
+
+/**
+ * @param {string | null | undefined} incomingBody
+ * @param {string | null | undefined} incomingSubject
+ */
+export function orderContextBlockForCustomerMail(row, shopName, incomingBody, incomingSubject) {
+  if (isCustomerMailOrderRelated(incomingBody, incomingSubject)) {
+    return orderContextPromptBlock(row, shopName);
+  }
+  return orderBackgroundOnlyPromptBlock(row, shopName);
+}
+
+/**
  * @param {string | null | undefined} displayName
  */
 export function voornaamFromDisplayName(displayName) {
@@ -536,21 +629,187 @@ export function formatDpdBlockForStandardReply(d) {
   return chunks.join('\n');
 }
 
+/** @typedef {'nl' | 'en' | 'de' | 'fr' | 'es'} CustomerReplyLang */
+
+/** @type {Record<CustomerReplyLang, { name: string; signOff: string; labelNl: string }>} */
+export const CUSTOMER_REPLY_LANGUAGE_META = {
+  nl: { name: 'Nederlands', signOff: 'Met vriendelijke groet', labelNl: 'Nederlands' },
+  en: { name: 'English', signOff: 'Kind regards', labelNl: 'Engels' },
+  de: { name: 'Deutsch', signOff: 'Mit freundlichen Grüßen', labelNl: 'Duits' },
+  fr: { name: 'français', signOff: 'Cordialement', labelNl: 'Frans' },
+  es: { name: 'español', signOff: 'Un saludo cordial', labelNl: 'Spaans' },
+};
+
+/**
+ * Bepaalt de waarschijnlijke taal van de klant uit onderwerp + berichttekst.
+ * @param {string | undefined | null} incomingBody
+ * @param {string | undefined | null} [incomingSubject]
+ * @returns {CustomerReplyLang}
+ */
+export function detectCustomerReplyLanguage(incomingBody, incomingSubject) {
+  const text = [incomingSubject, incomingBody]
+    .map((s) => String(s || '').trim())
+    .filter(Boolean)
+    .join('\n');
+  if (!text) return 'nl';
+
+  const sample = text.slice(0, 6000).toLowerCase();
+
+  /** @type {Record<CustomerReplyLang, number>} */
+  const scores = { nl: 0, en: 0, de: 0, fr: 0, es: 0 };
+  const patterns = {
+    nl: /\b(de|het|een|van|voor|graag|bedankt|bestelling|hallo|groet|waarom|niet|mijn|jullie|verzending|ontvangen|pakket|klopt|vraag)\b/gi,
+    en: /\b(the|and|please|thank|thanks|order|hello|hi|dear|regards|shipment|delivery|received|tracking|my|your|not|where|when)\b/gi,
+    de: /\b(ich|sie|danke|bestellung|hallo|guten|bitte|ware|lieferung|nicht|meine|ihre|und|der|die|paket|sendung)\b/gi,
+    fr: /\b(merci|bonjour|commande|livraison|vous|je|mon|pas|pour|colis|bonne|reçu)\b/gi,
+    es: /\b(gracias|hola|pedido|favor|envío|envio|mi|tu|no|cuando|recibido|pedido)\b/gi,
+  };
+  for (const [lang, re] of Object.entries(patterns)) {
+    const m = sample.match(re);
+    if (m) scores[/** @type {CustomerReplyLang} */ (lang)] = m.length;
+  }
+  if (/^(hi|hello|dear)\b/i.test(text)) scores.en += 4;
+  if (/^(hallo|beste|goedemorgen|geachte)\b/i.test(text)) scores.nl += 4;
+  if (/^(hallo|guten tag|sehr geehrte|guten morgen)\b/i.test(text)) scores.de += 4;
+  if (/^(bonjour|bonsoir|madame|monsieur)\b/i.test(text)) scores.fr += 4;
+  if (/^(hola|buenos|estimado)\b/i.test(text)) scores.es += 4;
+
+  const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+  const top = sorted[0];
+  if (!top || top[1] === 0) return 'nl';
+  if (sorted.length >= 2 && sorted[0][1] === sorted[1][1]) {
+    const langs = sorted.filter(([, n]) => n === top[1]).map(([l]) => l);
+    if (langs.includes('nl')) return 'nl';
+  }
+  return /** @type {CustomerReplyLang} */ (top[0]);
+}
+
+/** @param {CustomerReplyLang | string} lang */
+export function customerReplyLanguageLabel(lang) {
+  const key = /** @type {CustomerReplyLang} */ (lang in CUSTOMER_REPLY_LANGUAGE_META ? lang : 'nl');
+  return CUSTOMER_REPLY_LANGUAGE_META[key]?.labelNl || 'Nederlands';
+}
+
+/** @type {Record<'en' | 'de' | 'fr' | 'es', {
+ *   greeting: string;
+ *   thanksOpen: string;
+ *   orderMatched: (order: string) => string;
+ *   topicSummary: (topic: string) => string;
+ *   orderHeader: string;
+ *   fulfillmentLabel: string;
+ *   paymentLabel: string;
+ *   shippingHeader: string;
+ *   carrierFallback: string;
+ *   trackLabel: string;
+ *   trackingSoon: string;
+ *   closing: string;
+ *   signOff: string;
+ *   team: string;
+ *   noOrderBody: (name: string, shop?: string | null) => string;
+ * }>} */
+const REPLY_STRINGS = {
+  en: {
+    greeting: 'Hi',
+    thanksOpen: "Thank you for your message — we've read it carefully.",
+    orderMatched: (o) =>
+      `We've automatically matched your email to order ${o}, so the details below are tailored to your purchase.`,
+    topicSummary: (t) => `What we picked up from your message: ${t}.`,
+    orderHeader: '— Your order —',
+    fulfillmentLabel: 'Fulfillment',
+    paymentLabel: 'Payment',
+    shippingHeader: '— Shipping (DPD) —',
+    carrierFallback: 'Carrier',
+    trackLabel: 'Track',
+    trackingSoon:
+      'Once your parcel ships, you will receive a tracking e-mail from us or the carrier — usually the same day.',
+    closing:
+      "If anything is missing or unclear, just reply to this thread and we'll pick it up straight away (same working day when possible).",
+    signOff: 'Kind regards',
+    team: 'Customer care',
+    noOrderBody: (name, shop) =>
+      `Hi ${name},\n\nThank you for your message.\n\nWe checked our order overview immediately, but we cannot yet match your request to one specific order. To share the exact live status, please reply with your order number (for example TOD12345) and the email address used when ordering.\n\nAs soon as we have that, we will send you the current shipping status right away.\n\nKind regards${shop ? `, ${shop}` : ''}\nSupport team`,
+  },
+  de: {
+    greeting: 'Hallo',
+    thanksOpen: 'vielen Dank für Ihre Nachricht — wir haben sie sorgfältig gelesen.',
+    orderMatched: (o) =>
+      `Wir haben Ihre E-Mail automatisch der Bestellung ${o} zugeordnet; die Angaben unten beziehen sich auf Ihren Kauf.`,
+    topicSummary: (t) => `Kurz zusammengefasst aus Ihrer Nachricht: ${t}.`,
+    orderHeader: '— Ihre Bestellung —',
+    fulfillmentLabel: 'Versandstatus',
+    paymentLabel: 'Zahlung',
+    shippingHeader: '— Sendung (DPD) —',
+    carrierFallback: 'Versanddienst',
+    trackLabel: 'Sendung verfolgen',
+    trackingSoon:
+      'Sobald Ihr Paket versendet wird, erhalten Sie in der Regel noch am selben Tag eine E-Mail mit Sendungsverfolgung von uns oder dem Zusteller.',
+    closing:
+      'Wenn etwas unklar ist, antworten Sie einfach auf diese E-Mail — wir melden uns schnellstmöglich (werktags).',
+    signOff: 'Mit freundlichen Grüßen',
+    team: 'Kundenservice',
+    noOrderBody: (name, shop) =>
+      `Hallo ${name},\n\nvielen Dank für Ihre Nachricht.\n\nWir konnten Ihre Anfrage noch keiner konkreten Bestellung zuordnen. Bitte antworten Sie mit Ihrer Bestellnummer (z. B. TOD12345) und der E-Mail-Adresse, mit der Sie bestellt haben — dann senden wir Ihnen umgehend den aktuellen Versandstatus.\n\nMit freundlichen Grüßen${shop ? `\n${shop}` : ''}\nKundenservice`,
+  },
+  fr: {
+    greeting: 'Bonjour',
+    thanksOpen: 'merci pour votre message — nous l’avons bien lu.',
+    orderMatched: (o) =>
+      `Nous avons associé votre e-mail à la commande ${o}; les informations ci-dessous concernent votre achat.`,
+    topicSummary: (t) => `Ce que nous avons retenu de votre message : ${t}.`,
+    orderHeader: '— Votre commande —',
+    fulfillmentLabel: 'Expédition',
+    paymentLabel: 'Paiement',
+    shippingHeader: '— Livraison (DPD) —',
+    carrierFallback: 'Transporteur',
+    trackLabel: 'Suivi',
+    trackingSoon:
+      'Dès l’expédition de votre colis, vous recevrez en général le jour même un e-mail de suivi de notre part ou du transporteur.',
+    closing:
+      'Si quelque chose n’est pas clair, répondez à ce fil — nous vous répondrons dès que possible (jours ouvrés).',
+    signOff: 'Cordialement',
+    team: 'Service client',
+    noOrderBody: (name, shop) =>
+      `Bonjour ${name},\n\nmerci pour votre message.\n\nNous n’avons pas encore pu associer votre demande à une commande précise. Merci de répondre avec votre numéro de commande (ex. TOD12345) et l’adresse e-mail utilisée lors de l’achat — nous vous enverrons alors le statut d’expédition actuel.\n\nCordialement${shop ? `\n${shop}` : ''}\nService client`,
+  },
+  es: {
+    greeting: 'Hola',
+    thanksOpen: 'gracias por su mensaje — lo hemos leído con atención.',
+    orderMatched: (o) =>
+      `Hemos vinculado su correo con el pedido ${o}; los datos siguientes corresponden a su compra.`,
+    topicSummary: (t) => `Resumen de su mensaje: ${t}.`,
+    orderHeader: '— Su pedido —',
+    fulfillmentLabel: 'Envío',
+    paymentLabel: 'Pago',
+    shippingHeader: '— Envío (DPD) —',
+    carrierFallback: 'Transportista',
+    trackLabel: 'Seguimiento',
+    trackingSoon:
+      'Cuando se envíe su paquete, normalmente recibirá el mismo día un correo con seguimiento de nosotros o del transportista.',
+    closing:
+      'Si algo no está claro, responda a este hilo y le atenderemos lo antes posible (días laborables).',
+    signOff: 'Un saludo cordial',
+    team: 'Atención al cliente',
+    noOrderBody: (name, shop) =>
+      `Hola ${name},\n\ngracias por su mensaje.\n\nAún no hemos podido vincular su consulta a un pedido concreto. Responda con su número de pedido (p. ej. TOD12345) y el correo usado al comprar — le enviaremos el estado de envío actual.\n\nUn saludo cordial${shop ? `\n${shop}` : ''}\nAtención al cliente`,
+  },
+};
+
 /**
  * Vast (niet-AI) antwoordtekst met order- en DPD-context.
  * @param {any} enriched — rij uit enrichOrderRowForAi
  * @param {string} voornaam
  * @param {string} topicHint
- * @param {{ shopName?: string | null }} [meta]
+ * @param {{ shopName?: string | null; incomingText?: string; incomingSubject?: string; language?: CustomerReplyLang }} [meta]
  */
 export function buildStandardMailReplyText(enriched, voornaam, topicHint, meta = {}) {
   const name =
     String(voornaam || '').trim() || voornaamFromDisplayName(enriched?.customerDisplayName);
   const topic = String(topicHint || '').trim();
   const shopTail = meta.shopName ? ` bij ${meta.shopName}` : '';
-  const looksEnglish = /\b(hi|hello|missing|order|placed|received|please|quickly|regards|br)\b/i.test(
-    topic
-  );
+  const lang =
+    meta.language ||
+    detectCustomerReplyLanguage(meta.incomingText || topic, meta.incomingSubject);
+  const looksEnglish = lang !== 'nl';
   const asksRestockNl =
     /\b(leverbaar|op voorraad|voorraad|weer binnen|beschikbaar)\b/i.test(topic) &&
     /\b(wanneer|wanneer weer|indicatie|verwacht)\b/i.test(topic);
@@ -561,49 +820,61 @@ export function buildStandardMailReplyText(enriched, voornaam, topicHint, meta =
     /\b(order|shipment|shipping|tracking|received|arrived|delivered|missing)\b/i.test(topic) &&
     /\b(when|where|not|still|status|yet|haven't|havent)\b/i.test(topic);
   const cleanTopic = topic.replace(/[.\s]{2,}/g, ' ').replace(/\.+$/, '').slice(0, 180);
-  const topicOrderish =
-    /\b(bestell|order|verzend|lever|track|trace|pakket|zending|retour|ruil|annule|betaal|factuur|refund|ontvangen|shipment|delivered|invoice|cancel)\b/i.test(
-      topic
-    );
+  const hasOrder = Boolean(enriched?.shopifyOrderName);
+  const orderRelevant = isCustomerMailOrderRelated(
+    meta.incomingText || topic,
+    meta.incomingSubject,
+    topic
+  );
   const includeOrderBlock =
-    asksRestockNl || asksShipmentNl || asksShipmentEn || topicOrderish;
+    asksRestockNl ||
+    asksShipmentNl ||
+    asksShipmentEn ||
+    (hasOrder && orderRelevant);
+  const includeShippingBlock =
+    includeOrderBlock &&
+    hasOrder &&
+    (enriched?.dpdTrackings?.length ||
+      enriched?.trackings?.some((t) => t && t.number) ||
+      enriched?.displayFulfillmentStatus ||
+      enriched?.fulfillmentStatus);
 
   if (looksEnglish) {
-    let enBody = `Hi ${name},
+    const L = REPLY_STRINGS[lang] || REPLY_STRINGS.en;
+    let enBody = `${L.greeting} ${name},
 
-Thank you for your message — we've read it carefully.`;
+${L.thanksOpen}`;
     if (includeOrderBlock && enriched?.shopifyOrderName) {
-      enBody += `\n\nWe've automatically matched your email to order ${enriched.shopifyOrderName}, so the details below are tailored to your purchase.`;
+      enBody += `\n\n${L.orderMatched(enriched.shopifyOrderName)}`;
     }
     if (cleanTopic) {
-      enBody += `\n\nWhat we picked up from your message: ${cleanTopic}.`;
+      enBody += `\n\n${L.topicSummary(cleanTopic)}`;
     }
     if (includeOrderBlock && enriched?.shopifyOrderName) {
       const fs = enriched.displayFulfillmentStatus || enriched.fulfillmentStatus;
       const pay = enriched.displayFinancialStatus || enriched.financialStatus;
-      enBody += '\n\n— Your order —';
-      if (fs) enBody += `\n• Fulfillment: ${fs}.`;
-      if (pay) enBody += `\n• Payment: ${pay}.`;
+      enBody += `\n\n${L.orderHeader}`;
+      if (fs) enBody += `\n• ${L.fulfillmentLabel}: ${fs}.`;
+      if (pay) enBody += `\n• ${L.paymentLabel}: ${pay}.`;
     }
-    if (includeOrderBlock && enriched?.dpdTrackings?.length) {
-      enBody += '\n\n— Shipping (DPD) —';
+    if (includeShippingBlock && enriched?.dpdTrackings?.length) {
+      enBody += `\n\n${L.shippingHeader}`;
       for (const d of enriched.dpdTrackings) {
         enBody += `\n${formatDpdBlockForStandardReply(d)}\n`;
       }
-    } else if (includeOrderBlock && enriched?.trackings?.some((t) => t && t.number)) {
+    } else if (includeShippingBlock && enriched?.trackings?.some((t) => t && t.number)) {
       const t = enriched.trackings.find((x) => x.number);
       if (t) {
-        enBody += `\n\n— Shipment —\n• ${t.company || 'Carrier'}: ${t.number}`;
-        if (t.url) enBody += `\n• Track: ${t.url}`;
+        enBody += `\n\n${L.shippingHeader}\n• ${t.company || L.carrierFallback}: ${t.number}`;
+        if (t.url) enBody += `\n• ${L.trackLabel}: ${t.url}`;
       }
-    } else if (includeOrderBlock && enriched?.shopifyOrderName) {
-      enBody +=
-        '\n\nOnce your parcel ships, you will receive a tracking e-mail from us or the carrier — usually the same day.';
+    } else if (includeShippingBlock && enriched?.shopifyOrderName) {
+      enBody += `\n\n${L.trackingSoon}`;
     }
-    enBody += `\n\nIf anything is missing or unclear, just reply to this thread and we'll pick it up straight away (same working day when possible).
+    enBody += `\n\n${L.closing}
 
-Kind regards${meta.shopName ? `\n${meta.shopName}` : ''}
-Customer care`;
+${L.signOff}${meta.shopName ? `\n${meta.shopName}` : ''}
+${L.team}`;
 
     return enBody.replace(/\n{3,}/g, '\n\n').trim();
   }
@@ -623,17 +894,9 @@ Het team`;
   }
 
   if (!enriched?.shopifyOrderName && (asksShipmentNl || asksShipmentEn)) {
-    if (asksShipmentEn || looksEnglish) {
-      return `Hi ${name},
-
-Thank you for your message.
-
-We checked our order overview immediately, but we cannot yet match your request to one specific order. To share the exact live status, please reply with your order number (for example TOD12345) and the email address used when ordering.
-
-As soon as we have that, we will send you the current shipping status right away.
-
-Kind regards${meta.shopName ? `, ${meta.shopName}` : ''}
-Support team`;
+    if (looksEnglish) {
+      const L = REPLY_STRINGS[lang] || REPLY_STRINGS.en;
+      return L.noOrderBody(name, meta.shopName ?? null);
     }
     return `Beste ${name},
 
@@ -662,19 +925,19 @@ Dank je wel voor je bericht — we hebben het gelezen en nemen je serieus.`;
     if (pay) body += `\n• Betaling: ${pay}.`;
   }
 
-  if (includeOrderBlock && enriched?.dpdTrackings?.length) {
+  if (includeShippingBlock && enriched?.dpdTrackings?.length) {
     body += '\n\n— Verzending (DPD) —';
     for (const d of enriched.dpdTrackings) {
       body += `\n${formatDpdBlockForStandardReply(d)}\n`;
     }
-  } else if (includeOrderBlock && enriched?.trackings?.some((t) => t && t.number)) {
+  } else if (includeShippingBlock && enriched?.trackings?.some((t) => t && t.number)) {
     const t = enriched.trackings.find((x) => x.number);
     if (t) {
       body += `\n\n— Verzending —\n• ${t.company || 'Vervoerder'}: ${t.number}`;
       if (t.url) body += `\n• Volgen: ${t.url}`;
       body += '.';
     }
-  } else if (includeOrderBlock && enriched?.shopifyOrderName) {
+  } else if (includeShippingBlock && enriched?.shopifyOrderName) {
     body +=
       '\n\nZodra je pakket de deur uit gaat, ontvang je van ons of van de vervoerder een mail met track & trace — meestal dezelfde dag nog.';
   }
@@ -709,56 +972,82 @@ export function noOrderContextPromptBlock(opts) {
   return lines.join('\n');
 }
 
-const INTENT_BLOCK_NL = `
-Intent (heel belangrijk):
-- Lees eerst waar de mail écht over gaat.
-- Gaat de mail over verzending, levering, "waar blijft mijn bestelling", track & trace, betaling/achteraf betalen, annuleren, retour, ruilen, of een concreet product uit een recente bestelling? Dan mag je order- en verzendcontext gebruiken zoals hieronder.
-- Gaat de mail over iets anders (bijv. onderhoud, verf/materiaal, gebruik/advies, algemene productvraag, klacht zonder bestelcontext, openingstijden): antwoord direct op die inhoud. Noem ordernummer, Shopify-status of tracking dan alleen als dat de vraag echt verheldert.
-- Zeg nooit dat je "de order niet kunt vinden", "geen order kunt matchen" of "geen bestelling ziet" als de klant helemaal niet naar een bestelling of levering vroeg. Dat is storend en onnodig.
-- Forceer geen standaardzin over orderkoppeling als de vraag daar niet om vraagt.`;
+const INTENT_BLOCK = `
+Intent (critical):
+- Read what the customer email is really about first.
+- Shipping, delivery, order status, tracking, payment, cancel, return, exchange, or a product from a recent order? You may use order/shipping context below.
+- Other topics (product advice, general questions, complaints without order context): answer that directly. Only mention order numbers or tracking when it truly helps.
+- Never say you "cannot find the order" if they did not ask about an order or delivery.
+- Do not force order-matching boilerplate when irrelevant.
+- If background says an order exists but the customer did NOT ask about it: do not mention that order at all.`;
 
-const SYSTEM_NL = `Je bent de klantenservice van een webshop. Je schrijft een korte, vriendelijke e-mail in het Nederlands als antwoord op de inkomende vraag van de klant.
-${INTENT_BLOCK_NL}
-Regels:
-- Gebruik alleen informatie uit de meegeleverde ordercontext en DPD-gegevens voor order-gerelateerde onderdelen van je antwoord. Vul geen verzonnen verzenddatums of tracking in.
-- Als er nog geen tracking is of fulfillment "unfulfilled" is, zeg eerlijk dat de zending nog wordt voorbereid / nog niet verzonden is, zonder concrete dag te beloven tenzij die in de data staat — maar alleen als de klant over levering/verzending vraagt of als je die status kort moet verduidelijken bij een gecombineerde vraag.
-- Als de context "productie / levertijd" met werkdagen en een indicatieve einddatum bevat: gebruik dat om uit te leggen dat maatwerk of productie tijd kost, en dat de klant tot die indicatieve datum mag verwachten tenzij er al tracking is. Geen harde belofte buiten wat in de context staat.
-- Als er een DPD-tijdlijn staat: vat de laatste status samen en noem, als DPD dat zo meldt, het levervenster of de verwachte bezorgdag (alleen uit de meegeleverde regels — niets verzinnen).
-- Als er wel een DPD-nummer of status is, noem het zendingsnummer helder (klant kan traceren op dpd.nl) wanneer de vraag over de zending gaat.
-- Toon: professioneel, warm, kort (maximaal ~120 woorden in de body).
-- Onderteken niet met een echte medewerkernaam tenzij die in de instructie staat; gebruik "Met vriendelijke groet" en de winkelnaam als die gegeven is.
-- Als er "Instructies van de medewerker" staan (niet leeg), verwerk die inhoudelijk in je antwoord; herhaal ze niet als losse opsomming tenzij dat helpt.
-- Antwoord ALLEEN als JSON-object met keys: "subject" (string), "body" (string, platte tekst met regeleindes). Geen markdown, geen code fences.`;
+const SYSTEM_RULES_WITH_ORDER = `Rules:
+- Use only facts from the order context and DPD data for order-related parts. Do not invent tracking or delivery dates.
+- If the context lists DPD parcel number(s) with status or timeline AND the customer's question is about shipping/delivery/order status: include a clear sentence with current DPD status, parcel number, and dpd.nl. If their question is NOT about shipping (e.g. product use, general info): do NOT mention DPD or tracking.
+- If there is no tracking yet or fulfillment is unfulfilled, say honestly that shipment is still being prepared — only when relevant to their question.
+- If production/lead time with business days is in the context, explain without promising beyond the data.
+- If DPD timeline exists: summarize the latest status and the most recent timeline steps from the data only (no invented delivery dates).
+- Tone: professional, warm, concise (~120–150 words in the body when DPD context is included).
+- Do not sign with a real employee name unless instructed.
+- If "Staff instructions" are provided, incorporate them naturally.
+- Reply ONLY as a JSON object with keys: "subject" (string), "body" (string, plain text with line breaks). No markdown.`;
 
-const SYSTEM_NL_NO_ORDER = `Je bent de klantenservice van een webshop. Je schrijft een korte, vriendelijke e-mail in het Nederlands als antwoord op de inkomende vraag van de klant.
+const SYSTEM_RULES_NO_ORDER = `There is no Shopify order linked to this email — you have no confirmed order status, tracking, or delivery dates from the shop, and you must not invent any.
+${INTENT_BLOCK}
+Rules:
+- Do not invent order numbers, amounts, shipping dates, or tracking.
+- If they explicitly ask about order/shipping/tracking/payment/cancel/return and you have no order data: briefly ask for order number and checkout email — one short sentence.
+- If they did not ask about an order: answer only their actual question; no "we cannot find your order" paragraph.
+- Tone: professional, warm, concise (~120 words).
+- Reply ONLY as JSON: "subject", "body" (plain text). No markdown.`;
 
-Er is in onze systemen geen Shopify-bestelling automatisch gekoppeld aan deze mail: je hebt dus geen bevestigde orderstatus, geen tracking en geen leverdata uit de shop — en je mag die ook niet verzinnen.
-${INTENT_BLOCK_NL}
-Regels:
-- Gebruik GEEN verzonnen ordernummers, bedragen, verzenddata of tracking.
-- Als de klant wél expliciet vraagt naar status van een bestelling, verzending, track & trace, betaling/annulering/retour en je hebt geen orderdata: wees kort en vriendelijk; vraag dan om het ordernummer (zoals in de bevestigingsmail) en het e-mailadres waarmee besteld is, zodat het team het kan nakijken. Eén korte zin is genoeg; geen lange excuus-tekst.
-- Als de klant niet om orderinformatie vraagt: antwoord alleen op de inhoud (advies, uitleg, doorverwijzen naar handleiding/montage, algemene productinfo). Geen paragraaf over "we kunnen je order niet vinden" en geen verzoek om ordernummer tenzij je zonder die gegevens echt niet verder kunt bij een bestel-gerelateerde vraag.
-- Bij twijfel tussen "algemene vraag" en "bestelvraag": kies het meest behulpzame antwoord zonder onnodige orderfocus.
-- Toon: professioneel, warm, kort (maximaal ~120 woorden in de body).
-- Onderteken met "Met vriendelijke groet" en de winkelnaam als die in de context staat.
-- Als er "Instructies van de medewerker" staan (niet leeg), verwerk die inhoudelijk; herhaal ze niet als losse opsomming tenzij dat helpt.
-- Antwoord ALLEEN als JSON-object met keys: "subject" (string), "body" (string, platte tekst met regeleindes). Geen markdown, geen code fences.`;
+const SYSTEM_RULES_ORDER_BACKGROUND = `A Shopify order is linked to this email for internal reference only — the customer's message is NOT about that order.
+${INTENT_BLOCK}
+Rules:
+- Answer only what the customer actually asked (product, general question, advice, etc.).
+- Do NOT mention order numbers, shipping status, tracking, DPD, payment, or "we linked your email to order …".
+- Do not invent order or shipping facts.
+- Tone: professional, warm, concise (~80–120 words).
+- Reply ONLY as JSON: "subject", "body" (plain text). No markdown.`;
+
+/**
+ * @param {{ noOrder: boolean; orderRelevant: boolean; lang: CustomerReplyLang }} opts
+ */
+function buildReplySystemPrompt(opts) {
+  const L = CUSTOMER_REPLY_LANGUAGE_META[opts.lang] || CUSTOMER_REPLY_LANGUAGE_META.nl;
+  const langBlock = `
+LANGUAGE (critical): Write the entire reply — both "subject" and "body" — in ${L.name}, matching the customer's language and tone from their incoming message. Do not reply in another language unless staff instructions explicitly require it.
+Sign-off: use "${L.signOff}" plus the shop name when provided.`;
+
+  if (opts.noOrder) {
+    return `You are customer support for an online shop. Write a short, friendly email reply to the customer's incoming message.
+${SYSTEM_RULES_NO_ORDER}
+${langBlock}`;
+  }
+  if (!opts.orderRelevant) {
+    return `You are customer support for an online shop. Write a short, friendly email reply to the customer's incoming message.
+${SYSTEM_RULES_ORDER_BACKGROUND}
+${langBlock}`;
+  }
+  return `You are customer support for an online shop. Write a short, friendly email reply to the customer's incoming message.
+${INTENT_BLOCK}
+${SYSTEM_RULES_WITH_ORDER}
+${langBlock}`;
+}
 
 /** @type {Record<string, string>} */
 const REPLY_STYLE_EXTRA = {
   default: '',
-  kort:
-    '\n\nAanvullende instructie voor dit antwoord: Houd de body zeer kort (maximaal 60 woorden). Minimaal aantal alinea\'s.',
-  formeel:
-    '\n\nAanvullende instructie: Gebruik een formele aanhef (bijv. Geachte) en passende afsluiting. Blijf bij de feiten uit de ordercontext.',
+  kort: '\n\nAdditional instruction: Keep the body very short (max ~60 words).',
+  formeel: '\n\nAdditional instruction: Use a formal greeting and closing appropriate to the reply language.',
   vriendelijk:
-    '\n\nAanvullende instructie: Extra warme, persoonlijke toon; iets uitgebreider mag als het de klant helpt. Blijf professioneel en eerlijk over levertijden.',
+    '\n\nAdditional instruction: Extra warm, personal tone; slightly longer is OK if helpful. Stay honest about lead times.',
   uitsluitend_feiten:
-    '\n\nAanvullende instructie: Allen feiten uit de context; geen verzachtende beloftes. Wel een korte groet en afsluiting.',
+    '\n\nAdditional instruction: Facts only from context; no soft promises. Still include a brief greeting and sign-off.',
   stappen:
-    '\n\nAanvullende instructie: Structuur het antwoord met genummerde stappen (1., 2., …) waar nuttig. Maximaal ~150 woorden.',
+    '\n\nAdditional instruction: Use numbered steps (1., 2., …) where helpful. Max ~150 words.',
   track_focus:
-    '\n\nAanvullende instructie: Focus op verzendstatus en tracking: wat is de status, wat kan de klant doen (traceerlink/nummer) volgens de context.',
+    '\n\nAdditional instruction: Focus on shipping status and tracking — what the customer can do per the context.',
 };
 
 /**
@@ -774,18 +1063,35 @@ export function normalizeReplyStyle(raw) {
 }
 
 /**
- * @param {{ shopName: string | null; orderContextBlock: string; incomingSubject?: string; incomingBody: string; replyStyle?: string | null; extraInstructions?: string | null; noOrderMatch?: boolean }} input
+ * @param {{ shopName: string | null; orderContextBlock: string; incomingSubject?: string; incomingBody: string; replyStyle?: string | null; extraInstructions?: string | null; noOrderMatch?: boolean; orderRelevantToQuestion?: boolean; deskKnowledgeBlock?: string | null }} input
  */
 export async function generateCustomerReplyDraft(input) {
-  const key = process.env.OPENAI_API_KEY?.trim();
+  const key = getOpenAiApiKey();
   if (!key) {
-    throw new Error('OPENAI_API_KEY ontbreekt in .env');
+    throw new Error('OPENAI_API_KEY ontbreekt — stel in via Instellingen of .env');
   }
-  const model = process.env.OPENAI_MODEL?.trim() || 'gpt-4o-mini';
+  const model = getOpenAiModel();
   const styleKey = normalizeReplyStyle(input.replyStyle);
-  const styleBlock = REPLY_STYLE_EXTRA[styleKey] || '';
   const noOrder = Boolean(input.noOrderMatch);
-  const systemBase = noOrder ? SYSTEM_NL_NO_ORDER : SYSTEM_NL;
+  const orderRelevant =
+    input.orderRelevantToQuestion !== undefined
+      ? Boolean(input.orderRelevantToQuestion)
+      : !noOrder && isCustomerMailOrderRelated(input.incomingBody, input.incomingSubject);
+  const replyLanguage = detectCustomerReplyLanguage(
+    input.incomingBody,
+    input.incomingSubject
+  );
+  const hasDpdInContext = /DPD\s+\d/i.test(input.orderContextBlock);
+  const styleKeyEffective =
+    styleKey === 'default' && hasDpdInContext && orderRelevant ? 'track_focus' : styleKey;
+  const styleBlockEffective = REPLY_STYLE_EXTRA[styleKeyEffective] || '';
+  const deskBlock =
+    typeof input.deskKnowledgeBlock === 'string' && input.deskKnowledgeBlock.trim()
+      ? input.deskKnowledgeBlock.trim()
+      : '';
+  const systemBase =
+    buildReplySystemPrompt({ noOrder, orderRelevant, lang: replyLanguage }) +
+    (deskBlock ? `\n\n${deskBlock}` : '');
 
   const extra =
     typeof input.extraInstructions === 'string' && input.extraInstructions.trim()
@@ -793,18 +1099,28 @@ export async function generateCustomerReplyDraft(input) {
       : '';
 
   const userMsg = [
-    'Taak: beantwoord de onderstaande inkomende mail inhoudelijk en natuurlijk; volg de intent-regels uit het systeembericht (geen "order niet gevonden" als er niet om een bestelling werd gevraagd).',
+    'Task: reply to the customer email below; follow intent rules (do not mention missing order unless they asked about an order).',
+    orderRelevant
+      ? 'The customer message IS about their order/shipping/return — you may use order context.'
+      : noOrder
+        ? 'No confirmed order context — do not invent order details.'
+        : 'An order exists internally but the customer question is NOT about it — do NOT mention the order, tracking, or DPD.',
     '',
-    '--- Order- en verzendcontext (feiten; alleen gebruiken waar relevant) ---',
+    `Detected customer language: ${CUSTOMER_REPLY_LANGUAGE_META[replyLanguage].name} (${replyLanguage}) — write subject and body in this language.`,
+    hasDpdInContext && orderRelevant
+      ? 'DPD live tracking is in the context below — include current DPD status and parcel number only because this is an order/shipping question.'
+      : '',
+    '',
+    '--- Context (facts; use only where relevant to the customer question) ---',
     input.orderContextBlock,
     '',
-    '--- Inkomende mail van de klant ---',
-    input.incomingSubject ? `Onderwerp: ${input.incomingSubject}` : '(geen onderwerp)',
+    '--- Incoming customer email ---',
+    input.incomingSubject ? `Subject: ${input.incomingSubject}` : '(no subject)',
     '',
-    input.incomingBody.trim() || '(leeg bericht)',
+    input.incomingBody.trim() || '(empty)',
     '',
-    '--- Instructies van de medewerker (verwerk in het antwoord waar passend; negeer als leeg) ---',
-    extra || '(geen extra instructies)',
+    '--- Staff instructions (incorporate if relevant; ignore if empty) ---',
+    extra || '(none)',
   ].join('\n');
 
   const res = await fetch(OPENAI_URL, {
@@ -818,7 +1134,7 @@ export async function generateCustomerReplyDraft(input) {
       temperature: 0.35,
       response_format: { type: 'json_object' },
       messages: [
-        { role: 'system', content: systemBase + styleBlock },
+        { role: 'system', content: systemBase + styleBlockEffective },
         { role: 'user', content: userMsg },
       ],
     }),
@@ -854,7 +1170,33 @@ export async function generateCustomerReplyDraft(input) {
     throw new Error('OpenAI: subject of body ontbreekt in JSON');
   }
 
-  return { subject, body, model };
+  return {
+    subject,
+    body,
+    model,
+    replyLanguage,
+    orderRelevantToQuestion: orderRelevant,
+    hasDpd: hasDpdInContext && orderRelevant,
+    dpdSummary:
+      hasDpdInContext && orderRelevant
+        ? summarizeDpdTrackingsFromBlock(input.orderContextBlock)
+        : null,
+  };
+}
+
+/**
+ * Parseert compacte DPD-samenvatting uit orderContextPromptBlock-tekst (voor API-response).
+ * @param {string} block
+ */
+function summarizeDpdTrackingsFromBlock(block) {
+  const m = String(block || '').match(
+    /DPD\s+(\S+)\s+\(actueel\):\s*([^\n·]+)(?:\s*·\s*laatste melding:\s*([^\n·]+))?/
+  );
+  if (!m) return null;
+  const parts = [m[2].trim()];
+  if (m[3]) parts.push(m[3].trim());
+  parts.push(`pakket ${m[1]}`);
+  return parts.join(' · ');
 }
 
 const SYSTEM_OVERVIEW_INSIGHT = `Je bent een ervaren e-commerce servicedesk-analist voor een Nederlandse webshop (o.a. orderbevestiging, verzendmails, Sendcloud, DPD).
@@ -874,11 +1216,11 @@ Regels:
  * @returns {Promise<{ summary: string; priorities: string[]; watchOut: string[]; model: string }>}
  */
 export async function generateOverviewDeskInsight(payload) {
-  const key = process.env.OPENAI_API_KEY?.trim();
+  const key = getOpenAiApiKey();
   if (!key) {
-    throw new Error('OPENAI_API_KEY ontbreekt in .env');
+    throw new Error('OPENAI_API_KEY ontbreekt — stel in via Instellingen of .env');
   }
-  const model = process.env.OPENAI_MODEL?.trim() || 'gpt-4o-mini';
+  const model = getOpenAiModel();
 
   const userMsg = [
     'Analyseer deze helpdesk-batch (JSON). Antwoord in het Nederlands.',
